@@ -1,0 +1,944 @@
+CIVIL 3D + SURVEY LINEWORK PROCESSING ASCII GALLERY (100 IMAGES)
+Goal: realistic workflow-oriented diagrams for field-to-finish land surveying in AutoCAD Civil 3D.
+
+================================================================================
+001) FIELD CREW: TOTAL STATION SETUP
+--------------------------------------------------------------------------------
+                    _________
+                   /  OPTIC  \         prism rod
+             _____/___________\_____      ||
+            |   [EDM] [H-ANG] [V]   |     ||
+            |      Trimble TS        |     ||
+            |_________________________|    _||_
+                    /   |   \              /__\
+                   /____|____\           backsight
+
+================================================================================
+002) FIELD CREW: GNSS BASE + ROVER
+--------------------------------------------------------------------------------
+         BASE (fixed)                          ROVER (mobile)
+          .------.                               .------.
+         / R12i  \                             / R12i  \
+        |  L1/L2  |~~~~ RTK radio link ~~~~> |  RTK   |
+         \______/                               \______/
+            ||                                     ||
+         ___||___                               ___||___
+        /   TRIPOD\                            / ROD +  \
+       /___________\                          /  TSC5    \
+
+================================================================================
+003) DATA COLLECTOR CODING SCREEN
+--------------------------------------------------------------------------------
+      _________________________________________________
+     | TSC5 FIELD CODING                               |
+     |-------------------------------------------------|
+     | PT: 1042  CODE: EP     DESC: Edge Pavement     |
+     | PT: 1043  CODE: EP     DESC: Edge Pavement      |
+     | PT: 1044  CODE: TC     DESC: Top Curb           |
+     | PT: 1045  CODE: FL     DESC: Flowline           |
+     | [Store] [Linework] [Attributes] [Stakeout]      |
+     |_________________________________________________|
+
+================================================================================
+004) RAW OBSERVATION EXPORT (CSV/FBK)
+--------------------------------------------------------------------------------
+      _________        USB/Wi-Fi       _______________________
+     | TSC5    | ====================> | project_0421_raw.csv |
+     | FIELD   |                      | project_0421.fbk      |
+     |_________|                      | control_notes.txt     |
+                                     |_______________________|
+     columns: P#, N, E, Z, Code, Time, HI, HR, Instrument
+
+================================================================================
+005) PROJECT FOLDER LAYOUT
+--------------------------------------------------------------------------------
+ /Survey_Proj_118/
+   |-- 01_RAW/
+   |    |-- fieldbook.fbk
+   |    |-- gnss_raw.csv
+   |-- 02_C3D/
+   |    |-- base_template.dwt
+   |-- 03_QC/
+   |-- 04_DELIVER/
+   '-- 05_ARCHIVE/
+
+================================================================================
+006) CIVIL 3D STARTUP + TEMPLATE
+--------------------------------------------------------------------------------
+  +---------------------------------------------------------------+
+  | AUTOCAD CIVIL 3D                                              |
+  | Start Drawing -> Template: _Survey_US_Foot_NAD83.dwt          |
+  | Toolspace | Prospector | Settings | Survey | Toolbox          |
+  | Command: UNITS / MAPCSASSIGN / DWGUNITS / AECCSETUP           |
+  +---------------------------------------------------------------+
+
+================================================================================
+007) ASSIGN COORDINATE SYSTEM
+--------------------------------------------------------------------------------
+   [Drawing Settings]
+   Coordinate System: NAD_1983_StatePlane_TX_North_Central_FIPS_4202_Ft_US
+   Geodetic Datum: NAD83(2011)
+   Vertical Datum: NAVD88 (Geoid18)
+   Unit: US Survey Foot
+   Result: Survey points and GIS basemap align correctly.
+
+================================================================================
+008) IMPORT SURVEY DATABASE
+--------------------------------------------------------------------------------
+  Survey Database:  PROJ_118_SURVEY
+  +---------------- Import Event ------------------+
+  | Source: fieldbook.fbk                          |
+  | Parse setup / traverse / observations / figures|
+  | Apply equipment profile + prism constants      |
+  +------------------------------------------------+
+  Output: Networks, Setups, Figures, COGO Points
+
+================================================================================
+009) COGO POINTS IMPORT WIZARD
+--------------------------------------------------------------------------------
+  +-----------------------------------------------------+
+  | Import Points                                       |
+  | Format: PNEZD (comma delimited)                     |
+  | File: gnss_raw.csv                                  |
+  | Point style: _survey_node                           |
+  | Point label style: _number_elev_desc               |
+  | Insert into Point Group: _ALL_IMPORT_0421          |
+  +-----------------------------------------------------+
+
+================================================================================
+010) DESCRIPTION KEY SET TRANSLATION
+--------------------------------------------------------------------------------
+  Raw Desc      ->  Style/Layer/Label
+  ---------------------------------------------
+  EP*           ->  C-TOPO-EP      (edge pavement)
+  TC*           ->  C-TOPO-CURB-T  (top curb)
+  FL*           ->  C-TOPO-CURB-F  (flowline)
+  CL*           ->  C-ROAD-CL      (centerline)
+  FNC*          ->  C-SITE-FENCE   (fence)
+
+================================================================================
+011) FIGURE PREFIX DATABASE
+--------------------------------------------------------------------------------
+  Prefix   Layer            Linetype     Figure Behavior
+  --------------------------------------------------------------
+  EP       C-TOPO-EP        CONTINUOUS   Auto-join by code
+  TC       C-TOPO-CURB-T    CONTINUOUS   Break at "TC END"
+  FL       C-TOPO-CURB-F    CONTINUOUS   3D figure enabled
+  WL       C-UTIL-WATER     DASHED       Close on WL CLS
+  SS       C-UTIL-SAN       HIDDEN2      Breakline candidate
+
+================================================================================
+012) AUTOMATIC LINEWORK GENERATION
+--------------------------------------------------------------------------------
+  points + codes                         figures (3D polylines)
+  1042 EP ---- 1043 EP ---- 1044 EP  =>  =======================
+  1045 TC ---- 1046 TC ---- 1047 TC  =>  -----------------------
+  1048 FL ---- 1049 FL ---- 1050 FL  =>  ~~~~~~~~~~~~~~~~~~~~~~~
+  rule engine: same code + sequence + begin/end markers + prefix DB
+
+================================================================================
+013) FIGURE EDITOR (JOIN/SPLIT/REVERSE)
+--------------------------------------------------------------------------------
+  +---------------------------------------------------+
+  | Survey Figure Tools                               |
+  | [Join] [Split] [Reverse] [Delete Segment]         |
+  | Figure: TC_07                                     |
+  | Vertices: 31   Length: 128.42 ft   Closed: No     |
+  | Elevation Mode: From observations                  |
+  +---------------------------------------------------+
+
+================================================================================
+014) LINEWORK CLEANUP: GAP CLOSURE
+--------------------------------------------------------------------------------
+   Before:  -----------      --------
+                             ^ 0.42 ft gap
+   Action: extend/trim using survey notes + photos
+   After :  ---------------------------
+   QC rule: no unintended breaks on curb, edge pavement, wall lines.
+
+================================================================================
+015) LINEWORK CLEANUP: OVERLAPS
+--------------------------------------------------------------------------------
+   Before:  ===========================
+                     ==================   <- duplicate segment
+   Detect: MAPCLEAN / OVERKILL / visual QC
+   After : ===========================
+   Keep only authoritative segment from latest calibrated setup.
+
+================================================================================
+016) ELEVATION CONSISTENCY CHECK
+--------------------------------------------------------------------------------
+  Figure: FL_03 (Flowline)
+  PT#      Z(ft)
+  2201   512.44
+  2202   512.40
+  2203   514.01   <- spike (suspect rod slip)
+  2204   512.31
+  Fix: verify raw shot; flag outlier; reobserve or interpolate per notes.
+
+================================================================================
+017) POINT GROUP MANAGEMENT
+--------------------------------------------------------------------------------
+  _ALL_POINTS
+    |-- _CONTROL
+    |-- _TOPO_GROUND
+    |-- _UTILITIES
+    |-- _PAVEMENT
+    '-- _EXCLUDE_BAD_SHOTS
+  Display control via include/exclude queries by raw description & range.
+
+================================================================================
+018) CONTROL NETWORK ADJUSTMENT
+--------------------------------------------------------------------------------
+     BS1 o---------------------------o FS1
+          \         traverse        /
+           o-----------------------o
+                closure = 0.012 ft
+  Least squares adjustment applied
+  residuals within tolerance -> accept control coordinates.
+
+================================================================================
+019) GEOID / DATUM HANDLING
+--------------------------------------------------------------------------------
+  GNSS ellipsoid height (h)  -> apply geoid model (N) -> orthometric (H)
+  H = h - N
+  Example: h=553.20 ft, N=41.06 ft => H=512.14 ft
+  Store final elevation datum in survey metadata and title block.
+
+================================================================================
+020) BASEMAP ALIGNMENT CHECK
+--------------------------------------------------------------------------------
+  aerial edge ---------------------------
+  curb line  ---------------------------   <- surveyed EP/TC should match
+             ^offset 0.35 ft
+  Action: verify control tie points before shifting any data.
+  Principle: never "force-fit" survey to imagery without evidence.
+
+================================================================================
+021) BUILD EXISTING GROUND SURFACE (EG)
+--------------------------------------------------------------------------------
+  Surface: EG_0421
+  Inputs:
+   - Point Group: _TOPO_GROUND
+   - Breaklines: EP, TC, FL, DITCH, TOE, TOP
+   - Boundary: OUTER_SITE
+  Engine: TIN triangulation with breakline constraints.
+
+================================================================================
+022) TRIANGULATION WITH BREAKLINES
+--------------------------------------------------------------------------------
+      /\    /\      /\       /\       (TIN)
+     /__\  /__\____/__\_____/__\
+       \____ breakline (curb) ____/
+  breakline enforces edge in triangulation so contours honor grade breaks.
+
+================================================================================
+023) OUTER BOUNDARY TRIM
+--------------------------------------------------------------------------------
+  before TIN:
+      /\/\/\/\/\/\/\/\/\/\/\/\/\   (extends beyond site)
+  add boundary polygon:
+      +------------------------+
+      |                        |
+      +------------------------+
+  after TIN: clipped to project extents.
+
+================================================================================
+024) REMOVE SURFACE SPIKES
+--------------------------------------------------------------------------------
+  contour before: 510----511-^--512----513
+                              ^ spike
+  inspect source vertex -> bad shot / wrong code / typo
+  correct point elevation or move to excluded group
+  rebuild surface and recheck contour smoothness.
+
+================================================================================
+025) MAJOR/MINOR CONTOUR DISPLAY
+--------------------------------------------------------------------------------
+  520 ======= ======= =======   (major, every 5 ft)
+  521  -----   -----   -----    (minor, every 1 ft)
+  522  -----   -----   -----
+  523  -----   -----   -----
+  524  -----   -----   -----
+  525 ======= ======= =======
+
+================================================================================
+026) SLOPE ANALYSIS THEME
+--------------------------------------------------------------------------------
+  [0-2%]  light
+  [2-5%]  medium
+  [5-10%] dark
+  [>10%]  very dark
+  Grid cells shaded by EG surface slope -> identify drainage risk areas.
+
+================================================================================
+027) WATERSHED / FLOW PATH INSPECTION
+--------------------------------------------------------------------------------
+  ridge  ^^^^^^^^
+         \     /
+          \   /   flow arrows
+           \ v v v v
+            \____ outlet
+  confirm curb returns, swales, and inlets direct runoff as intended.
+
+================================================================================
+028) CENTERLINE EXTRACTION FROM FIELD LINEWORK
+--------------------------------------------------------------------------------
+  surveyed lane edges:
+    L =============================
+    R =============================
+  derive centerline:
+    C ------------CL--------------
+  create Alignment from polyline with stationing start 10+00.
+
+================================================================================
+029) ALIGNMENT GEOMETRY QC
+--------------------------------------------------------------------------------
+  tangent ----(curve R=250')---- tangent
+          PI o
+  checks: minimum radius, tangent length, design speed criteria, continuity.
+  labels: station/offset, curve table, bearings & distances.
+
+================================================================================
+030) PROFILE FROM SURFACE
+--------------------------------------------------------------------------------
+  Station: 10+00 -> 20+00
+  EG:    _/\__/\____/\____/\_
+  FG:   -----------------------
+  compute cut/fill between EG and FG at sample intervals.
+
+================================================================================
+031) PROFILE VIEW LAYOUT
+--------------------------------------------------------------------------------
+  +------------------------------------------------------------+
+  | Station axis: 10+00 ..... 20+00                           |
+  | Elev axis   : 500 ....... 540                             |
+  | EG (dashed) | FG (solid)                                  |
+  | Labels: PVC, PVI, PVT, K, Grade In/Out                    |
+  +------------------------------------------------------------+
+
+================================================================================
+032) VERTICAL CURVE CHECK
+--------------------------------------------------------------------------------
+          g1=+2.0%      crest      g2=-1.5%
+  -----------\__________/-----------
+             PVC      PVI      PVT
+  verify K-value and stopping sight distance per standards.
+
+================================================================================
+033) FEATURE LINE FROM SURVEYED EDGE
+--------------------------------------------------------------------------------
+  source 3D polyline (EP) -> feature line EP_FL
+  vertices carry true elevations from observations.
+  commands:
+   CreateFeatureLine
+   ElevationEditor
+   Insert PVI / Set Grade Between Points
+
+================================================================================
+034) GRADING OBJECT: DAYLIGHT TO SURFACE
+--------------------------------------------------------------------------------
+   pad elev 515.00
+   +------------------+
+   |      PAD         |\
+   +------------------+ \ 3:1 slope
+                          \___________ existing ground
+  Civil 3D grading criteria automates daylight lines.
+
+================================================================================
+035) CORRIDOR BASELINE FROM ALIGNMENT+PROFILE
+--------------------------------------------------------------------------------
+  Alignment CL  ->  Profile FG  ->  Assembly lane/crown/curb
+        \             |                /
+         \____________|_______________/
+                  Corridor Model
+  output: top links, daylight links, feature lines, surfaces.
+
+================================================================================
+036) ASSEMBLY BUILDER SNAPSHOT
+--------------------------------------------------------------------------------
+            crown
+             /\
+  lane ---- /  \ ---- lane
+          curb  curb
+            \____/
+  subassemblies: lane superelev, curb-gutter, sidewalk, daylight.
+
+================================================================================
+037) SAMPLE LINES + CROSS SECTIONS
+--------------------------------------------------------------------------------
+  Alignment ----------------------------------->
+            |      |      |      |
+           SL1    SL2    SL3    SL4
+  each sample line cuts EG/FG/corridor for section view production.
+
+================================================================================
+038) SECTION VIEW STACK
+--------------------------------------------------------------------------------
+  Section A-A'
+       EG  /\__
+  FG  ____/  \____
+  area fill -> CUT (red), FILL (blue)
+  repeated for each station set in sheet production.
+
+================================================================================
+039) EARTHWORK VOLUME REPORT
+--------------------------------------------------------------------------------
+  Volume Dashboard
+  --------------------------------
+  Cut : 12,840 CY
+  Fill: 11,965 CY
+  Net :   -875 CY (import)
+  Method: End-area + sampled sections
+  Check against volume surface for consistency.
+
+================================================================================
+040) VOLUME SURFACE (EG vs FG)
+--------------------------------------------------------------------------------
+  Volume Surface = FG - EG
+   positive cells : fill
+   negative cells : cut
+  map legend:
+   +++++  fill
+   -----  cut
+   00000  near zero
+
+================================================================================
+041) PIPE NETWORK FROM SURVEY SHOTS
+--------------------------------------------------------------------------------
+  MH1 o------o MH2------o MH3
+       \____pipe runs____/
+  structures and pipes inferred from rim/invert coded points.
+  apply parts list and rules (cover, slope, diameters).
+
+================================================================================
+042) INVERT ELEVATION VERIFICATION
+--------------------------------------------------------------------------------
+  Structure: MH2
+   Rim: 513.22
+   Inv In : 507.18
+   Inv Out: 506.94
+   Pipe Slope = (507.18-506.94)/68.0 = 0.35%
+  ensure meets minimum hydraulic slope.
+
+================================================================================
+043) STORM FLOW DIRECTION CHECK
+--------------------------------------------------------------------------------
+  higher inv -----> lower inv
+  MH1 (507.40) -> MH2 (507.18) -> MH3 (506.94)
+  arrows on pipe labels should match profile direction and stationing.
+
+================================================================================
+044) PARCEL LINEWORK FROM BOUNDARY SURVEY
+--------------------------------------------------------------------------------
+  lot corners:
+     o---------o---------o
+     |         |         |
+     o---------o---------o
+  create parcels from closed figure lines and annotate area/bearing/distance.
+
+================================================================================
+045) TRAVERSE EDITOR VIEW
+--------------------------------------------------------------------------------
+  Leg   Bearing          Distance
+  1     N12d34'20"E      152.44
+  2     S78d15'10"E      204.12
+  3     S11d48'05"W      152.39
+  4     N78d11'30"W      204.18
+  Angular/Misclosure check -> balance traverse.
+
+================================================================================
+046) LEGAL DESCRIPTION CROSS-CHECK
+--------------------------------------------------------------------------------
+  deed call: "thence N12d34'20\"E 152.40 feet"
+  measured : N12d34'18"E 152.44 feet
+  delta    : 0d00'02" / +0.04 ft
+  note differences; verify monument evidence before final plat drafting.
+
+================================================================================
+047) RIGHT-OF-WAY LINE STYLING
+--------------------------------------------------------------------------------
+  ============================   existing ROW
+  - - - - - - - - - - - - - -   proposed easement
+  . . . . . . . . . . . . . .    temporary construction easement
+  object layers mapped by code for consistent deliverables.
+
+================================================================================
+048) SURVEY FIGURE TO POLYLINE CONVERSION
+--------------------------------------------------------------------------------
+  Survey Figure (dynamic to DB)
+        |
+        +--> Convert to Polyline (editable CAD object)
+                |
+                +--> retain elevations?  YES (3D Polyline)
+  use when downstream tools require native polylines.
+
+================================================================================
+049) LINEWORK CODE SET IMPROVEMENT LOOP
+--------------------------------------------------------------------------------
+  field ambiguity -> office issue log -> update code list -> retrain crew
+       ^                                                  |
+       +--------------------------------------------------+
+  improves first-pass auto linework quality over projects.
+
+================================================================================
+050) DUPLICATE POINT DETECTION
+--------------------------------------------------------------------------------
+  P#  N          E          Z      Code
+  553 7254321.11 2391045.22 512.44 EP
+  553 7254321.10 2391045.22 512.44 EP   <- duplicate number
+  resolve by renumbering and preserving original field record traceability.
+
+================================================================================
+051) OUTLIER DETECTION (STATISTICAL)
+--------------------------------------------------------------------------------
+  neighborhood mean z = 512.30
+  sigma = 0.08
+  point z = 513.02  -> |z-mean| = 0.72 (>3 sigma) flagged
+  requires manual verification with raw observation and site condition.
+
+================================================================================
+052) BREAKLINE CROSSING CONFLICT
+--------------------------------------------------------------------------------
+  curb breakline -----------X-----------
+  ditch breakline ----------X-----------
+  crossing at same XY but incompatible elevations
+  action: split at intersection, assign proper z hierarchy or structure tie.
+
+================================================================================
+053) WALL TOP / WALL TOE MODELING
+--------------------------------------------------------------------------------
+  top wall:  ===================== (z high)
+            |||||| retaining wall |||||
+  toe wall: ---------------------  (z low)
+  both added as breaklines to preserve vertical discontinuity in TIN.
+
+================================================================================
+054) CURB RETURN ARC FIT
+--------------------------------------------------------------------------------
+  tangent ----) arc R=25' (---- tangent
+  fit through observed points while honoring design curb return geometry.
+  report delta, length, tangent, chord for plan annotation.
+
+================================================================================
+055) DRIVEWAY FLARE DETAIL
+--------------------------------------------------------------------------------
+  sidewalk -------------------------
+               \       /
+                \_____/   driveway flare
+  edge transitions captured with dense shots to avoid contour faceting.
+
+================================================================================
+056) PARKING LOT STRIPING LINEWORK
+--------------------------------------------------------------------------------
+  | | | | | | | | | | | |   stall lines
+  ========================   curb
+  center aisle ----------
+  coding strategy separates paint markings from topographic hard edges.
+
+================================================================================
+057) BUILDING FOOTPRINT TIE
+--------------------------------------------------------------------------------
+  +----------------------+
+  |      BUILDING        |
+  +----------------------+
+   | tie to EP/sidewalk offsets |
+  verify orthogonality and corner control shots for accurate footprint.
+
+================================================================================
+058) FENCE LINE WITH GATES
+--------------------------------------------------------------------------------
+  FENCE:  x-x-x-x-x-x-x-x-x
+          x               x
+          x   [ GATE ]    x
+          x-x-x-x-x-x-x-x-x
+  maintain gate break symbols and distinct layers for boundary exhibits.
+
+================================================================================
+059) TREE SURVEY SYMBOLIZATION
+--------------------------------------------------------------------------------
+        .-~~-.
+     .-(  o  )-.      TR 24" OAK
+        '-..-'
+           |
+  trunk point + canopy radius attributes used for landscape coordination.
+
+================================================================================
+060) UTILITIES COMPOSITE PLAN
+--------------------------------------------------------------------------------
+  W: ---- water
+  S: - - sanitary
+  G: .... gas
+  E: ==== electric ductbank
+  C: ~~~~ comms
+  utility linework merged with topo while preserving source reliability tags.
+
+================================================================================
+061) SURVEY DATABASE EVENT LOG
+--------------------------------------------------------------------------------
+  [10:02] imported fieldbook.fbk
+  [10:05] parsed 1,842 points
+  [10:06] created 214 figures
+  [10:12] adjusted traverse loop A
+  [10:18] figure prefix DB updated
+  maintain reproducible, auditable processing history.
+
+================================================================================
+062) DATA SHORTCUT CREATION (SURF/ALIGN)
+--------------------------------------------------------------------------------
+  Producer DWG: SURVEY_BASE.dwg
+     -> publish EG surface, CL alignment, FG profile
+  Consumer DWG: DESIGN_ROADWAY.dwg
+     -> reference objects via data shortcuts (no copy divergence).
+
+================================================================================
+063) XREF COMPOSITION FOR SHEETS
+--------------------------------------------------------------------------------
+  Sheet.dwg
+   |-- XREF: SURVEY_BASE.dwg
+   |-- XREF: UTILITIES.dwg
+   |-- XREF: ROADWAY_DESIGN.dwg
+   '-- XREF: AERIAL_2026.tif
+  clipped viewports isolate plotting extents by sheet index.
+
+================================================================================
+064) VIEW FRAME GENERATION
+--------------------------------------------------------------------------------
+  Alignment ---------------------------------------->
+  [VF-01] [VF-02] [VF-03] [VF-04]
+  creates matched plan/profile sheets with station ranges and match lines.
+
+================================================================================
+065) PLAN-PROFILE SHEET LAYOUT
+--------------------------------------------------------------------------------
+  +-------------------- PLAN ----------------------+
+  | CL, ROW, utilities, topo, annotations          |
+  +------------------- PROFILE ---------------------+
+  | EG/FG, vertical curves, pipe crossings          |
+  +-------------------------------------------------+
+  title block + north arrow + scale + legend.
+
+================================================================================
+066) STYLE CONSISTENCY CHECK
+--------------------------------------------------------------------------------
+  object           expected style         actual
+  ------------------------------------------------
+  COGO points      _survey_node           _survey_node  OK
+  EG contours      _contour_major_minor   _std          FAIL
+  Alignment label  _station_offset        _station_offset OK
+  standardize before issue for review.
+
+================================================================================
+067) LAYER STANDARDS MAPPING
+--------------------------------------------------------------------------------
+  code  -> layer
+  EP    -> C-TOPO-EP
+  TC    -> C-TOPO-CURB-T
+  FL    -> C-TOPO-CURB-F
+  MH    -> C-UTIL-STRM-STRU
+  SS    -> C-UTIL-SAN-LINE
+  enforce via description keys + figure prefix rules.
+
+================================================================================
+068) ANNOTATION SCALE MANAGEMENT
+--------------------------------------------------------------------------------
+  viewport scale 1"=20' -> label style set A
+  viewport scale 1"=40' -> label style set B
+  ensure text height plots consistently across sheets.
+  avoid exploding Civil 3D labels unless required by client CAD standards.
+
+================================================================================
+069) AUDIT + PURGE + RECOVER WORKFLOW
+--------------------------------------------------------------------------------
+  Command chain:
+   AUDIT (fix errors) -> -PURGE (unused styles/blocks) -> SAVE
+   if corruption suspected: RECOVER on backup DWG
+  improves performance on survey-heavy drawings.
+
+================================================================================
+070) PERFORMANCE: POINT DISPLAY OPTIMIZATION
+--------------------------------------------------------------------------------
+  50k points visible -> slow pan/zoom
+  strategy:
+   - disable labels except active group
+   - use simplified point style for working views
+   - isolate AOI with point groups / viewport freeze
+  preserves responsiveness during cleanup.
+
+================================================================================
+071) QC DASHBOARD: SURVEY COMPLETENESS
+--------------------------------------------------------------------------------
+  shots expected: 2,050
+  imported      : 2,041
+  coded unknown :    13
+  open figures  :     7
+  unresolved QC :     4
+  gate release only when all critical checks pass.
+
+================================================================================
+072) COMMAND LINE AUTOMATION (SCRIPT)
+--------------------------------------------------------------------------------
+  _.AECCIMPORTPOINTS
+  _.AECCCREATEPOINTGROUP _TOPO_GROUND
+  _.AECCCREATESURFACE EG_0421
+  _.AECCADDSURFACEBREAKLINES EG_0421
+  _.QSAVE
+  repeatable startup script reduces manual variability.
+
+================================================================================
+073) DYNAMO/PYTHON BULK CODE NORMALIZATION
+--------------------------------------------------------------------------------
+  raw codes: "ep", "EP ", "EdgePav", "ep-"
+       |
+       +--> normalize -> "EP"
+       +--> map aliases from standards table
+  cleaner code domain yields better auto linework generation.
+
+================================================================================
+074) FIELD-TO-FINISH FEEDBACK LOOP
+--------------------------------------------------------------------------------
+  office QC issue ----> crew briefing ----> updated coding card
+       ^                                         |
+       +----------- next day improved shots -----+
+  continuous improvement lowers manual editing hours.
+
+================================================================================
+075) AERIAL + SURVEY COMPARISON
+--------------------------------------------------------------------------------
+  imagery curb edge ::::::::::::::::::
+  surveyed curb      -----------------
+  offset vectors     >>> >>> >>> 
+  document significant deviations, check date differences and construction changes.
+
+================================================================================
+076) POINT CLOUD REGISTRATION CHECK
+--------------------------------------------------------------------------------
+  scan cloud (millions pts) overlaid with surveyed control targets
+      * target1  residual 0.01'
+      * target2  residual 0.02'
+      * target3  residual 0.01'
+  accepted registration feeds supplemental line extraction.
+
+================================================================================
+077) EXTRACT BREAKLINES FROM POINT CLOUD (ASSISTED)
+--------------------------------------------------------------------------------
+  dense cloud -> slice/profile -> pick ridge/curb points -> 3D polyline
+  then:
+   smooth only where justified
+   preserve hard edges and observed discontinuities.
+
+================================================================================
+078) AS-BUILT VS DESIGN DEVIATION MAP
+--------------------------------------------------------------------------------
+  design CL ----------------------------
+  as-built CL ---------~-~-~------------
+  deviation labels: +0.12, -0.08, +0.05
+  quickly communicates conformance to tolerance bands.
+
+================================================================================
+079) STAKEOUT POINT EXPORT PACKAGE
+--------------------------------------------------------------------------------
+  Source objects:
+   - curb return PCs/PTs
+   - building corners
+   - utility structures
+  Export: PNEZD CSV + LandXML + controller job file
+  include point code and stake description fields.
+
+================================================================================
+080) MACHINE CONTROL SURFACE EXPORT
+--------------------------------------------------------------------------------
+  Civil 3D FG Surface -> LandXML -> machine guidance
+  checks:
+   - units
+   - vertical datum
+   - boundary extents
+   - breakline fidelity
+  prevents grade control misinterpretation in field equipment.
+
+================================================================================
+081) LANDXML VALIDATION SNAPSHOT
+--------------------------------------------------------------------------------
+  <Surface name="EG_0421">
+    <Definition surfType="TIN">
+      <Pnts> ... </Pnts>
+      <Faces> ... </Faces>
+      <Breaklines> ... </Breaklines>
+    </Definition>
+  </Surface>
+  verify schema, units, and object completeness before issue.
+
+================================================================================
+082) DWG DELIVERABLE CHECKLIST
+--------------------------------------------------------------------------------
+  [x] no proxy errors
+  [x] xrefs relative and found
+  [x] layer naming standard
+  [x] annotation scale correct
+  [x] coordinates verified
+  [x] survey metadata included
+
+================================================================================
+083) PDF PLANSET VISUAL QA
+--------------------------------------------------------------------------------
+  -----------------------------------------
+  | SHEET C3D-SV-101                     |
+  | lineweights: OK                      |
+  | text overlap: 2 warnings             |
+  | contour readability: OK              |
+  | north arrow / bar scale: present     |
+  -----------------------------------------
+  resolve plot issues before submittal.
+
+================================================================================
+084) TITLE BLOCK SURVEY METADATA PANEL
+--------------------------------------------------------------------------------
+  Project: North Tract Improvements
+  Survey Date: 2026-04-06
+  Coordinate System: NAD83 / SPC NC FTUS
+  Vertical Datum: NAVD88 (Geoid18)
+  Crew: TS + GNSS
+  CAD Processor: Civil 3D 2026
+
+================================================================================
+085) REVISION CLOUD TRACKING
+--------------------------------------------------------------------------------
+  Rev A: initial survey base
+  Rev B: added missing curb return shots
+  Rev C: updated pipe inverts per CCTV
+  cloud markers + delta notes preserve change history for reviewers.
+
+================================================================================
+086) CLIENT REDLINE INCORPORATION
+--------------------------------------------------------------------------------
+  redline: "check driveway tie at Sta 14+20"
+  action:
+   1) inspect shots/photos
+   2) adjust linework + surface breakline
+   3) regenerate contours/profile
+   4) respond with disposition note
+
+================================================================================
+087) PERMIT EXHIBIT PREPARATION
+--------------------------------------------------------------------------------
+  Layers shown:
+   - parcel boundary
+   - easements
+   - existing/proposed utilities
+   - contours and spot elevations
+  simplified symbology while retaining survey accuracy.
+
+================================================================================
+088) LEGAL EXHIBIT LINEWEIGHT HIERARCHY
+--------------------------------------------------------------------------------
+  boundary lines   ============= (heavy)
+  lot lines        -----------   (medium)
+  easements        - - - - - -   (medium dashed)
+  text/labels      ............  (light)
+  visual hierarchy supports legal readability.
+
+================================================================================
+089) ARCHIVE PACKAGE STRUCTURE
+--------------------------------------------------------------------------------
+ /Archive_2026-04-07/
+   |-- DWG_FINAL/
+   |-- PDF_FINAL/
+   |-- LANDXML/
+   |-- RAW_FIELD/
+   |-- QC_LOGS/
+   '-- README_processing_notes.txt
+  ensures reproducibility for future litigation/audit needs.
+
+================================================================================
+090) PROCESSING README EXCERPT
+--------------------------------------------------------------------------------
+  "Linework generated using Figure Prefix DB v3.4.
+   Manual edits applied to TC_07, EP_12, DITCH_03 after field photo review.
+   Surface EG_0421 rebuilt with wall top/toe breaklines.
+   QC checks passed: closure, duplicates, spikes, style standards."
+
+================================================================================
+091) FULL FIELD-TO-FINISH PIPELINE (OVERVIEW)
+--------------------------------------------------------------------------------
+  [Field Shots]
+       |
+  [Raw FBK/CSV] -> [Import COGO] -> [Desc Keys] -> [Figure Prefix]
+       |                                  |              |
+       +----------------------> [Auto Linework] <--------+
+                                       |
+                                [QC + Cleanup]
+                                       |
+                               [Surface/Design/Sheets]
+
+================================================================================
+092) DETAILED PIPELINE WITH QA GATES
+--------------------------------------------------------------------------------
+  RAW -> PARSE -> CODE MAP -> FIGURE BUILD -> CLEAN -> SURFACE -> DELIVER
+        |         |            |            |          |
+       QA1       QA2          QA3          QA4        QA5
+  release criteria at each gate avoid propagating upstream errors.
+
+================================================================================
+093) ERROR HANDLING: UNKNOWN CODE
+--------------------------------------------------------------------------------
+  import warning:
+   "Point 1884 has unknown code: EPP"
+  resolver:
+   EPP -> EP (typo) ? confirm with field notes
+  until resolved, route to _UNKNOWN_CODES group and exclude from breaklines.
+
+================================================================================
+094) ERROR HANDLING: BAD COORDINATE MAGNITUDE
+--------------------------------------------------------------------------------
+  expected northing ~ 7,254,000
+  observed northing  725,400,000  <- extra digit
+  check import format mismatch (meters vs feet / column shift)
+  fix source mapping before reimport.
+
+================================================================================
+095) ERROR HANDLING: WRONG UNIT ASSIGNMENT
+--------------------------------------------------------------------------------
+  symptom: drawing appears 3.28084x scale mismatch
+  cause: metric data imported into feet drawing (or inverse)
+  correction:
+   set units correctly + reimport from raw (avoid scaling processed geometry).
+
+================================================================================
+096) ERROR HANDLING: DATUM SHIFT
+--------------------------------------------------------------------------------
+  control tie residuals all ~1.2 ft NE
+  likely datum/epoch mismatch
+  verify: NAD83(2011) vs NAD83(HARN) vs WGS84 realization
+  apply approved transformation, document method used.
+
+================================================================================
+097) OFFICE HANDOFF BOARD
+--------------------------------------------------------------------------------
+  [Survey Processor] -> [Design Engineer] -> [PM] -> [Client]
+      deliverables: cleaned linework, EG surface, QC memo, assumptions log
+  clear handoff reduces reinterpretation and rework.
+
+================================================================================
+098) CONSTRUCTION STAKEOUT ROUNDTRIP
+--------------------------------------------------------------------------------
+  design points -> field staking -> as-staked checks -> as-built import
+      ^                                                   |
+      +---------------- update model if needed -----------+
+  closes the loop between design intent and field reality.
+
+================================================================================
+099) DIGITAL TWIN READINESS SNAPSHOT
+--------------------------------------------------------------------------------
+  survey baseline + utilities + surfaces + parcels + metadata
+  all georeferenced, versioned, and standards-compliant
+  foundation prepared for BIM/GIS integration and lifecycle updates.
+
+================================================================================
+100) FINAL DELIVERABLE DASHBOARD
+--------------------------------------------------------------------------------
+  +--------------------------------------------------------------+
+  | CIVIL 3D SURVEY PACKAGE - READY FOR RELEASE                  |
+  | Points: 2,041   Figures: 214   Surfaces: 3   Sheets: 26      |
+  | QA: PASSED (closure, outliers, standards, metadata, exports) |
+  | Files: DWG + PDF + LandXML + CSV + Processing Notes          |
+  +--------------------------------------------------------------+
