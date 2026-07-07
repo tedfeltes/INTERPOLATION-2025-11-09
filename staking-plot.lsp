@@ -6,7 +6,7 @@
 ;;;   2. Choose ANSI paper size (A, B, C, or D)
 ;;;   3. Choose paper orientation (Landscape or Portrait)
 ;;;   4. Pick the lower-left corner of the rectangle in model space
-;;;   5. Create the VIEW layer rectangle, send to printer, and open the Plot window
+;;;   5. Create the VIEW layer rectangle and open the Plot window for preview/print
 ;;;
 ;;; ANSI sizes (long edge x short edge in inches):
 ;;;   A = 11 x 8.5, B = 17 x 11, C = 22 x 17, D = 34 x 22
@@ -136,27 +136,8 @@
   layout
 )
 
-(defun staking--send-to-printer (layout / plot-result)
-  (setq plot-result
-        (vl-catch-all-apply
-          '(lambda ()
-             (vla-Plot layout :vlax-false)
-           )
-        )
-  )
-  (if (vl-catch-all-error-p plot-result)
-    (princ
-      (strcat
-        "\nUnable to send plot to printer: "
-        (vl-catch-all-error-message plot-result)
-      )
-    )
-    (princ "\nPlot sent to printer.")
-  )
-)
-
 (defun staking--open-plot-window ( / )
-  (princ "\nOpening plot window...")
+  (princ "\nOpening plot window. Review settings, preview, then press Print.")
   (command "_.PLOT")
 )
 
@@ -175,10 +156,7 @@
         (vl-catch-all-error-message layout)
       )
     )
-    (progn
-      (staking--send-to-printer layout)
-      (staking--open-plot-window)
-    )
+    (staking--open-plot-window)
   )
 )
 
