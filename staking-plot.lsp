@@ -6,6 +6,7 @@
 ;;;   2. Choose ANSI paper size (A, B, C, or D)
 ;;;   3. Choose paper orientation (Landscape or Portrait)
 ;;;   4. Pick the lower-left corner of the rectangle in model space
+;;;   5. Create the VIEW layer rectangle, send to printer, and open the Plot window
 ;;;
 ;;; ANSI sizes (long edge x short edge in inches):
 ;;;   A = 11 x 8.5, B = 17 x 11, C = 22 x 17, D = 34 x 22
@@ -91,6 +92,96 @@
   pt
 )
 
+(defun staking--bounds (base-point width height / x0 y0)
+  (setq x0 (car base-point)
+        y0 (cadr base-point)
+  )
+  (list (list x0 y0) (list (+ x0 width) (+ y0 height)))
+)
+
+(defun staking--ansi-media-name (paper-code orientation / )
+  (cond
+    ((and (= paper-code "A") (= orientation "Landscape")) "ANSI A (11.00 x 8.50 Inches)")
+    ((and (= paper-code "A") (= orientation "Portrait"))  "ANSI A (8.50 x 11.00 Inches)")
+    ((and (= paper-code "B") (= orientation "Landscape")) "ANSI B (17.00 x 11.00 Inches)")
+    ((and (= paper-code "B") (= orientation "Portrait"))  "ANSI B (11.00 x 17.00 Inches)")
+    ((and (= paper-code "C") (= orientation "Landscape")) "ANSI C (22.00 x 17.00 Inches)")
+    ((and (= paper-code "C") (= orientation "Portrait"))  "ANSI C (17.00 x 22.00 Inches)")
+    ((and (= paper-code "D") (= orientation "Landscape")) "ANSI D (34.00 x 22.00 Inches)")
+    ((and (= paper-code "D") (= orientation "Portrait"))  "ANSI D (22.00 x 34.00 Inches)")
+    (T nil)
+  )
+)
+
+(defun staking--configure-plot (ll ur scale orientation paper-code / acad doc layout media)
+  (setq acad   (vlax-get-acad-object)
+        doc    (vla-get-ActiveDocument acad)
+        layout (vla-get-ActiveLayout doc)
+        media  (staking--ansi-media-name paper-code orientation)
+  )
+  (vla-put-PlotType layout 5)
+  (vla-SetWindowToPlot layout (vlax-2dpoint ll) (vlax-2dpoint ur))
+  (vla-put-CenterPlot layout :vlax-false)
+  (vla-put-UseStandardScale layout :vlax-false)
+  (vla-put-CustomScaleNumerator layout (float scale))
+  (vla-put-CustomScaleDenominator layout 1.0)
+  (vla-put-PlotRotation layout 0)
+  (if media
+    (vl-catch-all-apply
+      '(lambda ()
+         (vla-put-CanonicalMediaName layout media)
+       )
+    )
+  )
+  layout
+)
+
+(defun staking--send-to-printer (layout / plot-result)
+  (setq plot-result
+        (vl-catch-all-apply
+          '(lambda ()
+             (vla-Plot layout :vlax-false)
+           )
+        )
+  )
+  (if (vl-catch-all-error-p plot-result)
+    (princ
+      (strcat
+        "\nUnable to send plot to printer: "
+        (vl-catch-all-error-message plot-result)
+      )
+    )
+    (princ "\nPlot sent to printer.")
+  )
+)
+
+(defun staking--open-plot-window ( / )
+  (princ "\nOpening plot window...")
+  (command "_.PLOT")
+)
+
+(defun staking--plot-rectangle (base-point rect-width rect-height scale orientation paper-code / bounds layout)
+  (setq bounds (staking--bounds base-point rect-width rect-height))
+  (setq layout
+        (vl-catch-all-apply
+          'staking--configure-plot
+          (list (car bounds) (cadr bounds) scale orientation paper-code)
+        )
+  )
+  (if (vl-catch-all-error-p layout)
+    (princ
+      (strcat
+        "\nUnable to configure plot settings: "
+        (vl-catch-all-error-message layout)
+      )
+    )
+    (progn
+      (staking--send-to-printer layout)
+      (staking--open-plot-window)
+    )
+  )
+)
+
 (defun staking--draw-rectangle (base-point width height layer-name / x0 y0 x1 y1)
   (setq x0 (car base-point)
         y0 (cadr base-point)
@@ -174,12 +265,16 @@
       (staking--ensure-view-layer layer-name)
       (setq result (staking--draw-rectangle base-point rect-width rect-height layer-name))
       (if result
-        (princ
-          (strcat
-            "\nPlot boundary created on layer "
-            layer-name
-            "."
+        (progn
+          (princ
+            (strcat
+              "\nPlot boundary created on layer "
+              layer-name
+              "."
+            )
           )
+          (setq cmdecho 1)
+          (staking--plot-rectangle base-point rect-width rect-height scale orientation paper-code)
         )
         (princ "\nUnable to create plot boundary.")
       )
