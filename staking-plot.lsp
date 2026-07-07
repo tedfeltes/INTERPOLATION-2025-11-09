@@ -4,10 +4,12 @@
 ;;; Command: STAKINGPLOT
 ;;;   1. Enter plot scale (drawing units per inch on paper; e.g. 20 for 1"=20')
 ;;;   2. Choose ANSI paper size (A, B, C, or D)
-;;;   3. Pick the lower-left corner of the rectangle in model space
+;;;   3. Choose paper orientation (Landscape or Portrait)
+;;;   4. Pick the lower-left corner of the rectangle in model space
 ;;;
-;;; ANSI sizes use landscape orientation (width x height in inches):
+;;; ANSI sizes (long edge x short edge in inches):
 ;;;   A = 11 x 8.5, B = 17 x 11, C = 22 x 17, D = 34 x 22
+;;; Portrait swaps width and height.
 
 (vl-load-com)
 
@@ -64,6 +66,23 @@
   paper
 )
 
+(defun staking--read-orientation (/ orientation)
+  (initget "Landscape Portrait")
+  (setq orientation (getkword "\nPaper orientation [Landscape/Portrait] <Landscape>: "))
+  (if (not orientation) (setq orientation "Landscape"))
+  orientation
+)
+
+(defun staking--oriented-dimensions (paper-inches orientation / width height)
+  (setq width  (car paper-inches)
+        height (cadr paper-inches)
+  )
+  (if (= orientation "Portrait")
+    (list height width)
+    (list width height)
+  )
+)
+
 (defun staking--read-base-point (/ pt)
   (setq pt (getpoint "\nPick lower-left corner of plot boundary: "))
   (if (not pt)
@@ -95,8 +114,8 @@
 )
 
 (defun c:STAKINGPLOT (/ *error* old-cmdecho old-osmode layer-name scale
-                        paper-code paper-inches paper-width paper-height
-                        rect-width rect-height base-point result)
+                        paper-code orientation paper-inches paper-width
+                        paper-height rect-width rect-height base-point result)
   (setq *error*
         (lambda (msg)
           (if (and msg (not (member msg '("Function cancelled" "quit / exit abort"))))
@@ -119,8 +138,10 @@
     (and
       (setq scale (staking--read-scale))
       (setq paper-code (staking--read-paper-size))
+      (setq orientation (staking--read-orientation))
       (setq paper-inches (staking--paper-dimensions paper-code))
-      (setq paper-width  (car paper-inches)
+      (setq paper-inches (staking--oriented-dimensions paper-inches orientation)
+            paper-width  (car paper-inches)
             paper-height (cadr paper-inches)
             rect-width   (* paper-width scale)
             rect-height  (* paper-height scale)
@@ -130,6 +151,8 @@
           (strcat
             "\nANSI "
             paper-code
+            " "
+            orientation
             " ("
             (rtos paper-width 2 2)
             "\" x "
