@@ -113,51 +113,143 @@
   )
 )
 
-(defun staking--configure-plot (ll ur scale orientation paper-code / acad doc layout media)
+(defun staking--plot-warning (err-msg)
+  (if err-msg
+    (princ (strcat "\nPlot setup warning: " err-msg))
+  )
+)
+
+(defun staking--get-canonical-media-names (layout / names err)
+  (setq err (vl-catch-all-apply 'vla-RefreshPlotDeviceInfo (list layout)))
+  (if (vl-catch-all-error-p err)
+    (progn
+      (staking--plot-warning (vl-catch-all-error-message err))
+      nil
+    )
+    (progn
+      (setq names
+            (vl-catch-all-apply 'vla-GetCanonicalMediaNames (list layout))
+      )
+      (if (vl-catch-all-error-p names)
+        (progn
+          (staking--plot-warning (vl-catch-all-error-message names))
+          nil
+        )
+        (vlax-safearray->list (vlax-variant-value names))
+      )
+    )
+  )
+)
+
+(defun staking--match-media-name (layout paper-code orientation / target names dims w h dim-a dim-b name)
+  (setq target (staking--ansi-media-name paper-code orientation)
+        names  (staking--get-canonical-media-names layout)
+        dims   (staking--oriented-dimensions
+                  (staking--paper-dimensions paper-code)
+                  orientation
+                )
+        w      (rtos (car dims) 2 2)
+        h      (rtos (cadr dims) 2 2)
+        dim-a  (strcat w "_x_" h)
+        dim-b  (strcat w " x " h)
+  )
+  (cond
+    ((and target (member target names)) target)
+    ((and names
+          (setq name
+                (car
+                  (vl-remove-if-not
+                    '(lambda (item)
+                       (and (vl-string-search (strcat "ANSI " paper-code) item)
+                            (or (vl-string-search dim-a item)
+                                (vl-string-search dim-b item)
+                            )
+                       )
+                     )
+                    names
+                  )
+                )
+          )
+     )
+     name
+    )
+    ((and names
+          (setq name
+                (car
+                  (vl-remove-if-not
+                    '(lambda (item)
+                       (vl-string-search (strcat "ANSI " paper-code) item)
+                     )
+                    names
+                  )
+                )
+          )
+     )
+     name
+    )
+    (T nil)
+  )
+)
+
+(defun staking--put-plot-property (layout property args / err)
+  (setq err (vl-catch-all-apply property (cons layout args)))
+  (if (vl-catch-all-error-p err)
+    (staking--plot-warning (vl-catch-all-error-message err))
+  )
+)
+
+(defun staking--configure-plot (ll ur scale orientation paper-code / acad doc layout
+                                 config-name media ll-pt ur-pt)
   (setq acad   (vlax-get-acad-object)
         doc    (vla-get-ActiveDocument acad)
         layout (vla-get-ActiveLayout doc)
-        media  (staking--ansi-media-name paper-code orientation)
+        config-name (vla-get-ConfigName layout)
+        ll-pt  (vlax-3d-point (list (car ll) (cadr ll) 0.0))
+        ur-pt  (vlax-3d-point (list (car ur) (cadr ur) 0.0))
   )
-  (vla-put-PlotType layout 5)
-  (vla-SetWindowToPlot layout (vlax-2dpoint ll) (vlax-2dpoint ur))
-  (vla-put-CenterPlot layout :vlax-false)
-  (vla-put-UseStandardScale layout :vlax-false)
-  (vla-put-CustomScaleNumerator layout (float scale))
-  (vla-put-CustomScaleDenominator layout 1.0)
-  (vla-put-PlotRotation layout 0)
-  (if media
-    (vl-catch-all-apply
-      '(lambda ()
-         (vla-put-CanonicalMediaName layout media)
-       )
-    )
-  )
-  layout
-)
-
-(defun staking--open-plot-window ( / )
-  (princ "\nOpening plot window. Review settings, preview, then press Print.")
-  (command "_.PLOT")
-)
-
-(defun staking--plot-rectangle (base-point rect-width rect-height scale orientation paper-code / bounds layout)
-  (setq bounds (staking--bounds base-point rect-width rect-height))
-  (setq layout
-        (vl-catch-all-apply
-          'staking--configure-plot
-          (list (car bounds) (cadr bounds) scale orientation paper-code)
-        )
-  )
-  (if (vl-catch-all-error-p layout)
-    (princ
-      (strcat
-        "\nUnable to configure plot settings: "
-        (vl-catch-all-error-message layout)
+  (if (or (not config-name) (= config-name "") (= config-name "None"))
+    (princ "\nNo plotter configured yet. Set printer/paper size in the Plot dialog.")
+    (progn
+      (setq media (staking--match-media-name layout paper-code orientation))
+      (if media
+        (staking--put-plot-property layout 'vla-put-CanonicalMediaName (list media))
+        (princ "\nCould not match ANSI paper on the current plotter; set paper size in Plot dialog.")
       )
     )
-    (staking--open-plot-window)
   )
+  (staking--put-plot-property layout 'vla-SetWindowToPlot (list ll-pt ur-pt))
+  (staking--put-plot-property layout 'vla-put-PlotType (list 5))
+  (staking--put-plot-property layout 'vla-put-CenterPlot (list :vlax-false))
+  (staking--put-plot-property layout 'vla-put-UseStandardScale (list :vlax-false))
+  (staking--put-plot-property layout 'vla-put-CustomScaleNumerator (list (float scale)))
+  (staking--put-plot-property layout 'vla-put-CustomScaleDenominator (list 1.0))
+  (staking--put-plot-property layout 'vla-put-PlotRotation (list 0))
+  T
+)
+
+(defun staking--open-plot-window ( / plot-result)
+  (princ "\nOpening plot window. Review settings, preview, then press Print.")
+  (setq plot-result
+        (vl-catch-all-apply '(lambda () (command "_.PLOT")))
+  )
+  (if (vl-catch-all-error-p plot-result)
+    (progn
+      (princ "\nPLOT command failed; trying PRINT...")
+      (vl-catch-all-apply '(lambda () (command "_.PRINT")))
+    )
+  )
+)
+
+(defun staking--plot-rectangle (base-point rect-width rect-height scale orientation paper-code / bounds)
+  (setq bounds (staking--bounds base-point rect-width rect-height))
+  (staking--configure-plot
+    (car bounds)
+    (cadr bounds)
+    scale
+    orientation
+    paper-code
+  )
+  (staking--open-plot-window)
 )
 
 (defun staking--draw-rectangle (base-point width height layer-name / x0 y0 x1 y1)
