@@ -32,110 +32,17 @@
 	by Jeff Mishler
 
 	Modified July 2026;
-	Updated to work with C3D 2026 (and remain compatible with older/newer releases).
-	The previous version derived the AeccApplication COM version solely from the
-	registry "Release" value with no error handling.  On some installs (including
-	C3D 2026) that produced an invalid ProgID and the C3D API aborted the command
-	with "error: Civil 3D API; the parameter is incorrect".
-	The version handshake is now performed by a resilient helper (getAeccApp) that
-	first tries the registry-derived version and then falls back through the known
-	release ProgIDs (2026 = 13.8, 2025 = 13.7, 2024 = 13.6, ...), trapping errors so
-	the raw COM error is never surfaced to the user.
+	Updated to work with C3D 2026 (and all other releases).
+	Earlier versions connected to the version-specific AeccApplication COM object
+	(AeccXUiLand.AeccApplication.<ver>) just to read the existing point numbers.
+	That handshake is fragile - on some installs (including C3D 2026) accessing the
+	AeccDocument 'points collection throws "error: Civil 3D API: The parameter is
+	incorrect" and aborts the command.
+	It is not needed: a point's number can be read and written directly from the
+	AECC_COGO_POINT object itself.  This version therefore drops the AeccApplication
+	dependency entirely and works purely at the AutoCAD document / entity level,
+	which is version-independent.
  |;
-
-;;; Returns the "major.minor" version string (e.g. "13.8") derived from the
-;;; AutoCAD/Civil 3D registry "Release" value, or nil if it cannot be read.
-(defun ReorderPoints-GetReleaseVersion ( / key rel firstdot seconddot)
-  (setq key (strcat "HKEY_LOCAL_MACHINE\\"
-		    (if	vlax-user-product-key
-		      (vlax-user-product-key)
-		      (vlax-product-key)
-		    )
-	    )
-  )
-  (setq rel (vl-catch-all-apply 'vl-registry-read (list key "Release")))
-  (if (or (vl-catch-all-error-p rel) (not rel))
-    nil
-    (progn
-      (setq firstdot (vl-string-search "." rel))
-      (if firstdot
-	(setq seconddot (vl-string-search "." rel (1+ firstdot)))
-      )
-      (if seconddot
-	(substr rel 1 seconddot)
-	nil
-      )
-    )
-  )
-)
-
-;;; Builds the ordered list of candidate AeccApplication version suffixes to try.
-;;; The version read from the registry (the running install) is tried first,
-;;; followed by every plausible major.minor combination, newest first, so the
-;;; routine keeps working on current, past and future Civil 3D releases without
-;;; having to hard-code a single version.  Reference points:
-;;;   13.8 = C3D 2026   13.7 = C3D 2025   13.6 = C3D 2024   13.5 = C3D 2023
-;;;   13.4 = C3D 2022   13.3 = C3D 2021   13.2 = C3D 2020   13.0 = C3D 2019
-;;;   12.0 = C3D 2018   11.0 = C3D 2017
-(defun ReorderPoints-VersionCandidates ( / regver lst maj mn)
-  (setq lst '())
-  ;; Generate ascending, then reverse so newest is tried first.
-  (foreach maj '("11" "12" "13" "14" "15")
-    (setq mn 0)
-    (while (<= mn 20)
-      (setq lst (cons (strcat maj "." (itoa mn)) lst))
-      (setq mn (1+ mn))
-    )
-  )
-  ;; lst is currently newest-first because of the cons order above.
-  ;; Prepend the registry-reported version so it is attempted before anything else.
-  (setq regver (ReorderPoints-GetReleaseVersion))
-  (if regver
-    (setq lst (cons regver (vl-remove regver lst)))
-  )
-  lst
-)
-
-;;; Resilient replacement for the old inline version handshake.
-;;; module must be "Land", "Pipe", "Roadway", or "Survey".
-;;; A candidate version is only accepted if getinterfaceobject succeeds AND the
-;;; returned object yields a usable ActiveDocument - this rejects "half valid"
-;;; objects that would otherwise throw "Civil 3D API: The parameter is incorrect"
-;;; later when the document is accessed.
-;;; Returns the validated Aecc application object, or nil if none worked.
-(defun ReorderPoints-GetAeccApp (module / *acad* app progid obj doc)
-  (vl-load-com)
-  (setq *acad* (vlax-get-acad-object)
-	app    nil)
-  (if *acad*
-    (foreach ver (ReorderPoints-VersionCandidates)
-      (if (null app)
-	(progn
-	  (setq progid (strcat "AeccXUi" module
-			       ".Aecc"
-			       (if (= (strcase module) "LAND") "" module)
-			       "Application."
-			       ver
-		       )
-	  )
-	  (setq obj (vl-catch-all-apply 'vla-getinterfaceobject (list *acad* progid)))
-	  (if (not (vl-catch-all-error-p obj))
-	    (progn
-	      (setq doc (vl-catch-all-apply 'vla-get-activedocument (list obj)))
-	      (if (and (not (vl-catch-all-error-p doc)) doc)
-		(progn
-		  (setq app obj)
-		  (princ (strcat "\nConnected to Civil 3D API (" progid ")."))
-		)
-	      )
-	    )
-	  )
-	)
-      )
-    )
-  )
-  app
-)
 
 ;;; Safely assign a new point number to a CogoPoint object.
 ;;; Returns T on success, nil on failure (trapping any C3D API error such as
@@ -161,23 +68,37 @@
   (princ)
   )
   
-(defun reorderpoints (/ *ACAD* C3D C3DDOC ENT GETNUM NEXTPOINT POINTS PTOBJ 
+(defun reorderpoints (/ *ACAD* ACDOC ENT GETNUM NEXTPOINT POINTS PTOBJ 
 							STYP TNIL PT1 PT2 PTLST MINPT MAXPT MINXY MAXXY PDST ZMMINPT ZMMAXPT  
 							VCTR VHGHT SSIZE VWDTH VWMINX VWMINY VWMAXX VWMAXY ZTRU SSPTS N FDEF 
-							FSTAT PLLST NPTS PLKP MODEL PLINE FPTLST)
+							FSTAT PLLST NPTS PLKP MODEL PLINE FPTLST PTSS PIDX PNUM)
   (setq	*acad* (vlax-get-acad-object)
-	C3D (ReorderPoints-GetAeccApp "Land")
+	acdoc (vla-get-activedocument *acad*)
   )
-  (if (not C3D)
-    (princ "\nUnable to connect to the Civil 3D API - command aborted.")
-    (if (and *acad*
-		c3d
-		(setq C3Ddoc (vla-get-activedocument C3D))
-		)
+  (if acdoc
 		(progn
+			;; Determine the highest existing point number by reading the
+			;; Number property directly off each AECC_COGO_POINT object.
+			;; (The AeccDocument 'points collection is avoided on purpose - in
+			;; recent Civil 3D releases accessing it throws
+			;; "Civil 3D API: The parameter is incorrect".)
 			(setq points nil)
-			(vlax-for point (vlax-get-property c3ddoc 'points)
-				(setq points (cons (vlax-get point 'number) points))
+			(setq ptss (ssget "x" '((0 . "AECC_COGO_POINT"))))
+			(if ptss
+				(progn
+					(setq pidx 0)
+					(repeat (sslength ptss)
+						(setq pnum (vl-catch-all-apply 'vlax-get
+							(list (vlax-ename->vla-object (ssname ptss pidx)) 'Number)))
+						(if (and (not (vl-catch-all-error-p pnum)) pnum)
+							(setq points (cons pnum points))
+						)
+						(setq pidx (1+ pidx))
+					)
+				)
+			)
+			(if (not points)
+				(setq points (list 0))
 			)
 			(setq points (vl-sort points '>))
 			(setq nextpoint (car points))
@@ -213,7 +134,7 @@
 				( ;;Begin Single Selection Condition
 					(= styp "Single")
 					(setq ent nil)
-					(vla-StartUndoMark C3Ddoc)
+					(vla-StartUndoMark acdoc)
 					(while (/= ent "exit")
 						(while 
 							(and
@@ -239,16 +160,16 @@
 							)
 						)
 					) 
-					(vla-EndUndoMark C3Ddoc)
+					(vla-EndUndoMark acdoc)
 				) ;;End Single Selection Condition
 				( ;;Begin Fence Selection Condition
 					(= styp "Fence")
 					(setq 
-						model (vla-get-modelspace C3Ddoc)
+						model (vla-get-modelspace acdoc)
 						pllst '()
 						fdef "Yes"
 					)
-					(vla-StartUndoMark C3Ddoc)
+					(vla-StartUndoMark acdoc)
 					(while (= fdef "Yes") ;;Begin While Loop to Create Fence and Select Points
 						(setq 
 							ptlst '()
@@ -439,11 +360,10 @@
 							)							
 						)
 					)
-					(vla-EndUndoMark C3Ddoc)					
+					(vla-EndUndoMark acdoc)					
 				) ;;End Fence Selection Condition
 			) ;;End Condition Statement
 		)
 	)
-  )
   (princ)
 )
