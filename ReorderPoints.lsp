@@ -1,4 +1,4 @@
-;;| 	Lisp to reorder existing points using new point numbers, in the order in which they are selected.
+;| 	Lisp to reorder existing points using new point numbers, in the order in which they are selected.
 	Application allows for single selection or fence selection of points.
 	Points can only be renumbered higher than the greatest existing point number.
 	
