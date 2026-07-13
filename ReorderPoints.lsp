@@ -69,42 +69,86 @@
   )
 )
 
+;;; Builds the ordered list of candidate AeccApplication version suffixes to try.
+;;; The version read from the registry (the running install) is tried first,
+;;; followed by every plausible major.minor combination, newest first, so the
+;;; routine keeps working on current, past and future Civil 3D releases without
+;;; having to hard-code a single version.  Reference points:
+;;;   13.8 = C3D 2026   13.7 = C3D 2025   13.6 = C3D 2024   13.5 = C3D 2023
+;;;   13.4 = C3D 2022   13.3 = C3D 2021   13.2 = C3D 2020   13.0 = C3D 2019
+;;;   12.0 = C3D 2018   11.0 = C3D 2017
+(defun ReorderPoints-VersionCandidates ( / regver lst maj mn)
+  (setq lst '())
+  ;; Generate ascending, then reverse so newest is tried first.
+  (foreach maj '("11" "12" "13" "14" "15")
+    (setq mn 0)
+    (while (<= mn 20)
+      (setq lst (cons (strcat maj "." (itoa mn)) lst))
+      (setq mn (1+ mn))
+    )
+  )
+  ;; lst is currently newest-first because of the cons order above.
+  ;; Prepend the registry-reported version so it is attempted before anything else.
+  (setq regver (ReorderPoints-GetReleaseVersion))
+  (if regver
+    (setq lst (cons regver (vl-remove regver lst)))
+  )
+  lst
+)
+
 ;;; Resilient replacement for the old inline version handshake.
 ;;; module must be "Land", "Pipe", "Roadway", or "Survey".
-;;; Returns the Aecc application object, or nil if none could be obtained.
-(defun ReorderPoints-GetAeccApp (module / *acad* regver verlst app progid try)
+;;; A candidate version is only accepted if getinterfaceobject succeeds AND the
+;;; returned object yields a usable ActiveDocument - this rejects "half valid"
+;;; objects that would otherwise throw "Civil 3D API: The parameter is incorrect"
+;;; later when the document is accessed.
+;;; Returns the validated Aecc application object, or nil if none worked.
+(defun ReorderPoints-GetAeccApp (module / *acad* app progid obj doc)
   (vl-load-com)
-  (setq *acad* (vlax-get-acad-object))
-  ;; Known AeccApplication versions, newest first, used as fallbacks.
-  ;;   13.8 = C3D 2026   13.7 = C3D 2025   13.6 = C3D 2024
-  ;;   13.5 = C3D 2023   13.4 = C3D 2022   13.3 = C3D 2021
-  ;;   13.2 = C3D 2020   13.0 = C3D 2019   12.0 = C3D 2018   11.0 = C3D 2017
-  (setq verlst '("13.8" "13.7" "13.6" "13.5" "13.4" "13.3" "13.2" "13.0" "12.0" "11.0"))
-  ;; Prefer the version reported by the running install's registry entry.
-  (setq regver (ReorderPoints-GetReleaseVersion))
-  (if (and regver (not (member regver verlst)))
-    (setq verlst (cons regver verlst))
-    (if regver (setq verlst (cons regver (vl-remove regver verlst))))
-  )
-  (setq app nil)
-  (foreach ver verlst
-    (if (and *acad* (null app))
-      (progn
-	(setq progid (strcat "AeccXUi" module
-			     ".Aecc"
-			     (if (= (strcase module) "LAND") "" module)
-			     "Application."
-			     ver
-		     )
-	)
-	(setq try (vl-catch-all-apply 'vla-getinterfaceobject (list *acad* progid)))
-	(if (not (vl-catch-all-error-p try))
-	  (setq app try)
+  (setq *acad* (vlax-get-acad-object)
+	app    nil)
+  (if *acad*
+    (foreach ver (ReorderPoints-VersionCandidates)
+      (if (null app)
+	(progn
+	  (setq progid (strcat "AeccXUi" module
+			       ".Aecc"
+			       (if (= (strcase module) "LAND") "" module)
+			       "Application."
+			       ver
+		       )
+	  )
+	  (setq obj (vl-catch-all-apply 'vla-getinterfaceobject (list *acad* progid)))
+	  (if (not (vl-catch-all-error-p obj))
+	    (progn
+	      (setq doc (vl-catch-all-apply 'vla-get-activedocument (list obj)))
+	      (if (and (not (vl-catch-all-error-p doc)) doc)
+		(progn
+		  (setq app obj)
+		  (princ (strcat "\nConnected to Civil 3D API (" progid ")."))
+		)
+	      )
+	    )
+	  )
 	)
       )
     )
   )
   app
+)
+
+;;; Safely assign a new point number to a CogoPoint object.
+;;; Returns T on success, nil on failure (trapping any C3D API error such as
+;;; "The parameter is incorrect" instead of aborting the whole command).
+(defun ReorderPoints-SetNumber (ptobj num / res)
+  (setq res (vl-catch-all-apply
+	      '(lambda ()
+		 (vlax-put ptobj 'number num)
+		 (vla-update ptobj)
+	       )
+	    )
+  )
+  (not (vl-catch-all-error-p res))
 )
 
 (defun c:reorderpoints ()
@@ -186,9 +230,10 @@
 							(if (eq (cdr (assoc 0 (entget (car ent)))) "AECC_COGO_POINT")
 								(progn
 									(setq ptobj (vlax-ename->vla-object (car ent)))
-									(vlax-put ptobj 'number nextpoint)
-									(vla-update ptobj)
-									(setq nextpoint (1+ nextpoint))
+									(if (ReorderPoints-SetNumber ptobj nextpoint)
+										(setq nextpoint (1+ nextpoint))
+										(princ (strcat "\n...unable to renumber this point to #" (itoa nextpoint) ", try another!"))
+									)
 								)
 								(princ "\n...not a point object, try again!")
 							)
@@ -363,12 +408,11 @@
 										(princ (strcat "\nNumber of Points Selected with Current Fence: " (itoa (sslength sspts))))
 										(repeat (sslength sspts)
 											(setq ptobj (vlax-ename->vla-object (ssname sspts n)))
-											(vlax-put ptobj 'number nextpoint)
-											(vla-update ptobj)
-											(setq 
-												nextpoint (1+ nextpoint)
-												n (1+ n)
+											(if (ReorderPoints-SetNumber ptobj nextpoint)
+												(setq nextpoint (1+ nextpoint))
+												(princ (strcat "\n...unable to renumber a point to #" (itoa nextpoint) ", skipped!"))
 											)
+											(setq n (1+ n))
 										)
 									)
 								)
