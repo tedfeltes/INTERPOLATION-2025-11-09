@@ -72,6 +72,50 @@ LABEL_PITCH = 7.6
 TRI_W = 12.0
 TRI_H = 11.0
 
+# ---------------------------------------------------------------------------
+# Georeferenced aerial labels.
+#
+# Some aerials carry their own large baked-in point labels/markers whose vector
+# metadata is unusable.  Instead we tie the survey coordinates in the control
+# file to the raster via a set of hand-read ground-control points (marker pixel
+# centres of a few clearly-labelled points), fit an affine  (Easting, Northing)
+# -> (pixel_x, pixel_y)  transform, then project *every* control point onto the
+# raster.  This lets us re-mark all markers uniformly (including ones the aerial
+# left unlabelled) with the sheet's red filled-triangle + red bold-italic style.
+#
+# GCPs = (Easting, Northing, pixel_x, pixel_y) read from wildflower_635e.pdf.
+GEO_GCP = [
+    (2468797.234, 418089.233, 380.5, 66.0),
+    (2468659.137, 417882.915, 352.0, 109.0),
+    (2468667.423, 417670.039, 353.5, 153.0),
+    (2468800.834, 417406.490, 381.5, 209.0),
+    (2468662.430, 417141.336, 352.0, 264.0),
+    (2468897.175, 416964.131, 401.0, 301.0),
+    (2468663.344, 416807.500, 352.5, 334.0),
+    (2470009.811, 417171.766, 633.5, 258.0),
+    (2470031.257, 417007.695, 638.0, 292.0),
+    (2470385.939, 416944.677, 712.0, 305.0),
+    (2470619.537, 417072.188, 761.0, 278.5),
+    (2471082.513, 416767.030, 858.0, 342.0),
+    (2471249.580, 416598.030, 892.5, 378.0),
+    (2471106.013, 416393.819, 862.5, 420.0),
+    (2471166.847, 416141.048, 875.0, 473.0),
+]
+# Aerial-source crop that frames the marker cluster (excludes compass/scale bar).
+GEO_CROP = (342.0, 0.0, 960.0, 552.0)
+# Control-file ids that have no triangle on the aerial (flag bolts / off-frame /
+# monuments coincident with another marker) -- kept in the table, not re-marked.
+GEO_SKIP = {"402", "403", "404", "405", "85", "131", "81", "BASE01"}
+# Markers present on the aerial but absent from the coordinate file: (id, px, py).
+GEO_EXTRA = [("1689", 744.0, 122.0)]
+# Stray baked-in symbols (no label, not a control point) to inpaint away:
+# (px, py, radius).
+GEO_ERASE = [(669.0, 144.0, 10.0)]
+GEO_TRI_W = 8.0
+GEO_TRI_H = 7.0
+GEO_FS = 8.0
+GEO_GAP = 1.8
+
 # Date (bottom-right). Only the value between "DATE:" and "PAGE" is replaced.
 # The original uses a bold monospace-style face at ~16pt; sized/aligned to match
 # the neighbouring "DATE:" / "PAGE" text.
@@ -213,6 +257,139 @@ def draw_styled_labels(page, crop):
                        FONT_BOLDIT, color=LABEL_RED)
 
 
+def _rects_overlap(a, b):
+    return not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
+
+
+def _geo_fit():
+    """Least-squares affine (E, N) -> (px, py) from GEO_GCP."""
+    import numpy as np
+
+    g = np.array(GEO_GCP, float)
+    A = np.column_stack([g[:, 0], g[:, 1], np.ones(len(g))])
+    cx, *_ = np.linalg.lstsq(A, g[:, 2], rcond=None)
+    cy, *_ = np.linalg.lstsq(A, g[:, 3], rcond=None)
+    return cx, cy
+
+
+def _geo_markers(coord_txt):
+    """Project every control point (plus GEO_EXTRA) into aerial-pixel space,
+    dropping GEO_SKIP ids and anything outside the crop.
+
+    Returns list of (id, pixel_x, pixel_y)."""
+    cx, cy = _geo_fit()
+    x0, y0, x1, y1 = GEO_CROP
+    out = []
+    with open(coord_txt) as fh:
+        for line in fh:
+            rec = [c.strip() for c in line.split(",") if c.strip()]
+            if len(rec) < 5:
+                continue
+            name, northing, easting = rec[0], float(rec[1]), float(rec[2])
+            if name in GEO_SKIP:
+                continue
+            px = cx[0] * easting + cx[1] * northing + cx[2]
+            py = cy[0] * easting + cy[1] * northing + cy[2]
+            if x0 <= px < x1 and y0 <= py < y1:
+                out.append((name, px, py))
+    out.extend(GEO_EXTRA)
+    return out
+
+
+def _aerial_png_geo(aerial_pdf, crop, out_png, markers):
+    """Inpaint the aerial's baked-in red labels and black triangle markers, then
+    crop for placement.  Marker discs are keyed off the projected positions."""
+    import cv2
+    import numpy as np
+
+    doc = fitz.open(aerial_pdf)
+    base = doc.extract_image(doc[0].get_images()[0][0])
+    doc.close()
+    img = cv2.imdecode(np.frombuffer(base["image"], np.uint8), cv2.IMREAD_COLOR)
+    b, g, r = cv2.split(img)
+    mask = ((r > 110) & (g < 95) & (b < 95)).astype(np.uint8) * 255
+    for _name, px, py in markers:
+        cv2.circle(mask, (int(round(px)), int(round(py))), 9, 255, -1)
+    for px, py, rad in GEO_ERASE:
+        cv2.circle(mask, (int(round(px)), int(round(py))), int(rad), 255, -1)
+    mask = cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=2)
+    img = cv2.inpaint(img, mask, 6, cv2.INPAINT_TELEA)
+    x0, y0, x1, y1 = (int(round(v)) for v in crop)
+    cv2.imwrite(out_png, img[y0:y1, x0:x1])
+
+
+def _geo_placed(crop):
+    """Letterbox placement of the crop inside AERIAL_RECT (as insert_image does
+    with keep_proportion=True).  Returns (scale, ox, oy, placed_rect)."""
+    cw, ch = crop[2] - crop[0], crop[3] - crop[1]
+    scale = min(AERIAL_RECT.width / cw, AERIAL_RECT.height / ch)
+    pw, ph = cw * scale, ch * scale
+    ox = AERIAL_RECT.x0 + (AERIAL_RECT.width - pw) / 2.0
+    oy = AERIAL_RECT.y0 + (AERIAL_RECT.height - ph) / 2.0
+    return scale, ox, oy, fitz.Rect(ox, oy, ox + pw, oy + ph)
+
+
+def draw_geo_labels(page, coord_txt):
+    """Draw a red filled triangle + red bold-italic point number at every
+    projected marker, choosing a non-overlapping label position for each."""
+    markers = _geo_markers(coord_txt)
+    scale, ox, oy, prect = _geo_placed(GEO_CROP)
+    font = fitz.Font(fontfile=FONT_BOLDIT[0])
+    cap = _CAP_RATIO * GEO_FS
+    hw, hh = GEO_TRI_W / 2.0, GEO_TRI_H / 2.0
+
+    items = []  # (name, sheet_x, sheet_y)
+    for name, px, py in markers:
+        sx = ox + (px - GEO_CROP[0]) * scale
+        sy = oy + (py - GEO_CROP[1]) * scale
+        items.append((name, sx, sy))
+    items.sort(key=lambda t: (t[2], t[1]))
+
+    # Triangles first, and reserve their footprints so text never lands on one.
+    occupied = []
+    for name, sx, sy in items:
+        occupied.append((sx - hw, sy - hh, sx + hw, sy + hh))
+        apex = (sx, sy - GEO_TRI_H * 2 / 3)
+        bl = (sx - hw, sy + GEO_TRI_H / 3)
+        br = (sx + hw, sy + GEO_TRI_H / 3)
+        shp = page.new_shape()
+        shp.draw_polyline([apex, bl, br])
+        shp.finish(color=LABEL_RED, fill=LABEL_RED, closePath=True, width=0.3)
+        shp.commit()
+
+    g = GEO_GAP
+    for name, sx, sy in items:
+        tw = font.text_length(name, fontsize=GEO_FS)
+        mid = sy + cap / 2.0
+        cands = [
+            (sx + hw + g, mid),                      # right
+            (sx - hw - g - tw, mid),                 # left
+            (sx - tw / 2.0, sy - hh - g),            # above
+            (sx - tw / 2.0, sy + hh + g + cap),      # below
+            (sx + hw + g, sy - hh - g),              # upper-right
+            (sx + hw + g, sy + hh + g + cap),        # lower-right
+            (sx - hw - g - tw, sy - hh - g),         # upper-left
+            (sx - hw - g - tw, sy + hh + g + cap),   # lower-left
+        ]
+        chosen = None
+        for tx, by in cands:
+            bbox = (tx, by - cap, tx + tw, by)
+            if bbox[0] < prect.x0 + 0.5 or bbox[2] > prect.x1 - 0.5:
+                continue
+            if bbox[1] < prect.y0 + 0.5 or bbox[3] > prect.y1 - 0.5:
+                continue
+            if any(_rects_overlap(bbox, o) for o in occupied):
+                continue
+            chosen = (tx, by, bbox)
+            break
+        if chosen is None:
+            tx, by = cands[0]
+            chosen = (tx, by, (tx, by - cap, tx + tw, by))
+        tx, by, bbox = chosen
+        occupied.append(bbox)
+        _text_left(page, tx, by, name, GEO_FS, FONT_BOLDIT, color=LABEL_RED)
+
+
 def _table_layout(n):
     """Row height, font size and bottom edge for *n* data rows, shrinking to
     stay within TABLE_MAX_BOTTOM for long point lists."""
@@ -276,10 +453,10 @@ def parse_points_csv(path):
 
 def build(source, output, job_name=None, aerial=None, aerial_crop=None,
           points=None, styled_labels=False, date=None, scale_500=False,
-          inpaint_aerial=True, aerial_fit=False):
+          inpaint_aerial=True, aerial_fit=False, geo_labels=None):
     doc = fitz.open(source)
     page = doc[0]
-    crop = aerial_crop or DEFAULT_AERIAL_CROP
+    crop = aerial_crop or (GEO_CROP if geo_labels else DEFAULT_AERIAL_CROP)
 
     # Collect redactions.
     page.add_redact_annot(JOB_NAME_RECT, fill=(1, 1, 1))
@@ -302,8 +479,14 @@ def build(source, output, job_name=None, aerial=None, aerial_crop=None,
     # Draw new content on top.
     if aerial:
         png = "/tmp/_aerial.png"
-        _aerial_png(aerial, crop, png, inpaint=inpaint_aerial)
-        page.insert_image(AERIAL_RECT, filename=png, keep_proportion=aerial_fit)
+        if geo_labels:
+            _aerial_png_geo(aerial, crop, png, _geo_markers(geo_labels))
+            page.insert_image(AERIAL_RECT, filename=png, keep_proportion=True)
+        else:
+            _aerial_png(aerial, crop, png, inpaint=inpaint_aerial)
+            page.insert_image(AERIAL_RECT, filename=png, keep_proportion=aerial_fit)
+    if geo_labels:
+        draw_geo_labels(page, geo_labels)
     if styled_labels:
         draw_styled_labels(page, crop)
     if points is not None:
@@ -332,6 +515,9 @@ def main():
                    help="Keep the aerial's own baked-in labels (do not inpaint).")
     p.add_argument("--aerial-fit", action="store_true",
                    help="Fit the aerial inside the panel preserving aspect (letterbox).")
+    p.add_argument("--geo-labels", default=None,
+                   help="Coordinate file: georeference the aerial and re-mark every "
+                        "point with the sheet's red triangle + bold-italic style.")
     p.add_argument("--date", default=None)
     p.add_argument("--scale-500", action="store_true")
     a = p.parse_args()
@@ -340,7 +526,7 @@ def main():
     rows = parse_points_csv(a.points) if a.points else None
     build(a.source, a.output, job_name=a.job_name, aerial=a.aerial, aerial_crop=crop,
           points=rows, styled_labels=a.styled_labels, date=a.date, scale_500=a.scale_500,
-          inpaint_aerial=not a.no_inpaint, aerial_fit=a.aerial_fit)
+          inpaint_aerial=not a.no_inpaint, aerial_fit=a.aerial_fit, geo_labels=a.geo_labels)
     print(f"Wrote: {a.output}")
 
 
