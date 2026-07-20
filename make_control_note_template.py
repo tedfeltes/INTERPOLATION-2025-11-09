@@ -50,6 +50,9 @@ TABLE_TITLE_SEP = 86.2
 TABLE_HEADER_SEP = 105.4
 TABLE_ROW_H = 17.25
 TABLE_LINE_W = 1.2
+# Lowest the table may reach before it would collide with the NOTE block (~y424).
+# Long point lists shrink the row height / font to fit within this bound.
+TABLE_MAX_BOTTOM = 416.0
 TABLE_CLEAR_RECT = fitz.Rect(707.0, 64.0, 978.0, 228.0)
 TABLE_HEADERS = ["Point #", "Description", "Elevation", "Northing", "Easting"]
 
@@ -134,9 +137,13 @@ def set_job_name(page, job_name):
                      color=(0, 0, 0), fill=(0, 0, 0))
 
 
-def _clean_aerial_png(aerial_pdf, crop, out_png):
-    """Extract the aerial's satellite raster, inpaint out its baked-in point
-    labels, crop to *crop*, and write a PNG for placement."""
+def _aerial_png(aerial_pdf, crop, out_png, inpaint=True):
+    """Extract the aerial's satellite raster, optionally inpaint out its
+    baked-in point labels, crop to *crop*, and write a PNG for placement.
+
+    When ``inpaint`` is False the raster (including its own baked-in labels) is
+    kept as-is -- used for aerials whose labels are already styled and whose
+    vector metadata is too unreliable to redraw."""
     import cv2
     import numpy as np
 
@@ -144,15 +151,16 @@ def _clean_aerial_png(aerial_pdf, crop, out_png):
     base = doc.extract_image(doc[0].get_images()[0][0])
     doc.close()
     img = cv2.imdecode(np.frombuffer(base["image"], np.uint8), cv2.IMREAD_COLOR)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    mask = np.zeros(img.shape[:2], np.uint8)
-    for x0, y0, x1, y1 in AERIAL_LABEL_BOXES:
-        sub = gray[y0:y1, x0:x1]
-        mask[y0:y1, x0:x1] = (sub < 120).astype(np.uint8) * 255
-    mask = cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=2)
-    clean = cv2.inpaint(img, mask, 6, cv2.INPAINT_TELEA)
+    if inpaint:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        mask = np.zeros(img.shape[:2], np.uint8)
+        for x0, y0, x1, y1 in AERIAL_LABEL_BOXES:
+            sub = gray[y0:y1, x0:x1]
+            mask[y0:y1, x0:x1] = (sub < 120).astype(np.uint8) * 255
+        mask = cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=2)
+        img = cv2.inpaint(img, mask, 6, cv2.INPAINT_TELEA)
     x0, y0, x1, y1 = (int(round(v)) for v in crop)
-    cv2.imwrite(out_png, clean[y0:y1, x0:x1])
+    cv2.imwrite(out_png, img[y0:y1, x0:x1])
 
 
 def _aerial_pixmap(aerial_path, crop):
@@ -205,11 +213,22 @@ def draw_styled_labels(page, crop):
                        FONT_BOLDIT, color=LABEL_RED)
 
 
+def _table_layout(n):
+    """Row height, font size and bottom edge for *n* data rows, shrinking to
+    stay within TABLE_MAX_BOTTOM for long point lists."""
+    if n <= 0:
+        return TABLE_ROW_H, TABLE_FONTSIZE, TABLE_HEADER_SEP
+    avail = TABLE_MAX_BOTTOM - TABLE_HEADER_SEP
+    row_h = min(TABLE_ROW_H, avail / n)
+    fs = min(TABLE_FONTSIZE, row_h * 0.8)
+    return row_h, fs, TABLE_HEADER_SEP + row_h * n
+
+
 def draw_point_table(page, rows):
     n = len(rows)
+    row_h, fs, bottom = _table_layout(n)
     x0, x1 = TABLE_COLS[0], TABLE_COLS[-1]
-    row_lines = [TABLE_HEADER_SEP + TABLE_ROW_H * i for i in range(n + 1)]
-    bottom = row_lines[-1]
+    row_lines = [TABLE_HEADER_SEP + row_h * i for i in range(n + 1)]
     for y in [TABLE_TOP, TABLE_TITLE_SEP] + row_lines:
         page.draw_line((x0, y), (x1, y), width=TABLE_LINE_W, color=(0, 0, 0))
     page.draw_line((x0, TABLE_TOP), (x0, bottom), width=TABLE_LINE_W, color=(0, 0, 0))
@@ -217,16 +236,16 @@ def draw_point_table(page, rows):
     for x in TABLE_COLS[1:-1]:
         page.draw_line((x, TABLE_TITLE_SEP), (x, bottom), width=TABLE_LINE_W, color=(0, 0, 0))
 
-    cap = _CAP_RATIO * TABLE_FONTSIZE
+    cap = _CAP_RATIO * fs
     centers = [(TABLE_COLS[i] + TABLE_COLS[i + 1]) / 2.0 for i in range(5)]
     _text_center(page, (x0 + x1) / 2.0, 79.25, "CONTROL POINTS", TITLE_FONTSIZE, FONT_REG)
     h_baseline = TABLE_TITLE_SEP + (TABLE_HEADER_SEP - TABLE_TITLE_SEP + cap) / 2.0
     for cx, text in zip(centers, TABLE_HEADERS):
         _text_center(page, cx, h_baseline, text, TABLE_FONTSIZE, FONT_REG)
     for i, row in enumerate(rows):
-        baseline = row_lines[i] + (TABLE_ROW_H + cap) / 2.0
+        baseline = row_lines[i] + (row_h + cap) / 2.0
         for cx, value in zip(centers, row):
-            _text_center(page, cx, baseline, value, TABLE_FONTSIZE, FONT_REG)
+            _text_center(page, cx, baseline, value, fs, FONT_REG)
 
 
 def draw_date(page, date_str):
@@ -250,11 +269,14 @@ def parse_points_csv(path):
             pt, northing, easting, elev, desc = rec[0], rec[1], rec[2], rec[3], " ".join(rec[4:])
             rows.append([pt, desc.upper(), f"{float(elev):.2f}",
                          f"{float(northing):.3f}", f"{float(easting):.3f}"])
+    # Sort by point number (numeric first, ascending), non-numeric ids last.
+    rows.sort(key=lambda r: (0, int(r[0]), "") if r[0].isdigit() else (1, 0, r[0]))
     return rows
 
 
 def build(source, output, job_name=None, aerial=None, aerial_crop=None,
-          points=None, styled_labels=False, date=None, scale_500=False):
+          points=None, styled_labels=False, date=None, scale_500=False,
+          inpaint_aerial=True, aerial_fit=False):
     doc = fitz.open(source)
     page = doc[0]
     crop = aerial_crop or DEFAULT_AERIAL_CROP
@@ -264,7 +286,10 @@ def build(source, output, job_name=None, aerial=None, aerial_crop=None,
     if aerial:
         page.add_redact_annot(AERIAL_CLEAR_RECT, fill=(1, 1, 1))
     if points is not None:
-        page.add_redact_annot(TABLE_CLEAR_RECT, fill=(1, 1, 1))
+        _, _, tbottom = _table_layout(len(points))
+        page.add_redact_annot(fitz.Rect(TABLE_CLEAR_RECT.x0, TABLE_CLEAR_RECT.y0,
+                                        TABLE_CLEAR_RECT.x1, max(TABLE_CLEAR_RECT.y1, tbottom + 4)),
+                              fill=(1, 1, 1))
     if date:
         page.add_redact_annot(DATE_CLEAR_RECT, fill=(1, 1, 1))
     if scale_500:
@@ -276,9 +301,9 @@ def build(source, output, job_name=None, aerial=None, aerial_crop=None,
 
     # Draw new content on top.
     if aerial:
-        clean_png = "/tmp/_clean_aerial.png"
-        _clean_aerial_png(aerial, crop, clean_png)
-        page.insert_image(AERIAL_RECT, filename=clean_png, keep_proportion=False)
+        png = "/tmp/_aerial.png"
+        _aerial_png(aerial, crop, png, inpaint=inpaint_aerial)
+        page.insert_image(AERIAL_RECT, filename=png, keep_proportion=aerial_fit)
     if styled_labels:
         draw_styled_labels(page, crop)
     if points is not None:
@@ -303,6 +328,10 @@ def main():
     p.add_argument("--aerial-crop", default=None)
     p.add_argument("--points", default=None)
     p.add_argument("--styled-labels", action="store_true")
+    p.add_argument("--no-inpaint", action="store_true",
+                   help="Keep the aerial's own baked-in labels (do not inpaint).")
+    p.add_argument("--aerial-fit", action="store_true",
+                   help="Fit the aerial inside the panel preserving aspect (letterbox).")
     p.add_argument("--date", default=None)
     p.add_argument("--scale-500", action="store_true")
     a = p.parse_args()
@@ -310,7 +339,8 @@ def main():
     crop = tuple(float(v) for v in a.aerial_crop.split(",")) if a.aerial_crop else None
     rows = parse_points_csv(a.points) if a.points else None
     build(a.source, a.output, job_name=a.job_name, aerial=a.aerial, aerial_crop=crop,
-          points=rows, styled_labels=a.styled_labels, date=a.date, scale_500=a.scale_500)
+          points=rows, styled_labels=a.styled_labels, date=a.date, scale_500=a.scale_500,
+          inpaint_aerial=not a.no_inpaint, aerial_fit=a.aerial_fit)
     print(f"Wrote: {a.output}")
 
 
