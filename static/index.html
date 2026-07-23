@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>StakeDXF — Civil 3D to Trimble Access</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand-mark">
+      <span class="brand-glyph" aria-hidden="true"></span>
+      <span class="brand-name">StakeDXF</span>
+    </div>
+    <nav class="topnav">
+      <a href="#convert">Convert</a>
+      <a href="#guide">Field guide</a>
+      <a href="#about">About</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" id="convert">
+      <p class="eyebrow">Civil 3D → Trimble Access</p>
+      <h1 class="brand-hero">StakeDXF</h1>
+      <p class="lede">
+        Convert AutoCAD Civil&nbsp;3D DWG linework into stakeable DXF for Trimble Access.
+      </p>
+
+      <form id="convert-form" class="convert-panel">
+        <label class="dropzone" id="dropzone" for="file-input">
+          <input id="file-input" name="file" type="file" accept=".dwg,.dxf,application/acad,image/vnd.dwg" required />
+          <span class="drop-title">Drop DWG or DXF here</span>
+          <span class="drop-sub">Civil 3D drawings work best after <code>EXPORTTOAUTOCAD</code></span>
+          <span class="file-chip" id="file-chip" hidden></span>
+        </label>
+
+        <div class="options-grid">
+          <label class="field">
+            <span>DXF version</span>
+            <select name="dxf_version" id="dxf_version">
+              <option value="R2010" selected>R2010 (recommended)</option>
+              <option value="R2000">R2000</option>
+              <option value="R2007">R2007</option>
+              <option value="R2013">R2013</option>
+              <option value="R2018">R2018</option>
+            </select>
+          </label>
+
+          <label class="check">
+            <input type="checkbox" name="explode_blocks" id="explode_blocks" checked />
+            <span>Explode blocks to linework</span>
+          </label>
+
+          <label class="check">
+            <input type="checkbox" name="convert_splines" id="convert_splines" checked />
+            <span>Convert splines to polylines</span>
+          </label>
+
+          <label class="check">
+            <input type="checkbox" name="include_display_only" id="include_display_only" />
+            <span>Keep text / hatch (display only)</span>
+          </label>
+
+          <label class="check">
+            <input type="checkbox" name="flatten_z" id="flatten_z" />
+            <span>Flatten elevations to Z=0</span>
+          </label>
+
+          <label class="field span-2">
+            <span>Include layers only <em>(optional, comma-separated)</em></span>
+            <input type="text" name="include_layers" id="include_layers" placeholder="CL, EOP, CURB, ROW" />
+          </label>
+
+          <label class="field span-2">
+            <span>Exclude layers <em>(optional)</em></span>
+            <input type="text" name="exclude_layers" id="exclude_layers" placeholder="DEFPOINTS, HATCH, XREF-*" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn primary" id="convert-btn">Convert for Trimble Access</button>
+          <p class="status" id="status" role="status" aria-live="polite"></p>
+        </div>
+      </form>
+
+      <aside class="result" id="result" hidden>
+        <div class="result-head">
+          <h2>Ready for the collector</h2>
+          <a class="btn primary" id="download-link" href="#">Download DXF</a>
+        </div>
+        <dl class="stats" id="stats"></dl>
+        <div class="layers" id="layers"></div>
+        <ul class="messages" id="messages"></ul>
+      </aside>
+    </section>
+
+    <section class="guide" id="guide">
+      <h2>Field guide</h2>
+      <div class="guide-columns">
+        <article>
+          <h3>1. Prep in Civil 3D</h3>
+          <ol id="civil-steps">
+            <li>Open the design drawing.</li>
+            <li>Run <code>EXPORTTOAUTOCAD</code> to explode AECC objects.</li>
+            <li>Or explode feature lines / alignments needed for stakeout.</li>
+            <li>Freeze annotation and hatch layers you won’t stake.</li>
+            <li>Confirm grid coordinates match the Trimble job.</li>
+          </ol>
+        </article>
+        <article>
+          <h3>2. Import in Trimble Access</h3>
+          <ol id="trimble-steps">
+            <li>Copy the DXF into the project folder.</li>
+            <li>Map → Layer manager → Map files.</li>
+            <li>Tap file twice so linework is selectable.</li>
+            <li>Enable Create nodes to stake vertices.</li>
+            <li>Tap a line or arc → Stakeout.</li>
+          </ol>
+        </article>
+      </div>
+      <p class="entity-note">
+        Stakeable entities kept by default:
+        <code>LINE</code> <code>LWPOLYLINE</code> <code>POLYLINE</code>
+        <code>ARC</code> <code>CIRCLE</code> <code>POINT</code> <code>INSERT</code>
+      </p>
+    </section>
+
+    <section class="about" id="about">
+      <h2>Built for stakeout linework</h2>
+      <p>
+        Trimble Access stakes standard AutoCAD entities from DXF — not Civil&nbsp;3D
+        proxy objects. StakeDXF decodes DWG, filters to selectable geometry, and
+        writes an ASCII DXF tuned for map stakeout.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <span>StakeDXF v1</span>
+    <span>DWG decode via ezdwg · DXF normalize via ezdxf</span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
