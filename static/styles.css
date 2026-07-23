@@ -111,20 +111,14 @@ body {
   letter-spacing: 0.02em;
 }
 
-.topnav {
-  display: flex;
-  gap: 1.25rem;
-}
-
-.topnav a {
-  color: var(--ink-muted);
-  text-decoration: none;
-  font-size: 0.95rem;
-  transition: color 0.2s ease;
-}
-
-.topnav a:hover {
-  color: var(--ink);
+.device-pill {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent-soft);
+  border: 1px solid rgba(228, 87, 46, 0.35);
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 main {
@@ -171,39 +165,85 @@ main {
   animation: rise 0.8s ease 0.1s both;
 }
 
-.source-tabs {
-  display: flex;
-  gap: 0.35rem;
-  margin-bottom: 1rem;
+.field-steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  margin: 0 0 1.25rem;
+  padding: 0;
 }
 
-.source-tabs .tab {
-  appearance: none;
+.field-steps li {
+  padding: 0.7rem 0.85rem;
   border: 1px solid var(--line);
-  background: rgba(8, 12, 8, 0.45);
+  border-radius: var(--radius);
+  background: rgba(8, 12, 8, 0.35);
+  color: var(--ink-muted);
+  font-size: 0.95rem;
+}
+
+.field-steps strong {
+  color: var(--accent-soft);
+  font-family: var(--font-display);
+}
+
+.phone-drop {
+  min-height: 8.5rem;
+}
+
+.advanced {
+  margin-top: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.35rem 0.75rem 0.75rem;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.advanced summary {
+  cursor: pointer;
   color: var(--ink-muted);
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.9rem;
-  padding: 0.55rem 0.9rem;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  padding: 0.55rem 0;
 }
 
-.source-tabs .tab.active {
-  color: var(--ink);
-  border-color: rgba(228, 87, 46, 0.55);
-  background: rgba(228, 87, 46, 0.14);
+.btn-block {
+  width: 100%;
 }
 
-.path-field {
-  margin-bottom: 0.25rem;
-}
-
-.path-field .hint {
-  font-size: 0.8rem;
+.next-hint {
+  margin: 0 0 1rem;
   color: var(--ink-muted);
+  font-size: 0.92rem;
+}
+
+.guide-card {
+  margin-bottom: 1.1rem;
+  padding: 1rem 0 0;
+}
+
+.guide-card.highlight {
+  padding: 1rem;
+  border: 1px solid rgba(228, 87, 46, 0.35);
+  border-radius: var(--radius);
+  background: rgba(228, 87, 46, 0.08);
+}
+
+.guide-card h3 {
+  margin: 0 0 0.65rem;
+  font-family: var(--font-display);
+  color: var(--accent-soft);
+  font-size: 1.05rem;
+}
+
+.guide-card p {
+  color: var(--ink-muted);
+  margin: 0 0 0.5rem;
+}
+
+.guide-card a {
+  color: var(--ok);
 }
 
 .dropzone {
@@ -455,23 +495,6 @@ main {
   font-size: 1.8rem;
 }
 
-.guide-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-}
-
-.guide article {
-  padding: 0;
-}
-
-.guide h3 {
-  margin: 0 0 0.75rem;
-  font-family: var(--font-display);
-  color: var(--accent-soft);
-  font-size: 1.05rem;
-}
-
 .guide ol {
   margin: 0;
   padding-left: 1.2rem;
@@ -515,13 +538,14 @@ footer {
   font-family: var(--font-mono);
 }
 
-@media (max-width: 720px) {
-  .topnav {
-    display: none;
+@media (min-width: 720px) {
+  .field-steps {
+    grid-template-columns: repeat(3, 1fr);
   }
+}
 
-  .options-grid,
-  .guide-columns {
+@media (max-width: 720px) {
+  .options-grid {
     grid-template-columns: 1fr;
   }
 
@@ -530,6 +554,23 @@ footer {
   }
 
   main {
-    padding-top: 1.75rem;
+    padding-top: 1.5rem;
+  }
+
+  .brand-hero {
+    font-size: clamp(2.6rem, 14vw, 4rem);
+  }
+
+  .topbar {
+    padding: 0.85rem 1rem;
+  }
+
+  .device-pill {
+    font-size: 0.65rem;
+  }
+
+  .btn.primary {
+    min-height: 3rem;
+    font-size: 1.05rem;
   }
 }

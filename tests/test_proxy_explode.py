@@ -107,5 +107,6 @@ def test_health_lists_engines() -> None:
 def test_guide_mentions_no_autocad() -> None:
     client = TestClient(app)
     body = client.get("/api/guide").json()
-    assert body["no_autocad_field_workflow"]
-    assert any("PROXYGRAPHICS" in note for note in body["notes"])
+    assert body["recommended_field_workflow"]
+    assert body["iphone_steps"]
+    assert any("PROXYGRAPHICS" in note or "proxy" in note.lower() for note in body["notes"])

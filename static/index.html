@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>StakeDXF — Civil 3D to Trimble Access</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#10160f" />
+  <title>StakeDXF — OneDrive DWG to TSC5</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/static/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
@@ -17,100 +22,95 @@
       <span class="brand-glyph" aria-hidden="true"></span>
       <span class="brand-name">StakeDXF</span>
     </div>
-    <nav class="topnav">
-      <a href="#convert">Convert</a>
-      <a href="#guide">Field guide</a>
-      <a href="#about">About</a>
-    </nav>
+    <span class="device-pill">iPhone · TSC5 · OneDrive</span>
   </header>
 
   <main>
     <section class="hero" id="convert">
-      <p class="eyebrow">Civil 3D → Trimble Access</p>
+      <p class="eyebrow">Field kit</p>
       <h1 class="brand-hero">StakeDXF</h1>
       <p class="lede">
-        Convert Civil&nbsp;3D DWG linework into stakeable DXF for Trimble Access —
-        from a network share, with no AutoCAD in the field.
+        Pull a Civil&nbsp;3D DWG from OneDrive on your phone, convert in the cloud,
+        drop the DXF onto your Trimble TSC5. No laptop.
       </p>
 
-      <form id="convert-form" class="convert-panel">
-        <div class="source-tabs" role="tablist">
-          <button type="button" class="tab active" data-source="upload" id="tab-upload">Upload file</button>
-          <button type="button" class="tab" data-source="path" id="tab-path">Network path</button>
-        </div>
+      <ol class="field-steps" aria-label="Field workflow">
+        <li><strong>OneDrive</strong> DWG from office</li>
+        <li><strong>Convert</strong> here on iPhone or TSC5</li>
+        <li><strong>Copy DXF</strong> into Trimble Data/Projects</li>
+      </ol>
 
-        <label class="dropzone" id="dropzone" for="file-input">
-          <input id="file-input" name="file" type="file" accept=".dwg,.dxf,application/acad,image/vnd.dwg" />
-          <span class="drop-title">Drop DWG or DXF here</span>
-          <span class="drop-sub">AECC objects are recovered from proxy graphics — AutoCAD not required</span>
+      <form id="convert-form" class="convert-panel">
+        <label class="dropzone phone-drop" id="dropzone" for="file-input">
+          <input
+            id="file-input"
+            name="file"
+            type="file"
+            accept=".dwg,.dxf,application/acad,image/vnd.dwg,application/octet-stream"
+            required
+          />
+          <span class="drop-title">Choose DWG from OneDrive</span>
+          <span class="drop-sub">Safari/Files → Browse → OneDrive location</span>
           <span class="file-chip" id="file-chip" hidden></span>
         </label>
 
-        <label class="field path-field" id="path-field" hidden>
-          <span>Network / mounted DWG path</span>
-          <input type="text" id="network-path" name="network_path" placeholder="\\\\server\\projects\\job\\design.dwg  or  /mnt/projects/job/design.dwg" />
-          <span class="hint">Reads the file in place from SMB/NFS — nothing is re-exported from Civil 3D.</span>
-        </label>
-
-        <div class="options-grid">
-          <label class="field">
-            <span>DXF version</span>
-            <select name="dxf_version" id="dxf_version">
-              <option value="R2010" selected>R2010 (recommended)</option>
-              <option value="R2000">R2000</option>
-              <option value="R2007">R2007</option>
-              <option value="R2013">R2013</option>
-              <option value="R2018">R2018</option>
-            </select>
-          </label>
-
-          <label class="check">
-            <input type="checkbox" name="explode_proxies" id="explode_proxies" checked />
-            <span>Explode Civil 3D proxy graphics</span>
-          </label>
-
-          <label class="check">
-            <input type="checkbox" name="explode_blocks" id="explode_blocks" checked />
-            <span>Explode blocks to linework</span>
-          </label>
-
-          <label class="check">
-            <input type="checkbox" name="convert_splines" id="convert_splines" checked />
-            <span>Convert splines to polylines</span>
-          </label>
-
-          <label class="check">
-            <input type="checkbox" name="include_display_only" id="include_display_only" />
-            <span>Keep text / hatch (display only)</span>
-          </label>
-
-          <label class="check">
-            <input type="checkbox" name="flatten_z" id="flatten_z" />
-            <span>Flatten elevations to Z=0</span>
-          </label>
-
-          <label class="field span-2">
-            <span>Include layers only <em>(optional, comma-separated)</em></span>
-            <input type="text" name="include_layers" id="include_layers" placeholder="CL, EOP, CURB, ROW" />
-          </label>
-
-          <label class="field span-2">
-            <span>Exclude layers <em>(optional)</em></span>
-            <input type="text" name="exclude_layers" id="exclude_layers" placeholder="DEFPOINTS, HATCH, XREF-*" />
-          </label>
-        </div>
+        <details class="advanced">
+          <summary>Advanced options</summary>
+          <div class="options-grid">
+            <label class="field">
+              <span>DXF version</span>
+              <select name="dxf_version" id="dxf_version">
+                <option value="R2010" selected>R2010 (recommended)</option>
+                <option value="R2000">R2000</option>
+                <option value="R2007">R2007</option>
+                <option value="R2013">R2013</option>
+                <option value="R2018">R2018</option>
+              </select>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="explode_proxies" checked />
+              <span>Explode Civil 3D proxies</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="explode_blocks" checked />
+              <span>Explode blocks</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="convert_splines" checked />
+              <span>Splines → polylines</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="flatten_z" />
+              <span>Flatten Z to 0</span>
+            </label>
+            <label class="field span-2">
+              <span>Include layers only</span>
+              <input type="text" id="include_layers" placeholder="CL, EOP, CURB" />
+            </label>
+            <label class="field span-2">
+              <span>Exclude layers</span>
+              <input type="text" id="exclude_layers" placeholder="DEFPOINTS, HATCH" />
+            </label>
+          </div>
+        </details>
 
         <div class="actions">
-          <button type="submit" class="btn primary" id="convert-btn">Convert for Trimble Access</button>
+          <button type="submit" class="btn primary btn-block" id="convert-btn">
+            Convert for TSC5
+          </button>
           <p class="status" id="status" role="status" aria-live="polite"></p>
         </div>
       </form>
 
       <aside class="result" id="result" hidden>
         <div class="result-head">
-          <h2>Ready for the collector</h2>
-          <a class="btn primary" id="download-link" href="#">Download DXF</a>
+          <h2>DXF ready</h2>
+          <a class="btn primary btn-block" id="download-link" href="#">Save DXF to Files / OneDrive</a>
         </div>
+        <p class="next-hint" id="next-hint">
+          Next on TSC5: OneDrive → copy into <code>Trimble Data/Projects/&lt;job&gt;/</code>
+          → Map files → selectable → Stakeout.
+        </p>
         <dl class="stats" id="stats"></dl>
         <div class="layers" id="layers"></div>
         <ul class="messages" id="messages"></ul>
@@ -118,48 +118,54 @@
     </section>
 
     <section class="guide" id="guide">
-      <h2>Field guide — no AutoCAD required</h2>
-      <div class="guide-columns">
-        <article>
-          <h3>1. Office DWG (one-time)</h3>
-          <ol id="civil-steps">
-            <li>Save the Civil 3D drawing with <code>PROXYGRAPHICS=1</code> (typical default).</li>
-            <li>Leave the DWG on the project network share.</li>
-            <li>Optional: freeze layers you will not stake.</li>
-            <li>Confirm grid coordinates match the Trimble job.</li>
-          </ol>
-        </article>
-        <article>
-          <h3>2. Field convert + Trimble</h3>
-          <ol id="trimble-steps">
-            <li>Mount the share and convert via Network path (or CLI).</li>
-            <li>StakeDXF explodes AECC proxy graphics into stakeable linework.</li>
-            <li>Copy <code>*_trimble_access.dxf</code> into the project folder.</li>
-            <li>Map → Layer manager → Map files → selectable → Stakeout.</li>
-          </ol>
-        </article>
-      </div>
-      <p class="entity-note">
-        Stakeable entities kept by default:
-        <code>LINE</code> <code>LWPOLYLINE</code> <code>POLYLINE</code>
-        <code>ARC</code> <code>CIRCLE</code> <code>POINT</code> <code>INSERT</code>
-      </p>
+      <h2>How you use this with only a phone + TSC5</h2>
+
+      <article class="guide-card">
+        <h3>A. Convert on iPhone (manual)</h3>
+        <ol id="iphone-steps">
+          <li>Open this page in Safari. Optional: Share → Add to Home Screen.</li>
+          <li>Tap Choose DWG → Browse → your OneDrive project folder.</li>
+          <li>Tap Convert for TSC5.</li>
+          <li>Tap Save DXF → Save to Files → OneDrive.</li>
+        </ol>
+      </article>
+
+      <article class="guide-card">
+        <h3>B. Get the DXF onto the TSC5</h3>
+        <ol id="tsc5-steps">
+          <li>On the TSC5, open the OneDrive app and download the DXF.</li>
+          <li>Trimble Access → Job data → File Explorer.</li>
+          <li>Copy DXF into <code>Trimble Data/Projects/&lt;your project&gt;/</code>.</li>
+          <li>Map → Layer manager → Map files → tap DXF twice → Stakeout.</li>
+        </ol>
+      </article>
+
+      <article class="guide-card highlight">
+        <h3>C. Best: auto-convert in OneDrive (no phone convert)</h3>
+        <p>
+          Set up Power Automate once in the office: when a <code>.dwg</code> lands in
+          the project folder, call StakeDXF and save <code>*_trimble_access.dxf</code>
+          next to it. In the field you only copy the DXF to the TSC5.
+        </p>
+        <p class="entity-note">
+          Details: <a href="/static/power-automate-onedrive.md">Power Automate + OneDrive setup</a>
+        </p>
+      </article>
     </section>
 
     <section class="about" id="about">
-      <h2>How AECC objects are recovered</h2>
+      <h2>Why this works without a laptop</h2>
       <p>
-        Civil&nbsp;3D custom objects are proprietary, but most DWGs embed a
-        <em>proxy graphic</em> metafile — the last displayed linework.
-        StakeDXF decodes that metafile into standard AutoCAD entities Trimble
-        Access can select and stake. No AutoCAD license is needed on the collector.
+        The converter runs in the cloud. Your iPhone or TSC5 only uploads the DWG
+        and downloads the DXF. Civil&nbsp;3D AECC objects are recovered from proxy
+        graphics already stored in the office DWG.
       </p>
     </section>
   </main>
 
   <footer>
-    <span>StakeDXF v1</span>
-    <span>DWG decode via ezdwg · DXF normalize via ezdxf</span>
+    <span>StakeDXF field kit</span>
+    <span>Host this URL for cellular access</span>
   </footer>
 
   <script src="/static/app.js"></script>
