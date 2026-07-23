@@ -171,6 +171,41 @@ main {
   animation: rise 0.8s ease 0.1s both;
 }
 
+.source-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.source-tabs .tab {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: rgba(8, 12, 8, 0.45);
+  color: var(--ink-muted);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.source-tabs .tab.active {
+  color: var(--ink);
+  border-color: rgba(228, 87, 46, 0.55);
+  background: rgba(228, 87, 46, 0.14);
+}
+
+.path-field {
+  margin-bottom: 0.25rem;
+}
+
+.path-field .hint {
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+}
+
 .dropzone {
   position: relative;
   display: grid;

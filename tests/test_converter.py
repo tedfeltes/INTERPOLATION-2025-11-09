@@ -104,7 +104,7 @@ def test_dwg_conversion_smoke() -> None:
     out = sample.with_name("Arc_trimble_access.dxf")
     try:
         payload = convert_for_trimble(sample, out)
-        assert payload["engine"] == "ezdwg"
+        assert payload["engine"] in {"ezdwg", "libredwg", "oda"}
         assert payload["stakeable_count"] >= 1
         assert out.exists()
     finally:

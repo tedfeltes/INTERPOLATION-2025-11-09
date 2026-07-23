@@ -29,15 +29,27 @@
       <p class="eyebrow">Civil 3D → Trimble Access</p>
       <h1 class="brand-hero">StakeDXF</h1>
       <p class="lede">
-        Convert AutoCAD Civil&nbsp;3D DWG linework into stakeable DXF for Trimble Access.
+        Convert Civil&nbsp;3D DWG linework into stakeable DXF for Trimble Access —
+        from a network share, with no AutoCAD in the field.
       </p>
 
       <form id="convert-form" class="convert-panel">
+        <div class="source-tabs" role="tablist">
+          <button type="button" class="tab active" data-source="upload" id="tab-upload">Upload file</button>
+          <button type="button" class="tab" data-source="path" id="tab-path">Network path</button>
+        </div>
+
         <label class="dropzone" id="dropzone" for="file-input">
-          <input id="file-input" name="file" type="file" accept=".dwg,.dxf,application/acad,image/vnd.dwg" required />
+          <input id="file-input" name="file" type="file" accept=".dwg,.dxf,application/acad,image/vnd.dwg" />
           <span class="drop-title">Drop DWG or DXF here</span>
-          <span class="drop-sub">Civil 3D drawings work best after <code>EXPORTTOAUTOCAD</code></span>
+          <span class="drop-sub">AECC objects are recovered from proxy graphics — AutoCAD not required</span>
           <span class="file-chip" id="file-chip" hidden></span>
+        </label>
+
+        <label class="field path-field" id="path-field" hidden>
+          <span>Network / mounted DWG path</span>
+          <input type="text" id="network-path" name="network_path" placeholder="\\\\server\\projects\\job\\design.dwg  or  /mnt/projects/job/design.dwg" />
+          <span class="hint">Reads the file in place from SMB/NFS — nothing is re-exported from Civil 3D.</span>
         </label>
 
         <div class="options-grid">
@@ -50,6 +62,11 @@
               <option value="R2013">R2013</option>
               <option value="R2018">R2018</option>
             </select>
+          </label>
+
+          <label class="check">
+            <input type="checkbox" name="explode_proxies" id="explode_proxies" checked />
+            <span>Explode Civil 3D proxy graphics</span>
           </label>
 
           <label class="check">
@@ -101,26 +118,24 @@
     </section>
 
     <section class="guide" id="guide">
-      <h2>Field guide</h2>
+      <h2>Field guide — no AutoCAD required</h2>
       <div class="guide-columns">
         <article>
-          <h3>1. Prep in Civil 3D</h3>
+          <h3>1. Office DWG (one-time)</h3>
           <ol id="civil-steps">
-            <li>Open the design drawing.</li>
-            <li>Run <code>EXPORTTOAUTOCAD</code> to explode AECC objects.</li>
-            <li>Or explode feature lines / alignments needed for stakeout.</li>
-            <li>Freeze annotation and hatch layers you won’t stake.</li>
+            <li>Save the Civil 3D drawing with <code>PROXYGRAPHICS=1</code> (typical default).</li>
+            <li>Leave the DWG on the project network share.</li>
+            <li>Optional: freeze layers you will not stake.</li>
             <li>Confirm grid coordinates match the Trimble job.</li>
           </ol>
         </article>
         <article>
-          <h3>2. Import in Trimble Access</h3>
+          <h3>2. Field convert + Trimble</h3>
           <ol id="trimble-steps">
-            <li>Copy the DXF into the project folder.</li>
-            <li>Map → Layer manager → Map files.</li>
-            <li>Tap file twice so linework is selectable.</li>
-            <li>Enable Create nodes to stake vertices.</li>
-            <li>Tap a line or arc → Stakeout.</li>
+            <li>Mount the share and convert via Network path (or CLI).</li>
+            <li>StakeDXF explodes AECC proxy graphics into stakeable linework.</li>
+            <li>Copy <code>*_trimble_access.dxf</code> into the project folder.</li>
+            <li>Map → Layer manager → Map files → selectable → Stakeout.</li>
           </ol>
         </article>
       </div>
@@ -132,11 +147,12 @@
     </section>
 
     <section class="about" id="about">
-      <h2>Built for stakeout linework</h2>
+      <h2>How AECC objects are recovered</h2>
       <p>
-        Trimble Access stakes standard AutoCAD entities from DXF — not Civil&nbsp;3D
-        proxy objects. StakeDXF decodes DWG, filters to selectable geometry, and
-        writes an ASCII DXF tuned for map stakeout.
+        Civil&nbsp;3D custom objects are proprietary, but most DWGs embed a
+        <em>proxy graphic</em> metafile — the last displayed linework.
+        StakeDXF decodes that metafile into standard AutoCAD entities Trimble
+        Access can select and stake. No AutoCAD license is needed on the collector.
       </p>
     </section>
   </main>

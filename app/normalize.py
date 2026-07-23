@@ -37,6 +37,8 @@ class NormalizeResult:
     layers: list[LayerStats]
     warnings: list[str] = field(default_factory=list)
     bbox: dict[str, float] | None = None
+    proxy_carriers_exploded: int = 0
+    proxy_primitives_created: int = 0
 
 
 def _entity_type(entity: DXFEntity) -> str:
@@ -186,6 +188,7 @@ def normalize_dxf(
     include_display_only: bool = False,
     explode_blocks: bool = True,
     convert_splines: bool = True,
+    explode_proxies: bool = True,
     include_layers: Iterable[str] | None = None,
     exclude_layers: Iterable[str] | None = None,
     flatten_z: bool = False,
@@ -193,16 +196,25 @@ def normalize_dxf(
     """
     Build an ASCII DXF containing only geometry Trimble Access can stake.
 
-    Civil 3D custom objects (AECC_*) are not readable by open-source DWG
-    parsers. Drawings should be exported with EXPORTTOAUTOCAD / explode
-    AEC objects so linework exists as LINE / LWPOLYLINE / ARC / etc.
+    Civil 3D AECC_* objects are recovered via embedded proxy graphics (no
+    AutoCAD required) when the DWG was saved with PROXYGRAPHICS enabled.
     """
+    from .proxy_explode import explode_proxy_graphics
+
     warnings: list[str] = []
     source_doc = ezdxf.readfile(source_path)
     type_counts, _, source_count = analyze_document(source_doc)
 
     # Work on a fresh copy so we can mutate safely
     working = ezdxf.readfile(source_path)
+
+    proxy_exploded = 0
+    proxy_primitives = 0
+    if explode_proxies:
+        proxy_stats = explode_proxy_graphics(working)
+        proxy_exploded = proxy_stats.carriers_exploded
+        proxy_primitives = proxy_stats.primitives_created
+        warnings.extend(proxy_stats.messages)
 
     if convert_splines:
         converted = _approximate_splines(working)
@@ -266,19 +278,34 @@ def normalize_dxf(
     )
 
     if stakeable == 0:
-        warnings.append(
-            "No Trimble Access stakeable entities were found. "
-            "Civil 3D custom objects (feature lines, alignments, corridors) must be "
-            "exploded or exported with EXPORTTOAUTOCAD before conversion."
-        )
+        if proxy_exploded == 0:
+            warnings.append(
+                "No Trimble Access stakeable entities were found. "
+                "If this is a Civil 3D DWG, ensure it was saved with PROXYGRAPHICS=1 "
+                "so AECC objects embed recoverable linework (no AutoCAD needed here)."
+            )
+        else:
+            warnings.append(
+                "Proxy objects were exploded but no stakeable entity types remained "
+                "after filtering. Check layer filters."
+            )
 
     customish = {
         name: count
         for name, count in type_counts.items()
         if name not in TRIMBLE_STAKEABLE_TYPES | TRIMBLE_DISPLAY_ONLY_TYPES
-        and name not in {"VIEWPORT", "REGION", "BODY", "3DSOLID", "IMAGE", "WIPEOUT"}
+        and name
+        not in {
+            "VIEWPORT",
+            "REGION",
+            "BODY",
+            "3DSOLID",
+            "IMAGE",
+            "WIPEOUT",
+            "ACAD_PROXY_ENTITY",
+        }
     }
-    if customish:
+    if customish and proxy_exploded == 0:
         top = ", ".join(f"{name}×{count}" for name, count in sorted(customish.items())[:8])
         warnings.append(f"Skipped non-stakeable entity types: {top}")
 
@@ -293,6 +320,8 @@ def normalize_dxf(
         layers=layers,
         warnings=warnings,
         bbox=_compute_bbox(out),
+        proxy_carriers_exploded=proxy_exploded,
+        proxy_primitives_created=proxy_primitives,
     )
 
 
@@ -314,4 +343,6 @@ def result_to_dict(result: NormalizeResult) -> dict:
         ],
         "warnings": result.warnings,
         "bbox": result.bbox,
+        "proxy_carriers_exploded": result.proxy_carriers_exploded,
+        "proxy_primitives_created": result.proxy_primitives_created,
     }

@@ -26,7 +26,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--keep-display", action="store_true", help="Keep text/hatch/etc.")
     parser.add_argument("--no-explode", action="store_true")
     parser.add_argument("--no-splines", action="store_true")
+    parser.add_argument(
+        "--no-proxies",
+        action="store_true",
+        help="Do not explode Civil 3D/AEC proxy graphics",
+    )
     parser.add_argument("--flatten-z", action="store_true")
+    parser.add_argument(
+        "--engine",
+        choices=["oda", "libredwg", "ezdwg"],
+        default=None,
+        help="Preferred DWG decoder (falls back automatically)",
+    )
     parser.add_argument("--json", action="store_true", help="Print machine-readable summary")
     args = parser.parse_args(argv)
 
@@ -52,9 +63,11 @@ def main(argv: list[str] | None = None) -> int:
         include_display_only=args.keep_display,
         explode_blocks=not args.no_explode,
         convert_splines=not args.no_splines,
+        explode_proxies=not args.no_proxies,
         include_layers=include,
         exclude_layers=exclude,
         flatten_z=args.flatten_z,
+        prefer_engine=args.engine,
     )
 
     if args.json:
