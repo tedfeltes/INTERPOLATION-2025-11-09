@@ -1,76 +1,53 @@
 # StakeDXF
 
-Cloud converter: **Civil 3D DWG (OneDrive) → Trimble Access DXF** for stakeout on a **Trimble TSC5**, using only an **iPhone + data collector** — no laptop in the field.
+**Installable app** for converting Civil 3D DWG → Trimble Access stakeout DXF  
+**on your phone or Trimble TSC5**. Runs on-device. No cloud. No laptop.
 
-## Field reality this is built for
+## Get the Android app (TSC5)
 
-| You have | You don't have |
-| --- | --- |
-| iPhone | Laptop |
-| Trimble TSC5 (Android) | AutoCAD / Civil 3D outside the office |
-| OneDrive with office DWGs | Desktop computer on site |
+Prebuilt APK:
 
-Conversion runs on a hosted StakeDXF URL. Phone/TSC5 only upload/download files.
+```text
+dist/StakeDXF-tsc5.apk
+```
 
-## Quick field paths
+1. Copy the APK to the TSC5 (OneDrive or USB)
+2. Install it (allow unknown apps if asked)
+3. Open **StakeDXF** → choose a `.dwg` → **Convert for Trimble Access**
+4. **Share / Save DXF** into `Trimble Data/Projects/<job>/`
+5. Trimble Access → Map → Layer manager → Map files → tap DXF twice → Stakeout
 
-1. **Best:** OneDrive auto-convert via Power Automate → DXF appears beside the DWG → copy DXF onto TSC5  
-   → see [FIELD_KIT.md](FIELD_KIT.md) and [static/power-automate-onedrive.md](static/power-automate-onedrive.md)
-2. **Manual:** iPhone Safari → Choose DWG from OneDrive → Convert → Save DXF to OneDrive → TSC5 copies it into `Trimble Data/Projects/<project>/`
-
-## Run / host
+## Build from source
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-export STAKEDXF_API_KEY='long-random-secret'   # for Power Automate
-python -m app
+# Native LibreDWG converter for Android arm64
+./native/build_android.sh
+
+cd mobile/stakedxf
+flutter pub get
+flutter build apk --release
+# → build/app/outputs/flutter-apk/app-release.apk
 ```
 
-Docker:
+See [mobile/README.md](mobile/README.md).
 
-```bash
-docker build -t stakedxf .
-docker run -p 8000:8000 -e STAKEDXF_API_KEY='long-random-secret' stakedxf
-```
+## iPhone
 
-Put HTTPS in front and bookmark the URL on the iPhone (Add to Home Screen).
+Same Flutter app. Building/signing an IPA needs a Mac + Xcode + Apple developer account. iOS LibreDWG linkage instructions are in `mobile/README.md`.
 
-## API for phone + automation
+## What it does on-device
 
-| Endpoint | Purpose |
-| --- | --- |
-| `POST /api/convert` | JSON summary + download URL (web UI) |
-| `POST /api/convert-file` | Returns DXF bytes directly (iPhone save / Power Automate) |
-| `GET /api/download/{job_id}` | Download a previous result |
-| `GET /api/guide` | Device-specific workflow JSON |
+1. Reads the DWG with LibreDWG (`libstakedxf.so`)
+2. Writes R2010 DXF
+3. Filters to Trimble-selectable linework: `LINE`, `LWPOLYLINE`, `POLYLINE`, `ARC`, `CIRCLE`, `POINT`, `INSERT`
 
-`STAKEDXF_API_KEY` (optional): when set, `/api/convert-file` requires header `X-API-Key`.
+Office tip: save Civil 3D DWGs with `PROXYGRAPHICS=1` (usual default) so AECC linework is present in the file.
 
-## How AECC objects are handled
-
-Civil 3D `AECC_*` objects are proprietary. StakeDXF recovers their **proxy graphics** (display linework embedded when the office saved the DWG with `PROXYGRAPHICS=1`) and writes Trimble-selectable `LINE` / `LWPOLYLINE` / `ARC` / `POINT` entities.
-
-## TSC5 import
-
-1. Copy `*_trimble_access.dxf` into `Trimble Data/Projects/<project>/`
-2. Map → Layer manager → Map files
-3. Tap DXF twice (selectable)
-4. Optional: Create nodes / Explode polylines
-5. Tap linework → Stakeout
-
-## Tests
-
-```bash
-pytest -q
-```
-
-## Project layout
+## Repo layout
 
 ```
-app/           Cloud converter API
-static/        Mobile field UI + PWA + Power Automate notes
-FIELD_KIT.md   Phone + TSC5 + OneDrive instructions
-tests/         Pytest suite
+mobile/stakedxf/   Flutter app (Android + iOS)
+native/            LibreDWG C wrapper + Android build script
+dist/              Installable APK
+app/               Optional desktop/server Python tools (not required in the field)
 ```
