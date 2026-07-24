@@ -1,6 +1,9 @@
 # StakeDXF mobile app (Android TSC5 + iOS)
 
-Installable on-device converter. **No cloud.** Import a Civil 3D DWG → recover stakeable linework → save a Trimble Access DXF.
+Installable on-device converter. **No cloud.**
+
+1. Import a Civil 3D DWG → recover stakeable linework → save a Trimble Access DXF  
+2. **Export Points** → select points → CSV or control-note-style staking plot PDF (auto-scaled)
 
 ## Android (Trimble TSC5)
 

@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'converter.dart';
+import 'points/export_points_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,14 +40,82 @@ class StakeDxfApp extends StatelessWidget {
   }
 }
 
-class HomePage extends StatefulWidget {
+class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          children: [
+            Text(
+              'StakeDXF',
+              style: TextStyle(
+                fontSize: 40,
+                fontWeight: FontWeight.w800,
+                color: cs.onSurface,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Recover Civil 3D linework, or build a staking plot from '
+              'points on this controller.',
+              style: TextStyle(
+                color: cs.onSurface.withValues(alpha: 0.75),
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _CardButton(
+              title: 'Convert DWG → DXF',
+              subtitle: 'Recover Civil 3D linework for Trimble Access',
+              icon: Icons.polyline,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ConvertDwgPage()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _CardButton(
+              title: 'Export Points',
+              subtitle: 'Select points → CSV or staking plot PDF',
+              icon: Icons.pin_drop,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ExportPointsScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 28),
+            Text(
+              'Runs entirely on this device. No cloud upload.',
+              style: TextStyle(
+                color: cs.onSurface.withValues(alpha: 0.55),
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _HomePageState extends State<HomePage> {
+class ConvertDwgPage extends StatefulWidget {
+  const ConvertDwgPage({super.key});
+
+  @override
+  State<ConvertDwgPage> createState() => _ConvertDwgPageState();
+}
+
+class _ConvertDwgPageState extends State<ConvertDwgPage> {
   final _converter = NativeConverter();
   String? _inputPath;
   String? _inputName;
@@ -101,7 +170,6 @@ class _HomePageState extends State<HomePage> {
         inputPath: input,
         outputPath: output,
       );
-      // Also copy to a durable app documents location
       final docs = await getApplicationDocumentsDirectory();
       final durable = p.join(docs.path, p.basename(output));
       await File(result.outputPath).copy(durable);
@@ -133,24 +201,22 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Convert DWG'),
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+      ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
-            Text(
-              'StakeDXF',
-              style: TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.w800,
-                color: cs.onSurface,
-                height: 1,
-              ),
-            ),
-            const SizedBox(height: 8),
             Text(
               'Import a Civil 3D DWG, recover the stakeable linework on this '
               'device, export a DXF for Trimble Access.',
-              style: TextStyle(color: cs.onSurface.withValues(alpha: 0.75), height: 1.35),
+              style: TextStyle(
+                color: cs.onSurface.withValues(alpha: 0.75),
+                height: 1.35,
+              ),
             ),
             const SizedBox(height: 24),
             _CardButton(
@@ -177,7 +243,10 @@ class _HomePageState extends State<HomePage> {
                     )
                   : const Text(
                       'Convert for Trimble Access',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
                     ),
             ),
             if (_error != null) ...[
@@ -211,7 +280,9 @@ class _HomePageState extends State<HomePage> {
                       ),
                     Text(
                       p.basename(_result!.outputPath),
-                      style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7)),
+                      style: TextStyle(
+                        color: cs.onSurface.withValues(alpha: 0.7),
+                      ),
                     ),
                     const SizedBox(height: 14),
                     FilledButton.icon(
@@ -235,14 +306,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ],
-            const SizedBox(height: 28),
-            Text(
-              'Runs entirely on this device. No cloud upload.',
-              style: TextStyle(
-                color: cs.onSurface.withValues(alpha: 0.55),
-                fontSize: 13,
-              ),
-            ),
           ],
         ),
       ),
@@ -308,6 +371,7 @@ class _CardButton extends StatelessWidget {
                   ],
                 ),
               ),
+              const Icon(Icons.chevron_right, color: Color(0x99E4572E)),
             ],
           ),
         ),

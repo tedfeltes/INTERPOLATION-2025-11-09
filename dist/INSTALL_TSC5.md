@@ -27,18 +27,28 @@ Company MDM may block unknown APKs. Ask IT to allow unknown-source installs, or 
 
 ## Convert a DWG → stakeable DXF
 
-1. Open **StakeDXF**
-2. Tap **Choose DWG / DXF**
-3. Pick the Civil 3D drawing
-4. Tap **Convert for Trimble Access**
-5. Confirm it reports stakeable entities (and proxy explode count when Civil 3D proxies were present)
-6. Tap **Save DXF** and put it in:
+1. Open **StakeDXF** → **Convert DWG → DXF**
+2. Pick the Civil 3D drawing
+3. Tap **Convert for Trimble Access**
+4. Confirm it reports stakeable entities (and proxy explode count when Civil 3D proxies were present)
+5. Tap **Save DXF** and put it in:
 
 ```text
 Trimble Data/Projects/<your project>/
 ```
 
-7. In Trimble Access: Map → Layer manager → **Map files** → make the DXF selectable → Stakeout
+6. In Trimble Access: Map → Layer manager → **Map files** → make the DXF selectable → Stakeout
+
+## Export Points → staking plot PDF
+
+1. In Trimble Access, export the points you want (CSV / PNEZD)
+2. Open **StakeDXF** → **Export Points**
+3. Tap **Import points CSV** and select that file
+4. Check the points you want on the plot
+5. Enter a job name
+6. Tap **Create staking plot PDF** — auto-scales to fit the sheet (control-note style)
+7. Optionally **Export selected points CSV** for a trimmed point list
+8. Open the PDF on the TSC5 while staking
 
 ## Confirm you have the right file
 
