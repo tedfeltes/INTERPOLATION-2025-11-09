@@ -5,7 +5,8 @@ Installable on-device converter. **No cloud.**
 1. Import a Civil 3D DWG → recover stakeable linework → save a Trimble Access DXF  
 2. **Export Points** → select points → CSV or customizable staking plot PDF  
    - Marker styles, label formats, optional point table  
-   - Optional linked DXF linework by layer
+   - Optional linked DXF linework by layer  
+   - Example PDFs: `dist/plot_examples/` (`dart run tool/generate_plot_examples.dart`)
 
 ## Android (Trimble TSC5)
 

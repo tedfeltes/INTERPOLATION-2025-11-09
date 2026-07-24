@@ -52,6 +52,14 @@ Trimble Data/Projects/<your project>/
 9. Optionally **Export selected points CSV**
 10. Open the PDF on the TSC5 while staking
 
+### Example plots
+
+See `dist/plot_examples/` for sample PDFs covering markers, labels, DXF linework layers, and table on/off. Regenerate with:
+
+```bash
+cd mobile/stakedxf && dart run tool/generate_plot_examples.dart
+```
+
 ## Confirm you have the right file
 
 - Name ends with `.apk`
