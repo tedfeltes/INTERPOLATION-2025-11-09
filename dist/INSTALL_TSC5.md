@@ -43,5 +43,6 @@ Trimble Data/Projects/<your project>/
 ## Confirm you have the right file
 
 - Name ends with `.apk`
+- Size about **60 MB** (includes on-device Civil 3D linework recovery)
 - Package id: `com.stakedxf.stakedxf`
 - App label after install: **StakeDXF**

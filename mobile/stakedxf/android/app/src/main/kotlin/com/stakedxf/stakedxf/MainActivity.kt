@@ -5,7 +5,6 @@ import com.chaquo.python.android.AndroidPlatform
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import org.json.JSONObject
 
 class MainActivity : FlutterActivity() {
     private val channelName = "com.stakedxf/linework"
@@ -30,20 +29,18 @@ class MainActivity : FlutterActivity() {
                         val module = py.getModule("linework")
                         val recovered = module.callAttr("recover_linework", input, output)
                         val map = recovered.asMap()
-                        val json = JSONObject()
-                        for ((key, value) in map) {
-                            json.put(key.toString(), value?.toString())
-                        }
-                        // Prefer numeric fields as numbers where possible
-                        val out = HashMap<String, Any?>()
-                        out["stakeable_count"] =
-                            map["stakeable_count"]?.toString()?.toIntOrNull() ?: 0
-                        out["proxy_exploded"] =
-                            map["proxy_exploded"]?.toString()?.toIntOrNull() ?: 0
-                        out["proxy_primitives"] =
-                            map["proxy_primitives"]?.toString()?.toIntOrNull() ?: 0
-                        out["ok"] = map["ok"]?.toString()?.toBoolean() ?: false
-                        out["message"] = map["message"]?.toString() ?: ""
+
+                        fun lookup(key: String): String? =
+                            map.entries.firstOrNull { it.key.toString() == key }
+                                ?.value?.toString()
+
+                        val out = hashMapOf<String, Any?>(
+                            "stakeable_count" to (lookup("stakeable_count")?.toIntOrNull() ?: 0),
+                            "proxy_exploded" to (lookup("proxy_exploded")?.toIntOrNull() ?: 0),
+                            "proxy_primitives" to (lookup("proxy_primitives")?.toIntOrNull() ?: 0),
+                            "ok" to (lookup("ok")?.toBoolean() ?: false),
+                            "message" to (lookup("message") ?: ""),
+                        )
                         result.success(out)
                     } catch (e: Exception) {
                         result.error("recover_failed", e.message, null)

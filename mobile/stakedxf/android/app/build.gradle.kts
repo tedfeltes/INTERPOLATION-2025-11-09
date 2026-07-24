@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.stakedxf.stakedxf"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -39,8 +39,8 @@ android {
 
 chaquopy {
     defaultConfig {
-        version = "3.11"
-        buildPython("python3")
+        version = "3.12"
+        buildPython("python3.12")
         pip {
             install("ezdxf==1.4.2")
         }
