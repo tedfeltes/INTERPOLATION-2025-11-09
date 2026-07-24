@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
 typedef _ConvertNative = Int32 Function(
@@ -23,11 +24,13 @@ class ConvertResult {
     required this.outputPath,
     required this.stakeableCount,
     required this.message,
+    this.proxyExploded = 0,
   });
 
   final String outputPath;
   final int stakeableCount;
   final String message;
+  final int proxyExploded;
 }
 
 DynamicLibrary _openLib() {
@@ -58,64 +61,103 @@ DynamicLibrary _openLib() {
 }
 
 class NativeConverter {
-  /// Convert DWG/DXF → Trimble-filtered DXF on a background isolate.
+  static const _linework = MethodChannel('com.stakedxf/linework');
+
+  /// Convert DWG/DXF → Trimble stakeable DXF.
+  ///
+  /// On Android: DWG→DXF via LibreDWG, then Python recovers Civil 3D proxy
+  /// linework (ACAD_PROXY_ENTITY) into LINE/ARC/POLYLINE before filtering.
   Future<ConvertResult> convertFile({
     required String inputPath,
     required String outputPath,
-  }) {
-    return compute(_convertWorker, <String, String>{
-      'input': inputPath,
-      'output': outputPath,
-    });
+  }) async {
+    final lower = inputPath.toLowerCase();
+    var rawDxf = outputPath;
+
+    if (lower.endsWith('.dwg')) {
+      rawDxf = '$outputPath.raw.dxf';
+      await compute(_dwgToDxfWorker, <String, String>{
+        'input': inputPath,
+        'output': rawDxf,
+      });
+    } else if (lower.endsWith('.dxf')) {
+      rawDxf = inputPath;
+    } else {
+      throw Exception('Choose a .dwg or .dxf file');
+    }
+
+    try {
+      if (Platform.isAndroid) {
+        final raw = await _linework.invokeMethod<dynamic>('recoverLinework', {
+          'input': rawDxf,
+          'output': outputPath,
+        });
+        if (raw is! Map) {
+          throw Exception('Linework recovery returned nothing');
+        }
+        final recovered = Map<String, dynamic>.from(raw);
+        final stakeable = (recovered['stakeable_count'] as num?)?.toInt() ?? 0;
+        final proxyExploded =
+            (recovered['proxy_exploded'] as num?)?.toInt() ?? 0;
+        final message = recovered['message']?.toString() ??
+            (stakeable > 0
+                ? 'Recovered $stakeable stakeable entities'
+                : 'No stakeable linework found in this drawing.');
+        return ConvertResult(
+          outputPath: outputPath,
+          stakeableCount: stakeable,
+          proxyExploded: proxyExploded,
+          message: message,
+        );
+      }
+
+      // Host / iOS fallback: text filter only (no proxy explode).
+      final stakeable = await compute(_filterWorker, <String, String>{
+        'input': rawDxf,
+        'output': outputPath,
+      });
+      return ConvertResult(
+        outputPath: outputPath,
+        stakeableCount: stakeable,
+        message: stakeable > 0
+            ? 'Ready for Trimble Access stakeout'
+            : 'No stakeable linework found in this drawing.',
+      );
+    } finally {
+      if (rawDxf != inputPath && rawDxf != outputPath) {
+        try {
+          File(rawDxf).deleteSync();
+        } catch (_) {}
+      }
+    }
   }
 }
 
-ConvertResult _convertWorker(Map<String, String> args) {
+void _dwgToDxfWorker(Map<String, String> args) {
   final input = args['input']!;
   final output = args['output']!;
-  final lower = input.toLowerCase();
-
-  var rawDxf = output;
-  if (lower.endsWith('.dwg')) {
-    rawDxf = '$output.raw.dxf';
-    final lib = _openLib();
-    final convert = lib.lookupFunction<_ConvertNative, _ConvertDart>(
-      'stakedxf_convert',
-    );
-    final inputPtr = input.toNativeUtf8();
-    final outputPtr = rawDxf.toNativeUtf8();
-    final errPtr = calloc<Uint8>(512).cast<Utf8>();
-    try {
-      final rc = convert(inputPtr, outputPtr, errPtr, 512);
-      final err = errPtr.toDartString();
-      if (rc != 0) {
-        throw Exception(err.isEmpty ? 'Native convert failed ($rc)' : err);
-      }
-    } finally {
-      malloc.free(inputPtr);
-      malloc.free(outputPtr);
-      calloc.free(errPtr);
-    }
-  } else if (lower.endsWith('.dxf')) {
-    rawDxf = input;
-  } else {
-    throw Exception('Choose a .dwg or .dxf file');
-  }
-
-  final stakeable = filterTrimbleDxf(rawDxf, output);
-  if (rawDxf != input && rawDxf != output) {
-    try {
-      File(rawDxf).deleteSync();
-    } catch (_) {}
-  }
-
-  return ConvertResult(
-    outputPath: output,
-    stakeableCount: stakeable,
-    message: stakeable > 0
-        ? 'Ready for Trimble Access stakeout'
-        : 'No stakeable linework found in this drawing.',
+  final lib = _openLib();
+  final convert = lib.lookupFunction<_ConvertNative, _ConvertDart>(
+    'stakedxf_convert',
   );
+  final inputPtr = input.toNativeUtf8();
+  final outputPtr = output.toNativeUtf8();
+  final errPtr = calloc<Uint8>(512).cast<Utf8>();
+  try {
+    final rc = convert(inputPtr, outputPtr, errPtr, 512);
+    final err = errPtr.toDartString();
+    if (rc != 0) {
+      throw Exception(err.isEmpty ? 'Native convert failed ($rc)' : err);
+    }
+  } finally {
+    malloc.free(inputPtr);
+    malloc.free(outputPtr);
+    calloc.free(errPtr);
+  }
+}
+
+int _filterWorker(Map<String, String> args) {
+  return filterTrimbleDxf(args['input']!, args['output']!);
 }
 
 const stakeableTypes = {
@@ -131,6 +173,7 @@ const stakeableTypes = {
 };
 
 /// Keep non-entity sections; in ENTITIES keep only Trimble-selectable types.
+/// Does NOT explode Civil 3D proxies — Android uses Python recover_linework.
 int filterTrimbleDxf(String inputPath, String outputPath) {
   final lines = File(inputPath).readAsLinesSync();
   final out = StringBuffer();
@@ -163,9 +206,7 @@ int filterTrimbleDxf(String inputPath, String outputPath) {
         continue;
       }
       keep = stakeableTypes.contains(value);
-      if (keep &&
-          value != 'VERTEX' &&
-          value != 'SEQEND') {
+      if (keep && value != 'VERTEX' && value != 'SEQEND') {
         stakeable += 1;
       }
     }

@@ -109,6 +109,7 @@ class _HomePageState extends State<HomePage> {
         _result = ConvertResult(
           outputPath: durable,
           stakeableCount: result.stakeableCount,
+          proxyExploded: result.proxyExploded,
           message: result.message,
         );
       });
@@ -147,15 +148,15 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Pick a Civil 3D DWG from OneDrive/Files, convert on this device, '
-              'export a DXF you can stake in Trimble Access.',
+              'Import a Civil 3D DWG, recover the stakeable linework on this '
+              'device, export a DXF for Trimble Access.',
               style: TextStyle(color: cs.onSurface.withValues(alpha: 0.75), height: 1.35),
             ),
             const SizedBox(height: 24),
             _CardButton(
               title: _inputName == null ? 'Choose DWG / DXF' : _inputName!,
               subtitle: _inputName == null
-                  ? 'OneDrive, Files, or Downloads'
+                  ? 'Civil 3D drawing with linework'
                   : _inputPath,
               icon: Icons.folder_open,
               onTap: _busy ? null : _pick,
@@ -204,6 +205,10 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 8),
                     Text('Stakeable entities: ${_result!.stakeableCount}'),
+                    if (_result!.proxyExploded > 0)
+                      Text(
+                        'Civil 3D proxies exploded: ${_result!.proxyExploded}',
+                      ),
                     Text(
                       p.basename(_result!.outputPath),
                       style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7)),
@@ -212,15 +217,15 @@ class _HomePageState extends State<HomePage> {
                     FilledButton.icon(
                       onPressed: _share,
                       icon: const Icon(Icons.ios_share),
-                      label: const Text('Share / Save DXF'),
+                      label: const Text('Save DXF'),
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                       ),
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'On TSC5: save into Trimble Data/Projects/<job>/ then '
-                      'Map → Layer manager → Map files → selectable → Stakeout.',
+                      'Put the DXF in your Trimble job folder, set it as a '
+                      'selectable map file, then stake the linework.',
                       style: TextStyle(
                         color: cs.onSurface.withValues(alpha: 0.7),
                         height: 1.35,

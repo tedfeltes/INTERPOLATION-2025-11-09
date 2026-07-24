@@ -4,7 +4,7 @@
         android:maxSdkVersion="28"/>
     <application
         android:label="StakeDXF"
-        android:name="${applicationName}"
+        android:name="com.chaquo.python.android.PyApplication"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true">
         <activity
