@@ -1,6 +1,6 @@
 # StakeDXF mobile app (Android TSC5 + iOS)
 
-Installable on-device converter. **No cloud.** Pick a DWG → convert on the device → share/save a Trimble Access DXF.
+Installable on-device converter. **No cloud.** Import a Civil 3D DWG → recover stakeable linework → save a Trimble Access DXF.
 
 ## Android (Trimble TSC5)
 
@@ -25,27 +25,23 @@ APK output:
 mobile/stakedxf/build/app/outputs/flutter-apk/app-release.apk
 ```
 
+Also copied for distribution as `dist/StakeDXF-tsc5.apk`.
+
 ### Install on TSC5
 
-1. Copy `app-release.apk` to the TSC5 (OneDrive / USB)
-2. On the TSC5, open the APK and install (allow unknown sources if prompted)
+1. Copy the APK onto the TSC5
+2. Open the APK and install (allow unknown sources if prompted)
 3. Open **StakeDXF**
-4. Choose DWG from OneDrive/Files → **Convert for Trimble Access** → **Share / Save DXF**
-5. Save into `Trimble Data/Projects/<job>/`
+4. Choose DWG → **Convert for Trimble Access** → **Save DXF**
+5. Put the DXF in `Trimble Data/Projects/<job>/`
 6. Trimble Access → Map files → selectable → Stakeout
-
-## iPhone
-
-The Flutter iOS project is included. Building an IPA requires a Mac with Xcode and an Apple developer certificate. The same UI/FFI code is used; LibreDWG must be compiled for `ios-arm64` and linked into the Runner target (mirror of the Android `libstakedxf.so` step).
-
-```bash
-cd mobile/stakedxf
-flutter build ios --release   # Mac + Xcode only
-```
 
 ## What runs on-device
 
-- `libstakedxf.so` — LibreDWG-based DWG → DXF
-- Dart filter — keeps Trimble-selectable entities (`LINE`, `LWPOLYLINE`, `POLYLINE`, `ARC`, `CIRCLE`, `POINT`, `INSERT`)
+1. `libstakedxf.so` — LibreDWG DWG → DXF
+2. **Python (Chaquopy + ezdxf)** — explode Civil 3D / AEC `ACAD_PROXY_ENTITY` proxy graphics into `LINE` / `ARC` / `POLYLINE`
+3. Keep Trimble-selectable entities only → export DXF
 
-Civil 3D AECC recovery depends on proxy graphics present in the office-saved DWG.
+## iPhone
+
+The Flutter iOS project is included. Building an IPA requires a Mac with Xcode and an Apple developer certificate. Proxy explode on iOS is not wired the same way yet (Android uses Chaquopy).
