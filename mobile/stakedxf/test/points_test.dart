@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stakedxf/points/csv_io.dart';
+import 'package:stakedxf/points/dxf_linework.dart';
+import 'package:stakedxf/points/plot_options.dart';
 import 'package:stakedxf/points/plot_pdf.dart';
 import 'package:stakedxf/points/survey_point.dart';
 
@@ -62,17 +64,70 @@ void main() {
     expect(scale, lessThanOrEqualTo(50));
   });
 
-  test('staking plot PDF builds for sample points', () async {
+  test('label format variants', () {
+    const p = SurveyPoint(
+      id: '7',
+      northing: 1,
+      easting: 2,
+      elevation: 3.25,
+      description: 'IP',
+    );
+    expect(labelLinesFor(p, PointLabelFormat.numberOnly), ['7']);
+    expect(labelLinesFor(p, PointLabelFormat.numberElevation), ['7', '3.25']);
+    expect(labelLinesFor(p, PointLabelFormat.numberDescription), ['7', 'IP']);
+    expect(
+      labelLinesFor(p, PointLabelFormat.numberDescriptionElevation),
+      ['7', 'IP', '3.25'],
+    );
+    expect(labelLinesFor(p, PointLabelFormat.none), isEmpty);
+  });
+
+  test('parse DXF linework by layer', () {
+    final text = File('test/fixtures/sample_linework.dxf').readAsStringSync();
+    final lw = parseDxfLinework(text);
+    expect(lw.layers, containsAll(['CL', 'CURB', 'STRUCTURE']));
+    expect(lw.entities.length, 4);
+    final curb = lw.forLayers({'CURB'});
+    expect(curb.length, 2);
+    expect(lw.boundsFor({'CL'}), isNotNull);
+  });
+
+  test('staking plot PDF with options and linework', () async {
     final text = File('test/fixtures/sample_points.csv').readAsStringSync();
     final pts = parsePointsCsv(text);
-    final bytes = await buildStakingPlotPdf(
+    final dxf = File('test/fixtures/sample_linework.dxf').readAsStringSync();
+    final lw = parseDxfLinework(dxf);
+
+    for (final marker in PointMarkerStyle.values) {
+      final bytes = await buildStakingPlotPdf(
+        points: pts,
+        jobName: 'ALPINE HILLS',
+        date: DateTime(2026, 7, 15),
+        options: PlotOptions(
+          markerStyle: marker,
+          labelFormat: PointLabelFormat.numberElevation,
+          showPointList: false,
+          includeLinework: true,
+        ),
+        linework: lw.forLayers(lw.layers.toSet()),
+      );
+      expect(bytes.length, greaterThan(1000));
+      expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+    }
+
+    final withTable = await buildStakingPlotPdf(
       points: pts,
       jobName: 'ALPINE HILLS',
       date: DateTime(2026, 7, 15),
+      options: const PlotOptions(
+        markerStyle: PointMarkerStyle.largeX,
+        labelFormat: PointLabelFormat.numberDescription,
+        showPointList: true,
+        includeLinework: false,
+      ),
     );
-    expect(bytes.length, greaterThan(1000));
-    expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
     final out = File('test/fixtures/sample_staking_plot.pdf');
-    await out.writeAsBytes(bytes);
+    await out.writeAsBytes(withTable);
+    expect(withTable.length, greaterThan(1000));
   });
 }

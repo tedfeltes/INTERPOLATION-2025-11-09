@@ -43,12 +43,14 @@ Trimble Data/Projects/<your project>/
 
 1. In Trimble Access, export the points you want (CSV / PNEZD)
 2. Open **StakeDXF** → **Export Points**
-3. Tap **Import points CSV** and select that file
-4. Check the points you want on the plot
-5. Enter a job name
-6. Tap **Create staking plot PDF** — auto-scales to fit the sheet (control-note style)
-7. Optionally **Export selected points CSV** for a trimmed point list
-8. Open the PDF on the TSC5 while staking
+3. Tap **Import points CSV / TXT** and select that file
+4. (Optional) **Link DXF linework** — pick a matching DXF, then choose which layers to draw
+5. Set **point marker** (triangle, X, cross, circle, dot, …) and **point label** format
+6. Leave **Include point list table** off unless you want the coordinate table
+7. Check the points you want on the plot
+8. Tap **Create staking plot PDF** — auto-scales to fit the sheet
+9. Optionally **Export selected points CSV**
+10. Open the PDF on the TSC5 while staking
 
 ## Confirm you have the right file
 

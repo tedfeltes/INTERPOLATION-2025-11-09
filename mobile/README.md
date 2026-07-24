@@ -3,7 +3,9 @@
 Installable on-device converter. **No cloud.**
 
 1. Import a Civil 3D DWG → recover stakeable linework → save a Trimble Access DXF  
-2. **Export Points** → select points → CSV or control-note-style staking plot PDF (auto-scaled)
+2. **Export Points** → select points → CSV or customizable staking plot PDF  
+   - Marker styles, label formats, optional point table  
+   - Optional linked DXF linework by layer
 
 ## Android (Trimble TSC5)
 

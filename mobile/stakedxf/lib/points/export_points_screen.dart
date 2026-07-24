@@ -8,10 +8,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'csv_io.dart';
+import 'dxf_linework.dart';
+import 'plot_options.dart';
 import 'plot_pdf.dart';
 import 'survey_point.dart';
 
-/// Export Points screen — import CSV, select points, export CSV / staking plot PDF.
+/// Export Points screen — import CSV, customize plot, export CSV / staking plot PDF.
 class ExportPointsScreen extends StatefulWidget {
   const ExportPointsScreen({super.key});
 
@@ -24,6 +26,10 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   List<SurveyPoint> _points = const [];
   final Set<String> _selected = {};
   String? _sourceName;
+  String? _dxfName;
+  DxfLinework? _linework;
+  final Set<String> _selectedLayers = {};
+  PlotOptions _options = const PlotOptions();
   String? _error;
   String? _status;
   bool _busy = false;
@@ -35,7 +41,13 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   }
 
   List<SurveyPoint> get _chosen =>
-      _points.where((p) => _selected.contains(p.id)).toList();
+      _points.where((pt) => _selected.contains(pt.id)).toList();
+
+  List<LineworkEntity> get _chosenLinework {
+    final lw = _linework;
+    if (lw == null || !_options.includeLinework) return const [];
+    return lw.forLayers(_selectedLayers);
+  }
 
   Future<void> _importCsv() async {
     setState(() {
@@ -80,7 +92,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       _points = parsed;
       _selected
         ..clear()
-        ..addAll(parsed.map((p) => p.id));
+        ..addAll(parsed.map((pt) => pt.id));
       _sourceName = file.name;
       _status = 'Loaded ${parsed.length} points';
       if (_jobCtrl.text.trim().isEmpty) {
@@ -89,11 +101,79 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     });
   }
 
+  Future<void> _linkDxf() async {
+    setState(() {
+      _error = null;
+      _status = null;
+    });
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      allowMultiple: false,
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty) return;
+    final file = picked.files.first;
+    final lower = file.name.toLowerCase();
+    if (!lower.endsWith('.dxf')) {
+      setState(() => _error = 'Pick a .dxf file to link as plot linework.');
+      return;
+    }
+
+    String? text =
+        file.bytes != null ? utf8.decode(file.bytes!, allowMalformed: true) : null;
+    if ((text == null || text.trim().isEmpty) && file.path != null) {
+      text = await File(file.path!).readAsString();
+    }
+    if (text == null || text.trim().isEmpty) {
+      setState(() => _error = 'Could not read that DXF.');
+      return;
+    }
+
+    final parsed = parseDxfLinework(text);
+    if (parsed.entities.isEmpty) {
+      setState(
+        () => _error =
+            'No LINE / LWPOLYLINE / ARC / CIRCLE linework found in that DXF.',
+      );
+      return;
+    }
+
+    setState(() {
+      _linework = parsed;
+      _dxfName = file.name;
+      _selectedLayers
+        ..clear()
+        ..addAll(parsed.layers);
+      _options = _options.copyWith(includeLinework: true);
+      _status =
+          'Linked ${parsed.entities.length} entities on ${parsed.layers.length} layers';
+    });
+  }
+
+  void _clearDxf() {
+    setState(() {
+      _linework = null;
+      _dxfName = null;
+      _selectedLayers.clear();
+      _status = 'Cleared linked DXF linework';
+    });
+  }
+
   void _selectAll(bool value) {
     setState(() {
       _selected
         ..clear()
-        ..addAll(value ? _points.map((p) => p.id) : const <String>[]);
+        ..addAll(value ? _points.map((pt) => pt.id) : const <String>[]);
+    });
+  }
+
+  void _selectAllLayers(bool value) {
+    final lw = _linework;
+    if (lw == null) return;
+    setState(() {
+      _selectedLayers
+        ..clear()
+        ..addAll(value ? lw.layers : const <String>[]);
     });
   }
 
@@ -140,11 +220,15 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       _status = null;
     });
     try {
+      final linework = _chosenLinework;
       final bytes = await buildStakingPlotPdf(
         points: chosen,
         jobName: _jobCtrl.text.trim(),
+        options: _options,
+        linework: linework,
       );
-      final scale = chooseEngineeringScale(chosen).round();
+      final scale =
+          chooseEngineeringScale(chosen, linework: linework).round();
       final docs = await getApplicationDocumentsDirectory();
       final stem = _jobCtrl.text.trim().isEmpty
           ? 'staking_plot'
@@ -155,9 +239,10 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         [XFile(out.path, mimeType: 'application/pdf')],
         text: 'Staking plot 1"=$scale\'',
       );
+      final lwNote = linework.isEmpty ? '' : ', ${linework.length} linework';
       setState(
         () => _status =
-            'Staking plot ready — ${chosen.length} points @ 1"=$scale\'',
+            'Staking plot ready — ${chosen.length} points$lwNote @ 1"=$scale\'',
       );
     } catch (e) {
       setState(() => _error = e.toString());
@@ -171,6 +256,11 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     final cs = Theme.of(context).colorScheme;
     final allSelected =
         _points.isNotEmpty && _selected.length == _points.length;
+    final lw = _linework;
+    final allLayers =
+        lw != null &&
+        lw.layers.isNotEmpty &&
+        _selectedLayers.length == lw.layers.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -186,9 +276,8 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 children: [
                   Text(
-                    'Import points from your data collector, select what you '
-                    'need, then export a CSV or a scaled staking plot PDF '
-                    '(control-note style).',
+                    'Import points, customize the plot, optionally link a DXF '
+                    'for linework, then create a scaled staking plot PDF.',
                     style: TextStyle(
                       color: cs.onSurface.withValues(alpha: 0.75),
                       height: 1.35,
@@ -210,19 +299,160 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                     icon: const Icon(Icons.upload_file),
                     label: Text(
                       _sourceName == null
-                          ? 'Import points CSV'
+                          ? 'Import points CSV / TXT'
                           : 'Reload: $_sourceName',
                     ),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(48),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _linkDxf,
+                    icon: const Icon(Icons.polyline),
+                    label: Text(
+                      _dxfName == null
+                          ? 'Link DXF linework (optional)'
+                          : 'Reload DXF: $_dxfName',
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                  ),
+                  if (_dxfName != null)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _busy ? null : _clearDxf,
+                        child: const Text('Clear DXF'),
+                      ),
+                    ),
                   if (_points.isNotEmpty) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Plot options',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: cs.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<PointMarkerStyle>(
+                      value: _options.markerStyle,
+                      decoration: const InputDecoration(
+                        labelText: 'Point marker',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        for (final m in PointMarkerStyle.values)
+                          DropdownMenuItem(value: m, child: Text(m.label)),
+                      ],
+                      onChanged: _busy
+                          ? null
+                          : (v) {
+                              if (v == null) return;
+                              setState(
+                                () => _options =
+                                    _options.copyWith(markerStyle: v),
+                              );
+                            },
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<PointLabelFormat>(
+                      value: _options.labelFormat,
+                      decoration: const InputDecoration(
+                        labelText: 'Point label',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        for (final f in PointLabelFormat.values)
+                          DropdownMenuItem(value: f, child: Text(f.label)),
+                      ],
+                      onChanged: _busy
+                          ? null
+                          : (v) {
+                              if (v == null) return;
+                              setState(
+                                () => _options =
+                                    _options.copyWith(labelFormat: v),
+                              );
+                            },
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Include point list table'),
+                      subtitle: const Text(
+                        'Off by default — more space for the staking plot',
+                      ),
+                      value: _options.showPointList,
+                      onChanged: _busy
+                          ? null
+                          : (v) => setState(
+                                () => _options =
+                                    _options.copyWith(showPointList: v),
+                              ),
+                    ),
+                    if (lw != null) ...[
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Draw linked DXF linework'),
+                        value: _options.includeLinework,
+                        onChanged: _busy
+                            ? null
+                            : (v) => setState(
+                                  () => _options =
+                                      _options.copyWith(includeLinework: v),
+                                ),
+                      ),
+                      if (_options.includeLinework) ...[
+                        Row(
+                          children: [
+                            Text(
+                              'Linework layers (${_selectedLayers.length}/${lw.layers.length})',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const Spacer(),
+                            TextButton(
+                              onPressed: () => _selectAllLayers(!allLayers),
+                              child: Text(allLayers ? 'Clear' : 'All'),
+                            ),
+                          ],
+                        ),
+                        ...lw.layers.map((layer) {
+                          final count = lw.entities
+                              .where((e) => e.layer == layer)
+                              .length;
+                          return CheckboxListTile(
+                            value: _selectedLayers.contains(layer),
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            title: Text(layer),
+                            subtitle: Text('$count entit${count == 1 ? "y" : "ies"}'),
+                            onChanged: _busy
+                                ? null
+                                : (v) {
+                                    setState(() {
+                                      if (v == true) {
+                                        _selectedLayers.add(layer);
+                                      } else {
+                                        _selectedLayers.remove(layer);
+                                      }
+                                    });
+                                  },
+                          );
+                        }),
+                      ],
+                    ],
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Text(
-                          '${_selected.length} of ${_points.length} selected',
+                          '${_selected.length} of ${_points.length} points selected',
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         const Spacer(),
