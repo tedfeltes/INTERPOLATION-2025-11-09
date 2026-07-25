@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -19,18 +20,76 @@ typedef _ConvertDart = int Function(
   int errLen,
 );
 
+class LayerInfo {
+  const LayerInfo({
+    required this.name,
+    required this.entityCount,
+    this.types = const {},
+  });
+
+  final String name;
+  final int entityCount;
+  final Map<String, int> types;
+
+  factory LayerInfo.fromJson(Map<String, dynamic> json) {
+    final rawTypes = json['types'];
+    final types = <String, int>{};
+    if (rawTypes is Map) {
+      rawTypes.forEach((key, value) {
+        final n = value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+        types['$key'] = n;
+      });
+    }
+    return LayerInfo(
+      name: json['name']?.toString() ?? '0',
+      entityCount: (json['entity_count'] as num?)?.toInt() ??
+          (json['entityCount'] as num?)?.toInt() ??
+          0,
+      types: types,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'entity_count': entityCount,
+        if (types.isNotEmpty) 'types': types,
+      };
+}
+
 class ConvertResult {
   ConvertResult({
     required this.outputPath,
     required this.stakeableCount,
     required this.message,
     this.proxyExploded = 0,
+    this.layers = const [],
+    this.emptyLayersRemoved = 0,
   });
 
   final String outputPath;
   final int stakeableCount;
   final String message;
   final int proxyExploded;
+  final List<LayerInfo> layers;
+  final int emptyLayersRemoved;
+
+  ConvertResult copyWith({
+    String? outputPath,
+    int? stakeableCount,
+    String? message,
+    int? proxyExploded,
+    List<LayerInfo>? layers,
+    int? emptyLayersRemoved,
+  }) {
+    return ConvertResult(
+      outputPath: outputPath ?? this.outputPath,
+      stakeableCount: stakeableCount ?? this.stakeableCount,
+      message: message ?? this.message,
+      proxyExploded: proxyExploded ?? this.proxyExploded,
+      layers: layers ?? this.layers,
+      emptyLayersRemoved: emptyLayersRemoved ?? this.emptyLayersRemoved,
+    );
+  }
 }
 
 DynamicLibrary _openLib() {
@@ -60,6 +119,78 @@ DynamicLibrary _openLib() {
   );
 }
 
+List<LayerInfo> parseLayersJson(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return const [];
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map>()
+        .map((e) => LayerInfo.fromJson(Map<String, dynamic>.from(e)))
+        .where((l) => l.entityCount > 0)
+        .toList();
+  } catch (_) {
+    return const [];
+  }
+}
+
+/// Count modelspace entities per layer from an ASCII DXF (host / fallback).
+List<LayerInfo> listLayersFromDxfText(String text) {
+  final lines = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
+  final counts = <String, int>{};
+  var inEntities = false;
+  String? code;
+  String? currentType;
+  String currentLayer = '0';
+  var countedCurrent = false;
+
+  void finishEntity() {
+    if (currentType == null) return;
+    if (stakeableTypes.contains(currentType) &&
+        currentType != 'VERTEX' &&
+        currentType != 'SEQEND') {
+      counts[currentLayer] = (counts[currentLayer] ?? 0) + 1;
+    }
+    currentType = null;
+    currentLayer = '0';
+    countedCurrent = false;
+  }
+
+  for (final line in lines) {
+    final value = line.trim();
+    if (!inEntities) {
+      if (code == '2' && value == 'ENTITIES') {
+        inEntities = true;
+      }
+      code = int.tryParse(value) != null ? value : null;
+      continue;
+    }
+    if (code == '0') {
+      if (value == 'ENDSEC') {
+        finishEntity();
+        break;
+      }
+      finishEntity();
+      currentType = value;
+      currentLayer = '0';
+      countedCurrent = false;
+    } else if (code == '8' && currentType != null && !countedCurrent) {
+      currentLayer = value.isEmpty ? '0' : value;
+    }
+    code = int.tryParse(value) != null ? value : null;
+  }
+
+  final layers = counts.entries
+      .map((e) => LayerInfo(name: e.key, entityCount: e.value))
+      .toList()
+    ..sort((a, b) {
+      final byCount = b.entityCount.compareTo(a.entityCount);
+      if (byCount != 0) return byCount;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+  return layers;
+}
+
 class NativeConverter {
   static const _linework = MethodChannel('com.stakedxf/linework');
 
@@ -67,6 +198,7 @@ class NativeConverter {
   ///
   /// On Android: DWG→DXF via LibreDWG, then Python recovers Civil 3D proxy
   /// linework (ACAD_PROXY_ENTITY) into LINE/ARC/POLYLINE before filtering.
+  /// Empty layers are omitted; [ConvertResult.layers] lists layers with data.
   Future<ConvertResult> convertFile({
     required String inputPath,
     required String outputPath,
@@ -99,15 +231,19 @@ class NativeConverter {
         final stakeable = (recovered['stakeable_count'] as num?)?.toInt() ?? 0;
         final proxyExploded =
             (recovered['proxy_exploded'] as num?)?.toInt() ?? 0;
+        final layers = parseLayersJson(recovered['layers_json']?.toString());
         final message = recovered['message']?.toString() ??
             (stakeable > 0
-                ? 'Recovered $stakeable stakeable entities'
+                ? 'Recovered $stakeable stakeable entities on ${layers.length} layer(s)'
                 : 'No stakeable linework found in this drawing.');
         return ConvertResult(
           outputPath: outputPath,
           stakeableCount: stakeable,
           proxyExploded: proxyExploded,
           message: message,
+          layers: layers,
+          emptyLayersRemoved:
+              (recovered['empty_layers_removed'] as num?)?.toInt() ?? 0,
         );
       }
 
@@ -116,12 +252,14 @@ class NativeConverter {
         'input': rawDxf,
         'output': outputPath,
       });
+      final layers = listLayersFromDxfText(File(outputPath).readAsStringSync());
       return ConvertResult(
         outputPath: outputPath,
         stakeableCount: stakeable,
         message: stakeable > 0
-            ? 'Ready for Trimble Access stakeout'
+            ? 'Ready for Trimble Access stakeout — ${layers.length} layer(s) with data'
             : 'No stakeable linework found in this drawing.',
+        layers: layers,
       );
     } finally {
       if (rawDxf != inputPath && rawDxf != outputPath) {
@@ -130,6 +268,81 @@ class NativeConverter {
         } catch (_) {}
       }
     }
+  }
+
+  /// List non-empty layers in an existing converted DXF.
+  Future<List<LayerInfo>> listLayers(String dxfPath) async {
+    if (Platform.isAndroid) {
+      final raw = await _linework.invokeMethod<dynamic>('listLayers', {
+        'input': dxfPath,
+      });
+      if (raw is Map) {
+        final layers =
+            parseLayersJson(Map<String, dynamic>.from(raw)['layers_json']?.toString());
+        if (layers.isNotEmpty) return layers;
+      }
+    }
+    return listLayersFromDxfText(File(dxfPath).readAsStringSync());
+  }
+
+  /// Rewrite [inputPath] keeping only [layerNames], writing [outputPath].
+  Future<ConvertResult> filterLayers({
+    required String inputPath,
+    required String outputPath,
+    required Iterable<String> layerNames,
+  }) async {
+    final selected = layerNames
+        .map((n) => n.trim())
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    if (selected.isEmpty) {
+      throw Exception('Select at least one layer');
+    }
+
+    if (Platform.isAndroid) {
+      final raw = await _linework.invokeMethod<dynamic>('filterLayers', {
+        'input': inputPath,
+        'output': outputPath,
+        'layers_json': jsonEncode(selected),
+      });
+      if (raw is! Map) {
+        throw Exception('Layer filter returned nothing');
+      }
+      final recovered = Map<String, dynamic>.from(raw);
+      final ok = recovered['ok'] == true ||
+          recovered['ok']?.toString().toLowerCase() == 'true';
+      final stakeable = (recovered['stakeable_count'] as num?)?.toInt() ?? 0;
+      final layers = parseLayersJson(recovered['layers_json']?.toString());
+      final message = recovered['message']?.toString() ??
+          (ok
+              ? 'Exported $stakeable entities on ${layers.length} selected layer(s)'
+              : 'No entities on the selected layers');
+      if (!ok && stakeable == 0) {
+        throw Exception(message);
+      }
+      return ConvertResult(
+        outputPath: outputPath,
+        stakeableCount: stakeable,
+        message: message,
+        layers: layers,
+      );
+    }
+
+    final stakeable = await compute(_filterLayersWorker, <String, dynamic>{
+      'input': inputPath,
+      'output': outputPath,
+      'layers': selected,
+    });
+    final layers = listLayersFromDxfText(File(outputPath).readAsStringSync());
+    return ConvertResult(
+      outputPath: outputPath,
+      stakeableCount: stakeable,
+      message:
+          'Exported $stakeable entities on ${layers.length} selected layer(s)',
+      layers: layers,
+    );
   }
 }
 
@@ -160,6 +373,15 @@ int _filterWorker(Map<String, String> args) {
   return filterTrimbleDxf(args['input']!, args['output']!);
 }
 
+int _filterLayersWorker(Map<String, dynamic> args) {
+  final layers = (args['layers'] as List).map((e) => '$e').toSet();
+  return filterTrimbleDxfByLayers(
+    args['input'] as String,
+    args['output'] as String,
+    layers,
+  );
+}
+
 const stakeableTypes = {
   'LINE',
   'LWPOLYLINE',
@@ -175,12 +397,61 @@ const stakeableTypes = {
 /// Keep non-entity sections; in ENTITIES keep only Trimble-selectable types.
 /// Does NOT explode Civil 3D proxies — Android uses Python recover_linework.
 int filterTrimbleDxf(String inputPath, String outputPath) {
+  return filterTrimbleDxfByLayers(inputPath, outputPath, null);
+}
+
+/// Like [filterTrimbleDxf], optionally keeping only entities on [keepLayers].
+///
+/// VERTEX / SEQEND follow the keep/drop decision of their parent POLYLINE.
+int filterTrimbleDxfByLayers(
+  String inputPath,
+  String outputPath,
+  Set<String>? keepLayers,
+) {
   final lines = File(inputPath).readAsLinesSync();
   final out = StringBuffer();
   var inEntities = false;
-  var keep = true;
   var stakeable = 0;
   String? code;
+
+  // Buffer one entity so we can decide keep/drop after seeing its layer.
+  final entityBuf = <String>[];
+  String? entityType;
+  String entityLayer = '0';
+  // When inside a POLYLINE, VERTEX/SEQEND inherit the polyline keep flag.
+  bool? polylineKeep;
+
+  void flushEntity() {
+    if (entityType == null) return;
+    final typeOk = stakeableTypes.contains(entityType);
+    late final bool keep;
+    if (entityType == 'VERTEX' || entityType == 'SEQEND') {
+      keep = typeOk && (polylineKeep ?? false);
+      if (entityType == 'SEQEND') {
+        polylineKeep = null;
+      }
+    } else {
+      final layerOk =
+          keepLayers == null || keepLayers.contains(entityLayer);
+      keep = typeOk && layerOk;
+      if (entityType == 'POLYLINE') {
+        polylineKeep = keep;
+      } else {
+        polylineKeep = null;
+      }
+    }
+    if (keep) {
+      for (final line in entityBuf) {
+        out.writeln(line);
+      }
+      if (entityType != 'VERTEX' && entityType != 'SEQEND') {
+        stakeable += 1;
+      }
+    }
+    entityBuf.clear();
+    entityType = null;
+    entityLayer = '0';
+  }
 
   for (var i = 0; i < lines.length; i++) {
     final line = lines[i];
@@ -196,23 +467,30 @@ int filterTrimbleDxf(String inputPath, String outputPath) {
       continue;
     }
 
-    // ENTITIES section
     if (code == '0') {
       if (value == 'ENDSEC') {
-        keep = true;
+        flushEntity();
+        polylineKeep = null;
         inEntities = false;
         out.writeln(trimmed);
         code = null;
         continue;
       }
-      keep = stakeableTypes.contains(value);
-      if (keep && value != 'VERTEX' && value != 'SEQEND') {
-        stakeable += 1;
-      }
+      flushEntity();
+      entityType = value;
+      entityLayer = '0';
+      entityBuf
+        ..clear()
+        ..add(trimmed);
+      code = int.tryParse(value) != null ? value : null;
+      continue;
     }
 
-    if (keep) {
-      out.writeln(trimmed);
+    if (entityType != null) {
+      entityBuf.add(trimmed);
+      if (code == '8') {
+        entityLayer = value.isEmpty ? '0' : value;
+      }
     }
     code = int.tryParse(value) != null ? value : null;
   }

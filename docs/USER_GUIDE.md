@@ -34,13 +34,15 @@ Recover Civil 3D linework into a Trimble-stakeable DXF on the controller.
 2. **Choose DWG / DXF**
 3. **Convert for Trimble Access**
 4. Confirm stakeable entity count (and proxy explode count when present)
-5. **Save DXF** into `Trimble Data/Projects/<job>/`
-6. Trimble Access: **Map → Layer manager → Map files → selectable → Stakeout**
+5. Review **Converted layers** (empty layers omitted) and select which to export
+6. **Save DXF** into `Trimble Data/Projects/<job>/`
+7. Trimble Access: **Map → Layer manager → Map files → selectable → Stakeout**
 
 ### On-device pipeline
 1. LibreDWG: DWG → DXF  
 2. ezdxf: explode `ACAD_PROXY_ENTITY` / AEC proxies → LINE / ARC / POLYLINE  
-3. Keep Trimble-stakeable types only  
+3. Keep Trimble-stakeable types only; purge empty layer-table entries  
+4. Optional: export a subset of layers from the on-screen checklist  
 
 **Tip:** Office DWGs should keep proxy graphics so Civil features can be recovered.
 

@@ -272,7 +272,22 @@ def normalize_dxf(
 
     importer.finalize()
 
+    # Drop empty layer-table entries so the DXF only lists layers with data.
+    used_layers = {
+        (getattr(entity.dxf, "layer", "0") or "0") for entity in out.modelspace()
+    }
+    for layer in list(out.layers):
+        name = layer.dxf.name
+        if name in used_layers or name == "0":
+            continue
+        try:
+            out.layers.remove(name)
+        except Exception:
+            pass
+
     out_type_counts, layers, out_count = analyze_document(out)
+    # analyze_document may still report empty layers from the table — keep only used.
+    layers = [layer for layer in layers if layer.entity_count > 0]
     stakeable = sum(
         out_type_counts[t] for t in TRIMBLE_STAKEABLE_TYPES if t in out_type_counts
     )

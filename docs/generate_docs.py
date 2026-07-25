@@ -163,31 +163,34 @@ def ui_convert(page, r: fitz.Rect):
     page.insert_text((r.x0 + 12, r.y0 + 22), "←  Convert DWG", fontsize=11, fontname="hebo", color=WHITE)
     page.insert_textbox(
         fitz.Rect(r.x0 + 12, r.y0 + 36, r.x1 - 10, r.y0 + 80),
-        "Import a Civil 3D DWG, recover stakeable linework, export a DXF for Trimble Access.",
+        "Recover stakeable linework, review layers with data, export a DXF for Trimble Access.",
         fontsize=8,
         color=MUTED,
     )
     card(
         page,
-        fitz.Rect(r.x0 + 12, r.y0 + 95, r.x1 - 12, r.y0 + 150),
+        fitz.Rect(r.x0 + 12, r.y0 + 88, r.x1 - 12, r.y0 + 132),
         "Choose DWG / DXF",
         "Civil 3D drawing with linework",
         "▤",
     )
     # primary button
-    btn = fitz.Rect(r.x0 + 12, r.y0 + 165, r.x1 - 12, r.y0 + 205)
+    btn = fitz.Rect(r.x0 + 12, r.y0 + 142, r.x1 - 12, r.y0 + 178)
     page.draw_rect(btn, color=None, fill=ORANGE)
-    page.insert_text((btn.x0 + 28, btn.y0 + 26), "Convert for Trimble Access", fontsize=10, fontname="hebo", color=BLACK)
-    # result card
-    res = fitz.Rect(r.x0 + 12, r.y0 + 230, r.x1 - 12, r.y0 + 360)
+    page.insert_text((btn.x0 + 28, btn.y0 + 24), "Convert for Trimble Access", fontsize=10, fontname="hebo", color=BLACK)
+    # result card with layer checklist
+    res = fitz.Rect(r.x0 + 12, r.y0 + 190, r.x1 - 12, r.y0 + 400)
     page.draw_rect(res, color=(0.4, 0.7, 0.35), fill=(0.08, 0.14, 0.07), width=0.8)
-    page.insert_text((res.x0 + 10, res.y0 + 22), "Recovered 6 stakeable entities", fontsize=10, fontname="hebo", color=WHITE)
-    page.insert_text((res.x0 + 10, res.y0 + 42), "Stakeable entities: 6", fontsize=8, color=MUTED)
-    page.insert_text((res.x0 + 10, res.y0 + 56), "Civil 3D proxies exploded: 1", fontsize=8, color=MUTED)
-    page.insert_text((res.x0 + 10, res.y0 + 70), "SITE_trimble_access.dxf", fontsize=8, color=MUTED)
-    sbtn = fitz.Rect(res.x0 + 10, res.y0 + 90, res.x1 - 10, res.y0 + 120)
+    page.insert_text((res.x0 + 10, res.y0 + 18), "Recovered 390 entities on 12 layer(s)", fontsize=9, fontname="hebo", color=WHITE)
+    page.insert_text((res.x0 + 10, res.y0 + 34), "Layers with data: 12 (empty layers omitted)", fontsize=7, color=MUTED)
+    page.insert_text((res.x0 + 10, res.y0 + 52), "Converted layers (3/12)", fontsize=8, fontname="hebo", color=WHITE)
+    y = res.y0 + 68
+    for label in ("☑  P-CURB — 390 entities", "☑  P-U-STM — 649 entities", "☐  0 — 26804 entities"):
+        page.insert_text((res.x0 + 14, y), label, fontsize=7, color=TEXT)
+        y += 14
+    sbtn = fitz.Rect(res.x0 + 10, res.y0 + 120, res.x1 - 10, res.y0 + 150)
     page.draw_rect(sbtn, color=None, fill=ORANGE)
-    page.insert_text((sbtn.x0 + 55, sbtn.y0 + 20), "Save DXF", fontsize=10, fontname="hebo", color=BLACK)
+    page.insert_text((sbtn.x0 + 40, sbtn.y0 + 20), "Save DXF (3 layers)", fontsize=9, fontname="hebo", color=BLACK)
 
 
 def ui_export(page, r: fitz.Rect, mode="loaded"):
@@ -593,7 +596,9 @@ def build_tutorial_pdf() -> Path:
         "2. Tap Choose DWG / DXF and pick the office drawing.\n"
         "3. Tap Convert for Trimble Access.\n"
         "4. Confirm stakeable entity count (and proxy explode count when Civil 3D proxies were present).\n"
-        "5. Tap Save DXF and place it in:\n"
+        "5. Review Converted layers (empty layers are omitted).\n"
+        "6. Check layers to include, then Save DXF (or share the full DXF).\n"
+        "7. Place it in:\n"
         "      Trimble Data/Projects/<your project>/\n"
         "6. In Trimble Access: Map → Layer manager → Map files → make the DXF selectable → Stakeout.\n\n"
         "What happens on-device\n"
@@ -736,13 +741,15 @@ Recover Civil 3D linework into a Trimble-stakeable DXF on the controller.
 2. **Choose DWG / DXF**
 3. **Convert for Trimble Access**
 4. Confirm stakeable entity count (and proxy explode count when present)
-5. **Save DXF** into `Trimble Data/Projects/<job>/`
-6. Trimble Access: **Map → Layer manager → Map files → selectable → Stakeout**
+5. Review **Converted layers** (empty layers omitted) and select which to export
+6. **Save DXF** into `Trimble Data/Projects/<job>/`
+7. Trimble Access: **Map → Layer manager → Map files → selectable → Stakeout**
 
 ### On-device pipeline
 1. LibreDWG: DWG → DXF  
 2. ezdxf: explode `ACAD_PROXY_ENTITY` / AEC proxies → LINE / ARC / POLYLINE  
-3. Keep Trimble-stakeable types only  
+3. Keep Trimble-stakeable types only; purge empty layer-table entries  
+4. Optional: export a subset of layers from the on-screen checklist  
 
 **Tip:** Office DWGs should keep proxy graphics so Civil features can be recovered.
 

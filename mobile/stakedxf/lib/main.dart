@@ -62,8 +62,8 @@ class HomePage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Recover Civil 3D linework, or build a staking plot from '
-              'points on this controller.',
+              'Recover Civil 3D linework, choose layers, or build a staking '
+              'plot from points on this controller.',
               style: TextStyle(
                 color: cs.onSurface.withValues(alpha: 0.75),
                 height: 1.35,
@@ -122,11 +122,13 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
   ConvertResult? _result;
   String? _error;
   bool _busy = false;
+  final Set<String> _selectedLayers = {};
 
   Future<void> _pick() async {
     setState(() {
       _error = null;
       _result = null;
+      _selectedLayers.clear();
     });
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.any,
@@ -161,6 +163,7 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
       _busy = true;
       _error = null;
       _result = null;
+      _selectedLayers.clear();
     });
     try {
       final dir = await getTemporaryDirectory();
@@ -173,13 +176,17 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
       final docs = await getApplicationDocumentsDirectory();
       final durable = p.join(docs.path, p.basename(output));
       await File(result.outputPath).copy(durable);
+
+      var layers = result.layers;
+      if (layers.isEmpty && File(durable).existsSync()) {
+        layers = await _converter.listLayers(durable);
+      }
+
       setState(() {
-        _result = ConvertResult(
-          outputPath: durable,
-          stakeableCount: result.stakeableCount,
-          proxyExploded: result.proxyExploded,
-          message: result.message,
-        );
+        _result = result.copyWith(outputPath: durable, layers: layers);
+        _selectedLayers
+          ..clear()
+          ..addAll(layers.map((l) => l.name));
       });
     } catch (e) {
       setState(() => _error = e.toString());
@@ -188,7 +195,49 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
     }
   }
 
-  Future<void> _share() async {
+  Future<void> _exportSelected() async {
+    final result = _result;
+    if (result == null) return;
+    if (_selectedLayers.isEmpty) {
+      setState(() => _error = 'Select at least one layer to export.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final dir = await getTemporaryDirectory();
+      final stem = p.basenameWithoutExtension(result.outputPath);
+      final filteredPath = p.join(dir.path, '${stem}_selected.dxf');
+      final filtered = await _converter.filterLayers(
+        inputPath: result.outputPath,
+        outputPath: filteredPath,
+        layerNames: _selectedLayers,
+      );
+      final docs = await getApplicationDocumentsDirectory();
+      final durable = p.join(docs.path, p.basename(filteredPath));
+      await File(filtered.outputPath).copy(durable);
+      await Share.shareXFiles(
+        [XFile(durable, mimeType: 'application/dxf')],
+        text:
+            'Trimble Access DXF — ${_selectedLayers.length} selected layer(s)',
+      );
+      if (!mounted) return;
+      setState(() {
+        _result = filtered.copyWith(outputPath: durable);
+        _selectedLayers
+          ..clear()
+          ..addAll(filtered.layers.map((l) => l.name));
+      });
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _shareAll() async {
     final result = _result;
     if (result == null) return;
     await Share.shareXFiles(
@@ -197,9 +246,23 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
     );
   }
 
+  void _selectAllLayers(bool select) {
+    final layers = _result?.layers ?? const <LayerInfo>[];
+    setState(() {
+      _selectedLayers
+        ..clear()
+        ..addAll(select ? layers.map((l) => l.name) : const <String>[]);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final layers = _result?.layers ?? const <LayerInfo>[];
+    final selectedCount = _selectedLayers.length;
+    final allSelected =
+        layers.isNotEmpty && selectedCount == layers.length;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Convert DWG'),
@@ -212,7 +275,8 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
           children: [
             Text(
               'Import a Civil 3D DWG, recover the stakeable linework on this '
-              'device, export a DXF for Trimble Access.',
+              'device, review layers with data, then export a DXF for '
+              'Trimble Access.',
               style: TextStyle(
                 color: cs.onSurface.withValues(alpha: 0.75),
                 height: 1.35,
@@ -235,7 +299,7 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
                 backgroundColor: cs.primary,
                 foregroundColor: Colors.black,
               ),
-              child: _busy
+              child: _busy && _result == null
                   ? const SizedBox(
                       width: 22,
                       height: 22,
@@ -274,6 +338,10 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
                     ),
                     const SizedBox(height: 8),
                     Text('Stakeable entities: ${_result!.stakeableCount}'),
+                    Text(
+                      'Layers with data: ${layers.length}'
+                      '${_result!.emptyLayersRemoved > 0 ? ' (empty layers omitted)' : ''}',
+                    ),
                     if (_result!.proxyExploded > 0)
                       Text(
                         'Civil 3D proxies exploded: ${_result!.proxyExploded}',
@@ -284,15 +352,111 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
                         color: cs.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    FilledButton.icon(
-                      onPressed: _share,
-                      icon: const Icon(Icons.ios_share),
-                      label: const Text('Save DXF'),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
+                    if (layers.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Converted layers ($selectedCount/${layers.length})',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _busy
+                                ? null
+                                : () => _selectAllLayers(!allSelected),
+                            child: Text(allSelected ? 'None' : 'All'),
+                          ),
+                        ],
                       ),
-                    ),
+                      Text(
+                        'Only layers with stakeable data are listed. '
+                        'Uncheck layers to leave them out of the exported DXF.',
+                        style: TextStyle(
+                          color: cs.onSurface.withValues(alpha: 0.65),
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...layers.map((layer) {
+                        return CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          value: _selectedLayers.contains(layer.name),
+                          onChanged: _busy
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    if (value ?? false) {
+                                      _selectedLayers.add(layer.name);
+                                    } else {
+                                      _selectedLayers.remove(layer.name);
+                                    }
+                                  });
+                                },
+                          title: Text(
+                            layer.name,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          subtitle: Text(
+                            '${layer.entityCount} entit'
+                            '${layer.entityCount == 1 ? 'y' : 'ies'}',
+                            style: TextStyle(
+                              color: cs.onSurface.withValues(alpha: 0.6),
+                              fontSize: 12,
+                            ),
+                          ),
+                          controlAffinity: ListTileControlAffinity.leading,
+                        );
+                      }),
+                      const SizedBox(height: 8),
+                      FilledButton.icon(
+                        onPressed: _busy || _selectedLayers.isEmpty
+                            ? null
+                            : _exportSelected,
+                        icon: _busy
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                ),
+                              )
+                            : const Icon(Icons.filter_alt),
+                        label: Text(
+                          selectedCount == layers.length
+                              ? 'Save DXF (all layers)'
+                              : 'Save DXF ($selectedCount layers)',
+                        ),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _busy ? null : _shareAll,
+                        icon: const Icon(Icons.ios_share),
+                        label: const Text('Share full converted DXF'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 14),
+                      FilledButton.icon(
+                        onPressed: _shareAll,
+                        icon: const Icon(Icons.ios_share),
+                        label: const Text('Save DXF'),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     Text(
                       'Put the DXF in your Trimble job folder, set it as a '

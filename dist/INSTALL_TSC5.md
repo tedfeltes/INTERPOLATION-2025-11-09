@@ -31,13 +31,14 @@ Company MDM may block unknown APKs. Ask IT to allow unknown-source installs, or 
 2. Pick the Civil 3D drawing
 3. Tap **Convert for Trimble Access**
 4. Confirm it reports stakeable entities (and proxy explode count when Civil 3D proxies were present)
-5. Tap **Save DXF** and put it in:
+5. Review **Converted layers** — only layers with data are listed; uncheck anything you do not want
+6. Tap **Save DXF** (selected layers) and put it in:
 
 ```text
 Trimble Data/Projects/<your project>/
 ```
 
-6. In Trimble Access: Map → Layer manager → **Map files** → make the DXF selectable → Stakeout
+7. In Trimble Access: Map → Layer manager → **Map files** → make the DXF selectable → Stakeout
 
 ## Export Points → staking plot PDF
 
