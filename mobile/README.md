@@ -6,7 +6,8 @@ Installable on-device converter. **No cloud.**
 2. **Export Points** → select points → CSV or customizable staking plot PDF  
    - Marker styles, label formats, optional point table  
    - Optional linked DXF linework by layer  
-   - Example PDFs: `dist/plot_examples/` (`dart run tool/generate_plot_examples.dart`)
+   - Example PDFs: `dist/plot_examples/` (`dart run tool/generate_plot_examples.dart`)  
+   - Docs: `dist/StakeDXF_UI_Slide_Deck.pdf`, `dist/StakeDXF_User_Guide.pdf`, `docs/USER_GUIDE.md`
 
 ## Android (Trimble TSC5)
 

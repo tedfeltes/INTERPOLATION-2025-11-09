@@ -60,6 +60,18 @@ See `dist/plot_examples/` for sample PDFs covering markers, labels, DXF linework
 cd mobile/stakedxf && dart run tool/generate_plot_examples.dart
 ```
 
+## Docs
+
+| File | Contents |
+| --- | --- |
+| `dist/StakeDXF_UI_Slide_Deck.pdf` | UI & capabilities slide deck |
+| `dist/StakeDXF_User_Guide.pdf` | Install · usage · help tutorial |
+| `docs/USER_GUIDE.md` | Same guide in Markdown |
+
+```bash
+python3 docs/generate_docs.py
+```
+
 ## Confirm you have the right file
 
 - Name ends with `.apk`
