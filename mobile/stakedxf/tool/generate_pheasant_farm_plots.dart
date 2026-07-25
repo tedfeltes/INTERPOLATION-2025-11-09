@@ -210,7 +210,7 @@ Future<void> main() async {
 List<PlacedPlotSymbol> _demoLibraryObjects(List<SurveyPoint> pts) {
   if (pts.length < 21) return const [];
   return [
-    PlacedPlotSymbol(
+    PlacedPlotSymbol.builtin(
       id: 'fh1',
       kind: PlotSymbolKind.fireHydrant,
       easting: pts[2].easting + 20,
@@ -219,7 +219,7 @@ List<PlacedPlotSymbol> _demoLibraryObjects(List<SurveyPoint> pts) {
       colorArgb: 0xFFE10600,
       label: 'FH-1',
     ),
-    PlacedPlotSymbol(
+    PlacedPlotSymbol.builtin(
       id: 'mh1',
       kind: PlotSymbolKind.stormManhole,
       easting: pts[5].easting,
@@ -227,7 +227,7 @@ List<PlacedPlotSymbol> _demoLibraryObjects(List<SurveyPoint> pts) {
       colorArgb: 0xFF0057B8,
       label: 'STM MH',
     ),
-    PlacedPlotSymbol(
+    PlacedPlotSymbol.builtin(
       id: 'stop1',
       kind: PlotSymbolKind.stopSign,
       easting: pts[10].easting - 12,
@@ -235,7 +235,7 @@ List<PlacedPlotSymbol> _demoLibraryObjects(List<SurveyPoint> pts) {
       rotationDeg: 15,
       colorArgb: 0xFFE10600,
     ),
-    PlacedPlotSymbol(
+    PlacedPlotSymbol.builtin(
       id: 'sf1',
       kind: PlotSymbolKind.siltFence,
       easting: pts[15].easting,
@@ -245,7 +245,7 @@ List<PlacedPlotSymbol> _demoLibraryObjects(List<SurveyPoint> pts) {
       colorArgb: 0xFF1B7A3D,
       label: 'SILT FENCE',
     ),
-    PlacedPlotSymbol(
+    PlacedPlotSymbol.builtin(
       id: 'cb1',
       kind: PlotSymbolKind.catchBasin,
       easting: pts[20].easting + 8,

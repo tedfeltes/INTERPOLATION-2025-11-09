@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'block_catalog.dart';
+import 'block_catalog_asset.dart';
 import 'plot_symbols.dart';
 import 'survey_point.dart';
 import 'symbol_preview.dart';
@@ -10,6 +12,7 @@ Future<PlacedPlotSymbol?> showSymbolLibrarySheet({
   required BuildContext context,
   required List<SurveyPoint> anchorPoints,
   PlacedPlotSymbol? existing,
+  BlockCatalog? blockCatalog,
 }) {
   return showModalBottomSheet<PlacedPlotSymbol>(
     context: context,
@@ -19,6 +22,7 @@ Future<PlacedPlotSymbol?> showSymbolLibrarySheet({
     builder: (ctx) => _SymbolLibrarySheet(
       anchorPoints: anchorPoints,
       existing: existing,
+      blockCatalog: blockCatalog,
     ),
   );
 }
@@ -27,10 +31,12 @@ class _SymbolLibrarySheet extends StatefulWidget {
   const _SymbolLibrarySheet({
     required this.anchorPoints,
     this.existing,
+    this.blockCatalog,
   });
 
   final List<SurveyPoint> anchorPoints;
   final PlacedPlotSymbol? existing;
+  final BlockCatalog? blockCatalog;
 
   @override
   State<_SymbolLibrarySheet> createState() => _SymbolLibrarySheetState();
@@ -38,26 +44,40 @@ class _SymbolLibrarySheet extends StatefulWidget {
 
 class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
   late PlotSymbolCategory _category;
-  late PlotSymbolKind _kind;
+  PlotSymbolKind? _kind;
+  DwgBlockSymbol? _block;
   late double _scale;
   late double _rotation;
   late int _colorArgb;
   late TextEditingController _labelCtrl;
   late TextEditingController _northCtrl;
   late TextEditingController _eastCtrl;
+  late TextEditingController _filterCtrl;
   String? _anchorId;
   double _nudgeFt = 25;
+  BlockCatalog? _catalog;
 
   @override
   void initState() {
     super.initState();
     final existing = widget.existing;
-    _kind = existing?.kind ?? PlotSymbolKind.fireHydrant;
-    _category = _kind.category;
+    _catalog = widget.blockCatalog;
     _scale = existing?.scale ?? 1.0;
     _rotation = existing?.rotationDeg ?? 0.0;
     _colorArgb = existing?.colorArgb ?? PlotSymbolColor.presets.first.argb;
     _labelCtrl = TextEditingController(text: existing?.label ?? '');
+    _filterCtrl = TextEditingController();
+
+    if (existing?.blockId != null) {
+      _category = PlotSymbolCategory.dwgBlocks;
+      _block = _catalog?[existing!.blockId!];
+      _kind = null;
+    } else {
+      _kind = existing?.kind ?? PlotSymbolKind.fireHydrant;
+      _category = _kind!.category;
+      _block = null;
+    }
+
     final pts = widget.anchorPoints;
     if (existing != null) {
       _northCtrl =
@@ -74,6 +94,21 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
       _northCtrl = TextEditingController(text: '0');
       _eastCtrl = TextEditingController(text: '0');
     }
+
+    if (_catalog == null) {
+      BlockCatalogAsset.loadCached().then((c) {
+        if (!mounted) return;
+        setState(() {
+          _catalog = c;
+          if (_category == PlotSymbolCategory.dwgBlocks && _block == null) {
+            _block = c.sorted.isEmpty ? null : c.sorted.first;
+          }
+          if (existing?.blockId != null) {
+            _block = c[existing!.blockId!];
+          }
+        });
+      });
+    }
   }
 
   @override
@@ -81,6 +116,7 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
     _labelCtrl.dispose();
     _northCtrl.dispose();
     _eastCtrl.dispose();
+    _filterCtrl.dispose();
     super.dispose();
   }
 
@@ -117,18 +153,50 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
       );
       return;
     }
-    Navigator.of(context).pop(
-      PlacedPlotSymbol(
-        id: widget.existing?.id ?? newSymbolId(),
-        kind: _kind,
+    final id = widget.existing?.id ?? newSymbolId();
+    final PlacedPlotSymbol placed;
+    if (_category == PlotSymbolCategory.dwgBlocks) {
+      final block = _block;
+      if (block == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Select a DWG block')),
+        );
+        return;
+      }
+      placed = PlacedPlotSymbol.block(
+        id: id,
+        blockId: block.id,
+        displayName: block.name,
+        defaultSizeFt: block.defaultSizeFt,
         easting: e,
         northing: n,
         scale: _scale.clamp(0.25, 5.0),
         rotationDeg: _rotation,
         colorArgb: _colorArgb,
         label: _labelCtrl.text.trim(),
-      ),
-    );
+      );
+    } else {
+      final kind = _kind;
+      if (kind == null) return;
+      placed = PlacedPlotSymbol.builtin(
+        id: id,
+        kind: kind,
+        easting: e,
+        northing: n,
+        scale: _scale.clamp(0.25, 5.0),
+        rotationDeg: _rotation,
+        colorArgb: _colorArgb,
+        label: _labelCtrl.text.trim(),
+      );
+    }
+    Navigator.of(context).pop(placed);
+  }
+
+  List<DwgBlockSymbol> get _filteredBlocks {
+    final all = _catalog?.sorted ?? const <DwgBlockSymbol>[];
+    final q = _filterCtrl.text.trim().toLowerCase();
+    if (q.isEmpty) return all;
+    return all.where((b) => b.name.toLowerCase().contains(q)).toList();
   }
 
   @override
@@ -136,6 +204,10 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
     final cs = Theme.of(context).colorScheme;
     final kinds = symbolsInCategory(_category);
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final isDwg = _category == PlotSymbolCategory.dwgBlocks;
+    final sourceText = isDwg
+        ? (_block?.source ?? 'DWG block library')
+        : (_kind?.source ?? '');
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
@@ -152,7 +224,9 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
               Row(
                 children: [
                   Text(
-                    widget.existing == null ? 'Add plot object' : 'Edit plot object',
+                    widget.existing == null
+                        ? 'Add plot object'
+                        : 'Edit plot object',
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 18,
@@ -167,8 +241,9 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
                 ],
               ),
               Text(
-                'Library from Three Pillars civil details & signage (C7.xx / C6.11 / C3.0). '
-                'Place at a point or N/E, then scale, rotate, and recolor.',
+                'Built-in symbols from civil details/signage, plus every BLOCK '
+                'extracted from the project DWG. Place at a point or N/E, then '
+                'scale, rotate, and recolor.',
                 style: TextStyle(
                   color: cs.onSurface.withValues(alpha: 0.7),
                   fontSize: 12,
@@ -182,75 +257,105 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
                 children: [
                   for (final cat in PlotSymbolCategory.values)
                     ChoiceChip(
-                      label: Text(cat.label, style: const TextStyle(fontSize: 12)),
+                      label: Text(
+                        cat == PlotSymbolCategory.dwgBlocks
+                            ? 'DWG blocks (${_catalog?.blocks.length ?? "…"})'
+                            : cat.label,
+                        style: const TextStyle(fontSize: 12),
+                      ),
                       selected: _category == cat,
                       onSelected: (_) {
                         setState(() {
                           _category = cat;
-                          final list = symbolsInCategory(cat);
-                          if (!list.contains(_kind) && list.isNotEmpty) {
-                            _kind = list.first;
+                          if (cat == PlotSymbolCategory.dwgBlocks) {
+                            _kind = null;
+                            _block ??= (_catalog?.sorted.isNotEmpty ?? false)
+                                ? _catalog!.sorted.first
+                                : null;
+                          } else {
+                            _block = null;
+                            final list = symbolsInCategory(cat);
+                            if (_kind == null || !list.contains(_kind)) {
+                              _kind = list.isEmpty ? null : list.first;
+                            }
                           }
                         });
                       },
                     ),
                 ],
               ),
+              if (isDwg) ...[
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _filterCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Filter blocks',
+                    hintText: 'EUWHYD, NORTH ARROW, …',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    prefixIcon: Icon(Icons.search, size: 20),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ],
               const SizedBox(height: 10),
-              GridView.count(
-                crossAxisCount: 3,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 0.95,
-                children: [
-                  for (final kind in kinds)
-                    InkWell(
-                      onTap: () => setState(() => _kind = kind),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: _kind == kind
-                                ? cs.primary
-                                : const Color(0x59E4572E),
-                            width: _kind == kind ? 2 : 1,
+              if (isDwg)
+                ..._buildBlockGrid(cs)
+              else
+                GridView.count(
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 0.95,
+                  children: [
+                    for (final kind in kinds)
+                      InkWell(
+                        onTap: () => setState(() => _kind = kind),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _kind == kind
+                                  ? cs.primary
+                                  : const Color(0x59E4572E),
+                              width: _kind == kind ? 2 : 1,
+                            ),
+                            color: const Color(0xCC162014),
                           ),
-                          color: const Color(0xCC162014),
-                        ),
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: CustomPaint(
-                                painter: SymbolPreviewPainter(
-                                  kind,
-                                  color: Color(_colorArgb),
+                          child: Column(
+                            children: [
+                              Expanded(
+                                child: CustomPaint(
+                                  painter: SymbolPreviewPainter(
+                                    kind,
+                                    color: Color(_colorArgb),
+                                  ),
+                                  child: const SizedBox.expand(),
                                 ),
-                                child: const SizedBox.expand(),
                               ),
-                            ),
-                            Text(
-                              kind.label,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
+                              Text(
+                                kind.label,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                ],
-              ),
+                  ],
+                ),
               const SizedBox(height: 8),
               Text(
-                'Source: ${_kind.source}',
+                'Source: $sourceText',
                 style: TextStyle(
                   fontSize: 11,
                   color: cs.onSurface.withValues(alpha: 0.55),
@@ -368,8 +473,10 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
                 ],
               ),
               const SizedBox(height: 8),
-              Text('Scale  ${_scale.toStringAsFixed(2)}×',
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                'Scale  ${_scale.toStringAsFixed(2)}×',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
               Slider(
                 value: _scale.clamp(0.25, 5.0),
                 min: 0.25,
@@ -378,8 +485,10 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
                 label: '${_scale.toStringAsFixed(2)}×',
                 onChanged: (v) => setState(() => _scale = v),
               ),
-              Text('Rotation  ${_rotation.toStringAsFixed(0)}°',
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                'Rotation  ${_rotation.toStringAsFixed(0)}°',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
               Slider(
                 value: _rotation.clamp(-180, 180),
                 min: -180,
@@ -420,7 +529,9 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
                 controller: _labelCtrl,
                 decoration: InputDecoration(
                   labelText: 'Label (optional)',
-                  hintText: _kind.label,
+                  hintText: isDwg
+                      ? (_block?.name ?? 'Block')
+                      : (_kind?.label ?? 'Symbol'),
                   border: const OutlineInputBorder(),
                   isDense: true,
                 ),
@@ -443,5 +554,89 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
         },
       ),
     );
+  }
+
+  List<Widget> _buildBlockGrid(ColorScheme cs) {
+    final blocks = _filteredBlocks;
+    if (_catalog == null) {
+      return [
+        const Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ];
+    }
+    if (blocks.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'No blocks match that filter.',
+            style: TextStyle(color: cs.onSurface.withValues(alpha: 0.65)),
+          ),
+        ),
+      ];
+    }
+    return [
+      Text(
+        '${blocks.length} block${blocks.length == 1 ? '' : 's'}',
+        style: TextStyle(
+          fontSize: 12,
+          color: cs.onSurface.withValues(alpha: 0.65),
+        ),
+      ),
+      const SizedBox(height: 6),
+      GridView.count(
+        crossAxisCount: 3,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 0.95,
+        children: [
+          for (final block in blocks)
+            InkWell(
+              onTap: () => setState(() => _block = block),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _block?.id == block.id
+                        ? cs.primary
+                        : const Color(0x59E4572E),
+                    width: _block?.id == block.id ? 2 : 1,
+                  ),
+                  color: const Color(0xCC162014),
+                ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: CustomPaint(
+                        painter: BlockPreviewPainter(
+                          block,
+                          color: Color(_colorArgb),
+                        ),
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                    Text(
+                      block.name,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    ];
   }
 }

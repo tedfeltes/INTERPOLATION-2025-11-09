@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'block_catalog.dart';
 import 'plot_symbols.dart';
 
 /// Tiny preview icon for the symbol library picker.
@@ -100,4 +101,41 @@ class SymbolPreviewPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant SymbolPreviewPainter oldDelegate) =>
       oldDelegate.kind != kind || oldDelegate.color != color;
+}
+
+/// Preview painter for extracted DWG block geometry.
+class BlockPreviewPainter extends CustomPainter {
+  BlockPreviewPainter(this.block, {this.color = const Color(0xFFE4572E)});
+
+  final DwgBlockSymbol block;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final s = math.min(size.width, size.height) * 0.75;
+    for (final path in block.paths) {
+      if (path.points.length < 2) continue;
+      final p = Path();
+      final first = path.points.first;
+      p.moveTo(cx + first[0] * s, cy - first[1] * s);
+      for (var i = 1; i < path.points.length; i++) {
+        final pt = path.points[i];
+        p.lineTo(cx + pt[0] * s, cy - pt[1] * s);
+      }
+      if (path.closed) p.close();
+      canvas.drawPath(p, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant BlockPreviewPainter oldDelegate) =>
+      oldDelegate.block.id != block.id || oldDelegate.color != color;
 }

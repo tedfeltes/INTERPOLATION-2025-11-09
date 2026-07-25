@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:pdf/pdf.dart';
 import 'package:vector_math/vector_math_64.dart';
 
+import 'block_catalog.dart';
 import 'plot_symbols.dart';
 
 /// Draw all placed symbols (after linework; typically before stake markers).
@@ -11,8 +12,9 @@ void drawPlacedSymbols(
   PdfPoint Function(double e, double n) toPage,
   double ppt,
   List<PlacedPlotSymbol> symbols,
-  PdfFont labelFont,
-) {
+  PdfFont labelFont, {
+  BlockCatalog? blocks,
+}) {
   for (final sym in symbols) {
     final c = toPage(sym.easting, sym.northing);
     final half = math.max(4.0, sym.sizeFt * ppt / 2);
@@ -24,13 +26,47 @@ void drawPlacedSymbols(
       ..translate(c.x, c.y)
       ..rotateZ(rad);
     canvas.setTransform(matrix);
-    drawSymbolKind(canvas, sym.kind, half, color);
+    if (sym.kind != null) {
+      drawSymbolKind(canvas, sym.kind!, half, color);
+    } else if (sym.blockId != null && blocks != null) {
+      final def = blocks[sym.blockId!];
+      if (def != null) {
+        drawBlockSymbol(canvas, def, half, color);
+      }
+    }
     canvas.restoreContext();
 
-    final text = sym.label.trim().isEmpty ? sym.kind.label : sym.label.trim();
+    final text = sym.libraryLabel;
     canvas
       ..setFillColor(color)
       ..drawString(labelFont, 7, text, c.x + half + 2, c.y - 2);
+  }
+}
+
+/// Draw an extracted DWG block (paths normalized to unit square).
+void drawBlockSymbol(
+  PdfGraphics canvas,
+  DwgBlockSymbol block,
+  double half,
+  PdfColor color,
+) {
+  canvas
+    ..setStrokeColor(color)
+    ..setFillColor(color)
+    ..setLineWidth(0.8);
+  final s = half * 2; // unit square → diameter 2*half
+  for (final path in block.paths) {
+    if (path.points.length < 2) continue;
+    final first = path.points.first;
+    canvas.moveTo(first[0] * s, first[1] * s);
+    for (var i = 1; i < path.points.length; i++) {
+      final p = path.points[i];
+      canvas.lineTo(p[0] * s, p[1] * s);
+    }
+    if (path.closed) {
+      canvas.closePath();
+    }
+    canvas.strokePath();
   }
 }
 

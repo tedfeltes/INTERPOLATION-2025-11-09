@@ -7,6 +7,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'block_catalog.dart';
+import 'block_catalog_asset.dart';
 import 'csv_io.dart';
 import 'dxf_linework.dart';
 import 'plot_options.dart';
@@ -34,9 +36,19 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   final Set<String> _selectedLayers = {};
   PlotOptions _options = const PlotOptions();
   final List<PlacedPlotSymbol> _symbols = [];
+  BlockCatalog? _blockCatalog;
   String? _error;
   String? _status;
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    BlockCatalogAsset.loadCached().then((c) {
+      if (!mounted) return;
+      setState(() => _blockCatalog = c);
+    });
+  }
 
   @override
   void dispose() {
@@ -185,11 +197,12 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     final placed = await showSymbolLibrarySheet(
       context: context,
       anchorPoints: _chosen.isNotEmpty ? _chosen : _points,
+      blockCatalog: _blockCatalog,
     );
     if (placed == null) return;
     setState(() {
       _symbols.add(placed);
-      _status = 'Added ${placed.kind.label} to plot';
+      _status = 'Added ${placed.libraryLabel} to plot';
     });
   }
 
@@ -199,18 +212,19 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       context: context,
       anchorPoints: _chosen.isNotEmpty ? _chosen : _points,
       existing: _symbols[index],
+      blockCatalog: _blockCatalog,
     );
     if (placed == null) return;
     setState(() {
       _symbols[index] = placed;
-      _status = 'Updated ${placed.kind.label}';
+      _status = 'Updated ${placed.libraryLabel}';
     });
   }
 
   void _removeSymbol(int index) {
     if (index < 0 || index >= _symbols.length) return;
     final removed = _symbols.removeAt(index);
-    setState(() => _status = 'Removed ${removed.kind.label}');
+    setState(() => _status = 'Removed ${removed.libraryLabel}');
   }
 
   Future<void> _exportCsv() async {
@@ -264,6 +278,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         options: _options,
         linework: linework,
         symbols: symbols,
+        blockCatalog: _blockCatalog,
       );
       final scale = chooseEngineeringScale(
         chosen,
@@ -513,9 +528,9 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       ],
                     ),
                     Text(
-                      'Add hydrants, manholes, signs, silt fence, and other '
-                      'objects from the civil detail / signage library. '
-                      'Move, scale, rotate, and recolor each instance.',
+                      'Add built-in symbols or any BLOCK extracted from the '
+                      'project DWG. Move, scale, rotate, and recolor each instance.'
+                      '${_blockCatalog == null ? '' : '  ${_blockCatalog!.blocks.length} DWG blocks loaded.'}',
                       style: TextStyle(
                         color: cs.onSurface.withValues(alpha: 0.65),
                         fontSize: 12,
@@ -534,19 +549,29 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                     ..._symbols.asMap().entries.map((entry) {
                       final i = entry.key;
                       final sym = entry.value;
-                      final caption = sym.label.trim().isEmpty
-                          ? sym.kind.label
-                          : sym.label.trim();
+                      final caption = sym.libraryLabel;
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: SizedBox(
                           width: 36,
                           height: 36,
                           child: CustomPaint(
-                            painter: SymbolPreviewPainter(
-                              sym.kind,
-                              color: Color(sym.colorArgb),
-                            ),
+                            painter: sym.kind != null
+                                ? SymbolPreviewPainter(
+                                    sym.kind!,
+                                    color: Color(sym.colorArgb),
+                                  )
+                                : (_blockCatalog != null &&
+                                        sym.blockId != null &&
+                                        _blockCatalog![sym.blockId!] != null)
+                                    ? BlockPreviewPainter(
+                                        _blockCatalog![sym.blockId!]!,
+                                        color: Color(sym.colorArgb),
+                                      )
+                                    : SymbolPreviewPainter(
+                                        PlotSymbolKind.hub,
+                                        color: Color(sym.colorArgb),
+                                      ),
                           ),
                         ),
                         title: Text(

@@ -12,7 +12,8 @@ enum PlotSymbolCategory {
   signs('Signs'),
   site('Site / survey'),
   erosion('Erosion control'),
-  annotation('Annotation');
+  annotation('Annotation'),
+  dwgBlocks('DWG blocks');
 
   const PlotSymbolCategory(this.label);
   final String label;
@@ -269,33 +270,98 @@ class PlotSymbolColor {
 }
 
 /// One placed instance on a staking plot (survey coordinates).
+///
+/// Either a built-in [kind] or a [blockId] from the extracted DWG block catalog.
 class PlacedPlotSymbol {
   const PlacedPlotSymbol({
     required this.id,
-    required this.kind,
     required this.easting,
     required this.northing,
+    this.kind,
+    this.blockId,
+    this.displayName = '',
+    this.defaultSizeFt = 12,
     this.scale = 1.0,
     this.rotationDeg = 0.0,
     this.colorArgb = 0xFF1A1A1A,
     this.label = '',
-  });
+  }) : assert(kind != null || blockId != null);
+
+  /// Built-in library symbol.
+  factory PlacedPlotSymbol.builtin({
+    required String id,
+    required PlotSymbolKind kind,
+    required double easting,
+    required double northing,
+    double scale = 1.0,
+    double rotationDeg = 0.0,
+    int colorArgb = 0xFF1A1A1A,
+    String label = '',
+  }) {
+    return PlacedPlotSymbol(
+      id: id,
+      kind: kind,
+      easting: easting,
+      northing: northing,
+      displayName: kind.label,
+      defaultSizeFt: kind.defaultSizeFt,
+      scale: scale,
+      rotationDeg: rotationDeg,
+      colorArgb: colorArgb,
+      label: label,
+    );
+  }
+
+  /// Extracted DWG BLOCK symbol.
+  factory PlacedPlotSymbol.block({
+    required String id,
+    required String blockId,
+    required String displayName,
+    required double defaultSizeFt,
+    required double easting,
+    required double northing,
+    double scale = 1.0,
+    double rotationDeg = 0.0,
+    int colorArgb = 0xFF1A1A1A,
+    String label = '',
+  }) {
+    return PlacedPlotSymbol(
+      id: id,
+      blockId: blockId,
+      displayName: displayName,
+      defaultSizeFt: defaultSizeFt,
+      easting: easting,
+      northing: northing,
+      scale: scale,
+      rotationDeg: rotationDeg,
+      colorArgb: colorArgb,
+      label: label,
+    );
+  }
 
   final String id;
-  final PlotSymbolKind kind;
+  final PlotSymbolKind? kind;
+  final String? blockId;
+  final String displayName;
+  final double defaultSizeFt;
   final double easting;
   final double northing;
-  /// Multiplier on [PlotSymbolKind.defaultSizeFt].
   final double scale;
   final double rotationDeg;
   final int colorArgb;
   final String label;
 
-  double get sizeFt => kind.defaultSizeFt * scale;
+  bool get isBlock => blockId != null;
+  double get sizeFt => defaultSizeFt * scale;
+  String get libraryLabel =>
+      label.trim().isEmpty ? (displayName.isEmpty ? (kind?.label ?? blockId ?? id) : displayName) : label.trim();
 
   PlacedPlotSymbol copyWith({
     String? id,
     PlotSymbolKind? kind,
+    String? blockId,
+    String? displayName,
+    double? defaultSizeFt,
     double? easting,
     double? northing,
     double? scale,
@@ -306,6 +372,9 @@ class PlacedPlotSymbol {
     return PlacedPlotSymbol(
       id: id ?? this.id,
       kind: kind ?? this.kind,
+      blockId: blockId ?? this.blockId,
+      displayName: displayName ?? this.displayName,
+      defaultSizeFt: defaultSizeFt ?? this.defaultSizeFt,
       easting: easting ?? this.easting,
       northing: northing ?? this.northing,
       scale: scale ?? this.scale,
@@ -316,8 +385,9 @@ class PlacedPlotSymbol {
   }
 }
 
-/// Catalog helpers.
+/// Catalog helpers for built-in kinds (excludes [PlotSymbolCategory.dwgBlocks]).
 List<PlotSymbolKind> symbolsInCategory(PlotSymbolCategory category) {
+  if (category == PlotSymbolCategory.dwgBlocks) return const [];
   return PlotSymbolKind.values.where((k) => k.category == category).toList();
 }
 

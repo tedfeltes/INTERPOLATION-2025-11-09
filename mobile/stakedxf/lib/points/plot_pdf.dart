@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import 'block_catalog.dart';
 import 'dxf_linework.dart';
 import 'plot_options.dart';
 import 'plot_symbols.dart';
@@ -40,6 +41,7 @@ Future<Uint8List> buildStakingPlotPdf({
   PlotOptions options = const PlotOptions(),
   List<LineworkEntity> linework = const [],
   List<PlacedPlotSymbol> symbols = const [],
+  BlockCatalog? blockCatalog,
 }) async {
   if (points.isEmpty) {
     throw ArgumentError('Select at least one point');
@@ -85,6 +87,7 @@ Future<Uint8List> buildStakingPlotPdf({
                       options: options,
                       linework: options.includeLinework ? linework : const [],
                       symbols: symbols,
+                      blockCatalog: blockCatalog,
                     ),
                   ),
                 ),
@@ -192,6 +195,7 @@ class _PlanPanel extends pw.StatelessWidget {
     required this.options,
     required this.linework,
     required this.symbols,
+    this.blockCatalog,
   });
 
   final List<SurveyPoint> points;
@@ -199,6 +203,7 @@ class _PlanPanel extends pw.StatelessWidget {
   final PlotOptions options;
   final List<PlacedPlotSymbol> symbols;
   final List<LineworkEntity> linework;
+  final BlockCatalog? blockCatalog;
 
   @override
   pw.Widget build(pw.Context context) {
@@ -225,6 +230,7 @@ class _PlanPanel extends pw.StatelessWidget {
               options,
               linework,
               symbols,
+              blockCatalog,
             ),
           ),
         );
@@ -242,6 +248,7 @@ void _paintPlan(
   PlotOptions options,
   List<LineworkEntity> linework,
   List<PlacedPlotSymbol> symbols,
+  BlockCatalog? blockCatalog,
 ) {
   var minE = points.first.easting;
   var maxE = points.first.easting;
@@ -319,9 +326,16 @@ void _paintPlan(
     canvas.strokePath();
   }
 
-  // Library objects (hydrant, signs, MH, …) above linework
+  // Library objects (hydrant, signs, MH, DWG blocks, …) above linework
   if (symbols.isNotEmpty) {
-    drawPlacedSymbols(canvas, toPage, ppt, symbols, labelFont);
+    drawPlacedSymbols(
+      canvas,
+      toPage,
+      ppt,
+      symbols,
+      labelFont,
+      blocks: blockCatalog,
+    );
   }
 
   final occupied = <List<double>>[];
