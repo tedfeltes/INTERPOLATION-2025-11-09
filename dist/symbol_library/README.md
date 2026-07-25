@@ -27,6 +27,17 @@ For each placed object you can:
 
 Symbols draw as vector graphics on the staking plot PDF (not raster detail sheets).
 
+## Full catalog (one page)
+
+`StakeDXF_Object_Library.pdf` — single ANSI B landscape sheet with every library
+object drawn and labeled by category.
+
+Regenerate:
+```bash
+cd mobile/stakedxf
+dart run tool/generate_symbol_catalog.dart
+```
+
 ## Source thumbnails
 
 `source_C7.*.png`, `source_C6.11_SIGNAGE.png`, `source_C3.0_EROS_CTRL.png` are low-res

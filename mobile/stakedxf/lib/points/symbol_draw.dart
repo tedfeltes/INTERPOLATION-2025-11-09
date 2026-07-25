@@ -24,7 +24,7 @@ void drawPlacedSymbols(
       ..translate(c.x, c.y)
       ..rotateZ(rad);
     canvas.setTransform(matrix);
-    _drawKind(canvas, sym.kind, half, color);
+    drawSymbolKind(canvas, sym.kind, half, color);
     canvas.restoreContext();
 
     final text = sym.label.trim().isEmpty ? sym.kind.label : sym.label.trim();
@@ -32,6 +32,16 @@ void drawPlacedSymbols(
       ..setFillColor(color)
       ..drawString(labelFont, 7, text, c.x + half + 2, c.y - 2);
   }
+}
+
+/// Draw one library symbol centered at the current transform origin.
+void drawSymbolKind(
+  PdfGraphics canvas,
+  PlotSymbolKind kind,
+  double half,
+  PdfColor color,
+) {
+  _drawKind(canvas, kind, half, color);
 }
 
 void _drawKind(

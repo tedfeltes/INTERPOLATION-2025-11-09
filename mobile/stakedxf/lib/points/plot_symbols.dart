@@ -200,7 +200,7 @@ enum PlotSymbolKind {
   inletProtection(
     'Inlet protection',
     PlotSymbolCategory.erosion,
-    'C7.00 Inlet Protection Types A–D',
+    'C7.00 Inlet Protection Types A-D',
     12,
   ),
   wattle(
