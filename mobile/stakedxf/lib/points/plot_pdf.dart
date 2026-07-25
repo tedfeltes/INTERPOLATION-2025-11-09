@@ -6,7 +6,9 @@ import 'package:pdf/widgets.dart' as pw;
 
 import 'dxf_linework.dart';
 import 'plot_options.dart';
+import 'plot_symbols.dart';
 import 'survey_point.dart';
+import 'symbol_draw.dart';
 
 /// ANSI B landscape (17" × 11") — same sheet size as the TRIO control note.
 final PdfPageFormat stakingSheet = const PdfPageFormat(
@@ -37,6 +39,7 @@ Future<Uint8List> buildStakingPlotPdf({
   String title = 'STAKING PLOT',
   PlotOptions options = const PlotOptions(),
   List<LineworkEntity> linework = const [],
+  List<PlacedPlotSymbol> symbols = const [],
 }) async {
   if (points.isEmpty) {
     throw ArgumentError('Select at least one point');
@@ -45,7 +48,11 @@ Future<Uint8List> buildStakingPlotPdf({
   final when = date ?? DateTime.now();
   final dateStr =
       '${when.month.toString().padLeft(2, '0')}/${when.day.toString().padLeft(2, '0')}/${(when.year % 100).toString().padLeft(2, '0')}';
-  final scaleFtPerInch = chooseEngineeringScale(points, linework: linework);
+  final scaleFtPerInch = chooseEngineeringScale(
+    points,
+    linework: linework,
+    symbols: symbols,
+  );
   final doc = pw.Document(
     title: '$title — ${jobName.isEmpty ? "FIELD" : jobName}',
     author: 'StakeDXF',
@@ -77,6 +84,7 @@ Future<Uint8List> buildStakingPlotPdf({
                       scaleFtPerInch: scaleFtPerInch,
                       options: options,
                       linework: options.includeLinework ? linework : const [],
+                      symbols: symbols,
                     ),
                   ),
                 ),
@@ -111,6 +119,7 @@ Future<Uint8List> buildStakingPlotPdf({
 double chooseEngineeringScale(
   List<SurveyPoint> points, {
   List<LineworkEntity> linework = const [],
+  List<PlacedPlotSymbol> symbols = const [],
 }) {
   var minE = points.first.easting;
   var maxE = points.first.easting;
@@ -129,6 +138,13 @@ double chooseEngineeringScale(
       minN = math.min(minN, p[1]);
       maxN = math.max(maxN, p[1]);
     }
+  }
+  for (final s in symbols) {
+    final half = s.sizeFt / 2;
+    minE = math.min(minE, s.easting - half);
+    maxE = math.max(maxE, s.easting + half);
+    minN = math.min(minN, s.northing - half);
+    maxN = math.max(maxN, s.northing + half);
   }
 
   // Wider plot when the point table is omitted (~12" usable width).
@@ -175,11 +191,13 @@ class _PlanPanel extends pw.StatelessWidget {
     required this.scaleFtPerInch,
     required this.options,
     required this.linework,
+    required this.symbols,
   });
 
   final List<SurveyPoint> points;
   final double scaleFtPerInch;
   final PlotOptions options;
+  final List<PlacedPlotSymbol> symbols;
   final List<LineworkEntity> linework;
 
   @override
@@ -206,6 +224,7 @@ class _PlanPanel extends pw.StatelessWidget {
               labelFont,
               options,
               linework,
+              symbols,
             ),
           ),
         );
@@ -222,6 +241,7 @@ void _paintPlan(
   PdfFont labelFont,
   PlotOptions options,
   List<LineworkEntity> linework,
+  List<PlacedPlotSymbol> symbols,
 ) {
   var minE = points.first.easting;
   var maxE = points.first.easting;
@@ -240,6 +260,13 @@ void _paintPlan(
       minN = math.min(minN, p[1]);
       maxN = math.max(maxN, p[1]);
     }
+  }
+  for (final s in symbols) {
+    final half = s.sizeFt / 2;
+    minE = math.min(minE, s.easting - half);
+    maxE = math.max(maxE, s.easting + half);
+    minN = math.min(minN, s.northing - half);
+    maxN = math.max(maxN, s.northing + half);
   }
 
   final midE = (minE + maxE) / 2;
@@ -290,6 +317,11 @@ void _paintPlan(
       canvas.closePath();
     }
     canvas.strokePath();
+  }
+
+  // Library objects (hydrant, signs, MH, …) above linework
+  if (symbols.isNotEmpty) {
+    drawPlacedSymbols(canvas, toPage, ppt, symbols, labelFont);
   }
 
   final occupied = <List<double>>[];

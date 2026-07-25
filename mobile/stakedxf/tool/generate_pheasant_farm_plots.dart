@@ -9,6 +9,8 @@ import 'package:stakedxf/points/csv_io.dart';
 import 'package:stakedxf/points/dxf_linework.dart';
 import 'package:stakedxf/points/plot_options.dart';
 import 'package:stakedxf/points/plot_pdf.dart';
+import 'package:stakedxf/points/plot_symbols.dart';
+import 'package:stakedxf/points/survey_point.dart';
 
 class _Example {
   const _Example({
@@ -16,12 +18,14 @@ class _Example {
     required this.description,
     required this.options,
     required this.layers,
+    this.withLibraryObjects = false,
   });
 
   final String fileStem;
   final String description;
   final PlotOptions options;
   final Set<String> layers;
+  final bool withLibraryObjects;
 }
 
 Future<void> main() async {
@@ -128,6 +132,19 @@ Future<void> main() async {
         'P-CONT',
       },
     ),
+    _Example(
+      fileStem: '07_object_library_overlay',
+      description:
+          'Object library demo — hydrant, MH, STOP, silt fence placed on rock probes',
+      options: const PlotOptions(
+        markerStyle: PointMarkerStyle.largeX,
+        labelFormat: PointLabelFormat.numberElevation,
+        showPointList: false,
+        includeLinework: true,
+      ),
+      layers: {'P-CURB', 'P-U-STM', 'P-SW'},
+      withLibraryObjects: true,
+    ),
   ];
 
   final readme = StringBuffer()
@@ -151,6 +168,9 @@ Future<void> main() async {
     final linework = (ex.options.includeLinework && ex.layers.isNotEmpty)
         ? lw.forLayers(ex.layers)
         : const <LineworkEntity>[];
+    final symbols = ex.withLibraryObjects
+        ? _demoLibraryObjects(points)
+        : const <PlacedPlotSymbol>[];
 
     final bytes = await buildStakingPlotPdf(
       points: points,
@@ -159,6 +179,7 @@ Future<void> main() async {
       date: date,
       options: ex.options,
       linework: linework,
+      symbols: symbols,
     );
     final outPath = p.join(outDir.path, '${ex.fileStem}.pdf');
     await File(outPath).writeAsBytes(bytes, flush: true);
@@ -184,4 +205,53 @@ Future<void> main() async {
   );
   stdout.writeln('Updated dist/pheasant_farm/PHEASANT_FARM_staking_plot.pdf');
   stdout.writeln('Done — ${examples.length} examples in ${outDir.path}');
+}
+
+List<PlacedPlotSymbol> _demoLibraryObjects(List<SurveyPoint> pts) {
+  if (pts.length < 21) return const [];
+  return [
+    PlacedPlotSymbol(
+      id: 'fh1',
+      kind: PlotSymbolKind.fireHydrant,
+      easting: pts[2].easting + 20,
+      northing: pts[2].northing + 15,
+      scale: 1.4,
+      colorArgb: 0xFFE10600,
+      label: 'FH-1',
+    ),
+    PlacedPlotSymbol(
+      id: 'mh1',
+      kind: PlotSymbolKind.stormManhole,
+      easting: pts[5].easting,
+      northing: pts[5].northing,
+      colorArgb: 0xFF0057B8,
+      label: 'STM MH',
+    ),
+    PlacedPlotSymbol(
+      id: 'stop1',
+      kind: PlotSymbolKind.stopSign,
+      easting: pts[10].easting - 12,
+      northing: pts[10].northing + 8,
+      rotationDeg: 15,
+      colorArgb: 0xFFE10600,
+    ),
+    PlacedPlotSymbol(
+      id: 'sf1',
+      kind: PlotSymbolKind.siltFence,
+      easting: pts[15].easting,
+      northing: pts[15].northing - 20,
+      scale: 2.0,
+      rotationDeg: -30,
+      colorArgb: 0xFF1B7A3D,
+      label: 'SILT FENCE',
+    ),
+    PlacedPlotSymbol(
+      id: 'cb1',
+      kind: PlotSymbolKind.catchBasin,
+      easting: pts[20].easting + 8,
+      northing: pts[20].northing - 8,
+      colorArgb: 0xFF1A1A1A,
+      label: 'CB',
+    ),
+  ];
 }

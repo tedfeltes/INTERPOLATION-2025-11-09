@@ -48,10 +48,11 @@ Trimble Data/Projects/<your project>/
 4. (Optional) **Link DXF linework** — pick a matching DXF, then choose which layers to draw
 5. Set **point marker** (triangle, X, cross, circle, dot, …) and **point label** format
 6. Leave **Include point list table** off unless you want the coordinate table
-7. Check the points you want on the plot
-8. Tap **Create staking plot PDF** — auto-scales to fit the sheet
-9. Optionally **Export selected points CSV**
-10. Open the PDF on the TSC5 while staking
+7. (Optional) **Add from object library** — hydrants, manholes, signs, silt fence, etc.; nudge, scale, rotate, recolor
+8. Check the points you want on the plot
+9. Tap **Create staking plot PDF** — auto-scales to fit the sheet
+10. Optionally **Export selected points CSV**
+11. Open the PDF on the TSC5 while staking
 
 ### Example plots
 

@@ -54,8 +54,9 @@ Recover Civil 3D linework into a Trimble-stakeable DXF on the controller.
 4. (Optional) **Link DXF linework** and select layers
 5. Choose **point marker** and **point label** format
 6. Leave **Include point list table** off unless you want the coordinate table
-7. Select points for the sheet
-8. **Create staking plot PDF** (auto scale)  
+7. (Optional) **Add from object library** — place, nudge, scale, rotate, recolor
+8. Select points for the sheet
+9. **Create staking plot PDF** (auto scale)  
    or **Export selected points CSV**
 
 ### Supported point formats

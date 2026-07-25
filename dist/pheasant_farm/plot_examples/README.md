@@ -14,3 +14,4 @@ Demonstrates StakeDXF after Convert DWG layer selection:
 | `04_selected_layers_overview.pdf` | Large dots — no labels, all clipped staking layers (layer-select demo) | 12 selected |
 | `05_points_only_grade_check.pdf` | Dot markers — number + elevation, points only (no linework) | — |
 | `06_full_sheet_selected_linework.pdf` | Control-note style — table + curb/sidewalk/storm/lotline selection | 5 selected |
+| `07_object_library_overlay.pdf` | Object library demo — hydrant, MH, STOP, silt fence placed on rock probes | P-CURB, P-U-STM, P-SW |

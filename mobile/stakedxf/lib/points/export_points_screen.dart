@@ -11,7 +11,10 @@ import 'csv_io.dart';
 import 'dxf_linework.dart';
 import 'plot_options.dart';
 import 'plot_pdf.dart';
+import 'plot_symbols.dart';
 import 'survey_point.dart';
+import 'symbol_library_sheet.dart';
+import 'symbol_preview.dart';
 
 /// Export Points screen — import CSV, customize plot, export CSV / staking plot PDF.
 class ExportPointsScreen extends StatefulWidget {
@@ -30,6 +33,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   DxfLinework? _linework;
   final Set<String> _selectedLayers = {};
   PlotOptions _options = const PlotOptions();
+  final List<PlacedPlotSymbol> _symbols = [];
   String? _error;
   String? _status;
   bool _busy = false;
@@ -177,6 +181,38 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     });
   }
 
+  Future<void> _addSymbol() async {
+    final placed = await showSymbolLibrarySheet(
+      context: context,
+      anchorPoints: _chosen.isNotEmpty ? _chosen : _points,
+    );
+    if (placed == null) return;
+    setState(() {
+      _symbols.add(placed);
+      _status = 'Added ${placed.kind.label} to plot';
+    });
+  }
+
+  Future<void> _editSymbol(int index) async {
+    if (index < 0 || index >= _symbols.length) return;
+    final placed = await showSymbolLibrarySheet(
+      context: context,
+      anchorPoints: _chosen.isNotEmpty ? _chosen : _points,
+      existing: _symbols[index],
+    );
+    if (placed == null) return;
+    setState(() {
+      _symbols[index] = placed;
+      _status = 'Updated ${placed.kind.label}';
+    });
+  }
+
+  void _removeSymbol(int index) {
+    if (index < 0 || index >= _symbols.length) return;
+    final removed = _symbols.removeAt(index);
+    setState(() => _status = 'Removed ${removed.kind.label}');
+  }
+
   Future<void> _exportCsv() async {
     final chosen = _chosen;
     if (chosen.isEmpty) {
@@ -221,14 +257,19 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     });
     try {
       final linework = _chosenLinework;
+      final symbols = List<PlacedPlotSymbol>.from(_symbols);
       final bytes = await buildStakingPlotPdf(
         points: chosen,
         jobName: _jobCtrl.text.trim(),
         options: _options,
         linework: linework,
+        symbols: symbols,
       );
-      final scale =
-          chooseEngineeringScale(chosen, linework: linework).round();
+      final scale = chooseEngineeringScale(
+        chosen,
+        linework: linework,
+        symbols: symbols,
+      ).round();
       final docs = await getApplicationDocumentsDirectory();
       final stem = _jobCtrl.text.trim().isEmpty
           ? 'staking_plot'
@@ -240,9 +281,11 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         text: 'Staking plot 1"=$scale\'',
       );
       final lwNote = linework.isEmpty ? '' : ', ${linework.length} linework';
+      final symNote =
+          symbols.isEmpty ? '' : ', ${symbols.length} library object(s)';
       setState(
         () => _status =
-            'Staking plot ready — ${chosen.length} points$lwNote @ 1"=$scale\'',
+            'Staking plot ready — ${chosen.length} points$lwNote$symNote @ 1"=$scale\'',
       );
     } catch (e) {
       setState(() => _error = e.toString());
@@ -448,6 +491,95 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         }),
                       ],
                     ],
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Text(
+                          'Plot objects (${_symbols.length})',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            color: cs.primary,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (_symbols.isNotEmpty)
+                          TextButton(
+                            onPressed: _busy
+                                ? null
+                                : () => setState(() => _symbols.clear()),
+                            child: const Text('Clear'),
+                          ),
+                      ],
+                    ),
+                    Text(
+                      'Add hydrants, manholes, signs, silt fence, and other '
+                      'objects from the civil detail / signage library. '
+                      'Move, scale, rotate, and recolor each instance.',
+                      style: TextStyle(
+                        color: cs.onSurface.withValues(alpha: 0.65),
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _addSymbol,
+                      icon: const Icon(Icons.add_box_outlined),
+                      label: const Text('Add from object library'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(44),
+                      ),
+                    ),
+                    ..._symbols.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final sym = entry.value;
+                      final caption = sym.label.trim().isEmpty
+                          ? sym.kind.label
+                          : sym.label.trim();
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: CustomPaint(
+                            painter: SymbolPreviewPainter(
+                              sym.kind,
+                              color: Color(sym.colorArgb),
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          caption,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          'N ${sym.northing.toStringAsFixed(2)}  '
+                          'E ${sym.easting.toStringAsFixed(2)}  ·  '
+                          '${sym.scale.toStringAsFixed(2)}×  ·  '
+                          '${sym.rotationDeg.toStringAsFixed(0)}°',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: cs.onSurface.withValues(alpha: 0.65),
+                          ),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'Edit',
+                              onPressed: _busy ? null : () => _editSymbol(i),
+                              icon: const Icon(Icons.edit_outlined, size: 20),
+                            ),
+                            IconButton(
+                              tooltip: 'Remove',
+                              onPressed: _busy ? null : () => _removeSymbol(i),
+                              icon: const Icon(Icons.delete_outline, size: 20),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                     const SizedBox(height: 8),
                     Row(
                       children: [

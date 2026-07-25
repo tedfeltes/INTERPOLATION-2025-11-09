@@ -382,6 +382,7 @@ def build_slide_deck() -> Path:
             "Point label: number / desc / elev combinations",
             "Point list table: off by default (more plot space)",
             "DXF layers: check only what you want drawn",
+            "Object library: place hydrants, signs, MH — move/scale/recolor",
             "Select which points appear on the sheet",
             "Create staking plot PDF or export CSV",
         ],
@@ -620,9 +621,10 @@ def build_tutorial_pdf() -> Path:
         "4. (Optional) Link DXF linework and choose layers to draw.\n"
         "5. Set Point marker and Point label format.\n"
         "6. Leave Include point list table off unless you want the coordinate table.\n"
-        "7. Select the points for the sheet.\n"
-        "8. Tap Create staking plot PDF — scale is chosen automatically to fit.\n"
-        "9. Or tap Export selected points CSV for a trimmed point list.\n\n"
+        "7. (Optional) Add from object library — place, nudge, scale, rotate, recolor.\n"
+        "8. Select the points for the sheet.\n"
+        "9. Tap Create staking plot PDF — scale is chosen automatically to fit.\n"
+        "10. Or tap Export selected points CSV for a trimmed point list.\n\n"
         "Supported point formats\n"
         "• Headered or headerless PNEZD: Point, Northing, Easting, Elevation, Description\n"
         "• Also accepts common header aliases (Point #, Elev, Desc, etc.)\n\n"
@@ -761,8 +763,9 @@ Recover Civil 3D linework into a Trimble-stakeable DXF on the controller.
 4. (Optional) **Link DXF linework** and select layers
 5. Choose **point marker** and **point label** format
 6. Leave **Include point list table** off unless you want the coordinate table
-7. Select points for the sheet
-8. **Create staking plot PDF** (auto scale)  
+7. (Optional) **Add from object library** — place, nudge, scale, rotate, recolor
+8. Select points for the sheet
+9. **Create staking plot PDF** (auto scale)  
    or **Export selected points CSV**
 
 ### Supported point formats
