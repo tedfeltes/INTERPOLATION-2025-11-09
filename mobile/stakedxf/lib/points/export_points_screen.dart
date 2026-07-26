@@ -14,6 +14,7 @@ import 'csv_io.dart';
 import 'dxf_linework.dart';
 import 'plot_options.dart';
 import 'plot_pdf.dart';
+import 'plot_preview.dart';
 import 'plot_symbols.dart';
 import 'plot_templates.dart';
 import 'survey_point.dart';
@@ -38,6 +39,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   final Set<String> _selectedLayers = {};
   PlotOptions _options = const PlotOptions();
   final List<PlacedPlotSymbol> _symbols = [];
+  String? _selectedSymbolId;
   BlockCatalog? _blockCatalog;
   String? _error;
   String? _status;
@@ -64,7 +66,50 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   List<LineworkEntity> get _chosenLinework {
     final lw = _linework;
     if (lw == null || !_options.includeLinework) return const [];
-    return lw.forLayersCapped(_selectedLayers);
+    final pts = _chosen.isNotEmpty ? _chosen : _points;
+    if (pts.isEmpty) return lw.forLayersCapped(_selectedLayers);
+    return lw.forLayersNear(
+      _selectedLayers,
+      points: [
+        for (final p in pts) (easting: p.easting, northing: p.northing),
+      ],
+    );
+  }
+
+  PlacedPlotSymbol? get _selectedSymbol {
+    final id = _selectedSymbolId;
+    if (id == null) return null;
+    for (final s in _symbols) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
+
+  void _moveSymbol(String id, double easting, double northing) {
+    final i = _symbols.indexWhere((s) => s.id == id);
+    if (i < 0) return;
+    setState(() {
+      _symbols[i] = _symbols[i].copyWith(easting: easting, northing: northing);
+      _selectedSymbolId = id;
+    });
+  }
+
+  void _updateSelectedSymbol({
+    double? scale,
+    double? rotationDeg,
+    int? colorArgb,
+  }) {
+    final id = _selectedSymbolId;
+    if (id == null) return;
+    final i = _symbols.indexWhere((s) => s.id == id);
+    if (i < 0) return;
+    setState(() {
+      _symbols[i] = _symbols[i].copyWith(
+        scale: scale,
+        rotationDeg: rotationDeg,
+        colorArgb: colorArgb,
+      );
+    });
   }
 
   Future<void> _importCsv() async {
@@ -220,7 +265,9 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     if (placed == null) return;
     setState(() {
       _symbols.add(placed);
-      _status = 'Added ${placed.libraryLabel} to plot';
+      _selectedSymbolId = placed.id;
+      _status =
+          'Added ${placed.libraryLabel} — drag it on the preview to position';
     });
   }
 
@@ -235,6 +282,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     if (placed == null) return;
     setState(() {
       _symbols[index] = placed;
+      _selectedSymbolId = placed.id;
       _status = 'Updated ${placed.libraryLabel}';
     });
   }
@@ -242,7 +290,10 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   void _removeSymbol(int index) {
     if (index < 0 || index >= _symbols.length) return;
     final removed = _symbols.removeAt(index);
-    setState(() => _status = 'Removed ${removed.libraryLabel}');
+    setState(() {
+      if (_selectedSymbolId == removed.id) _selectedSymbolId = null;
+      _status = 'Removed ${removed.libraryLabel}';
+    });
   }
 
   Future<void> _exportCsv() async {
@@ -341,6 +392,9 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         lw.layers.isNotEmpty &&
         _selectedLayers.length == lw.layers.length;
 
+    final previewPoints = _chosen.isNotEmpty ? _chosen : _points;
+    final selectedSym = _selectedSymbol;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Export Points'),
@@ -350,13 +404,134 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            if (previewPoints.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    PlotPreview(
+                      points: previewPoints,
+                      options: _options,
+                      linework: _chosenLinework,
+                      symbols: _symbols,
+                      blockCatalog: _blockCatalog,
+                      selectedSymbolId: _selectedSymbolId,
+                      onSelectSymbol: (id) =>
+                          setState(() => _selectedSymbolId = id),
+                      onMoveSymbol: _moveSymbol,
+                      height: 240,
+                    ),
+                    if (selectedSym != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1B281C),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0x59E4572E)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    selectedSym.libraryLabel,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    final i = _symbols
+                                        .indexWhere((s) => s.id == selectedSym.id);
+                                    if (i >= 0) _editSymbol(i);
+                                  },
+                                  child: const Text('Edit'),
+                                ),
+                                IconButton(
+                                  tooltip: 'Remove',
+                                  onPressed: () {
+                                    final i = _symbols
+                                        .indexWhere((s) => s.id == selectedSym.id);
+                                    if (i >= 0) _removeSymbol(i);
+                                  },
+                                  icon: const Icon(Icons.delete_outline),
+                                ),
+                              ],
+                            ),
+                            SizedBox(
+                              height: 28,
+                              child: ListView(
+                                scrollDirection: Axis.horizontal,
+                                children: [
+                                  for (final c in PlotSymbolColor.presets)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 6),
+                                      child: GestureDetector(
+                                        onTap: () => _updateSelectedSymbol(
+                                          colorArgb: c.argb,
+                                        ),
+                                        child: Container(
+                                          width: 24,
+                                          height: 24,
+                                          decoration: BoxDecoration(
+                                            color: Color(c.argb),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: selectedSym.colorArgb ==
+                                                      c.argb
+                                                  ? Colors.white
+                                                  : Colors.white24,
+                                              width: selectedSym.colorArgb ==
+                                                      c.argb
+                                                  ? 2
+                                                  : 1,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                const Text('Scale', style: TextStyle(fontSize: 11)),
+                                Expanded(
+                                  child: Slider(
+                                    value: selectedSym.scale.clamp(0.25, 5.0),
+                                    min: 0.25,
+                                    max: 5.0,
+                                    divisions: 19,
+                                    onChanged: (v) =>
+                                        _updateSelectedSymbol(scale: v),
+                                  ),
+                                ),
+                                Text(
+                                  '${selectedSym.scale.toStringAsFixed(2)}×',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 children: [
                   Text(
-                    'Import points, customize the plot, optionally link a DXF '
-                    'for linework, then create a scaled staking plot PDF.',
+                    'Import points, link DXF linework, place objects on the '
+                    'live preview, then export the staking plot PDF.',
                     style: TextStyle(
                       color: cs.onSurface.withValues(alpha: 0.75),
                       height: 1.35,
@@ -589,8 +764,8 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       ],
                     ),
                     Text(
-                      'Add built-in symbols or any BLOCK extracted from the '
-                      'project DWG. Move, scale, rotate, and recolor each instance.'
+                      'Add objects from the library (color/scale stay pinned). '
+                      'Drag them on the live preview to place.'
                       '${_blockCatalog == null ? '' : '  ${_blockCatalog!.blocks.length} DWG blocks loaded.'}',
                       style: TextStyle(
                         color: cs.onSurface.withValues(alpha: 0.65),
@@ -611,8 +786,11 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       final i = entry.key;
                       final sym = entry.value;
                       final caption = sym.libraryLabel;
+                      final selected = sym.id == _selectedSymbolId;
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
+                        selected: selected,
+                        onTap: () => setState(() => _selectedSymbolId = sym.id),
                         leading: SizedBox(
                           width: 36,
                           height: 36,

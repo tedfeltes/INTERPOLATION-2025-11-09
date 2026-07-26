@@ -212,15 +212,20 @@ pw.Widget _buildFieldMapPage({
     blockCatalog: blockCatalog,
   );
 
-  // Title-header layout: legend strip on top; field map: strip on bottom.
+  // Explicit plan height — pdf Expanded can collapse to 0 on some sheets,
+  // which produced border-only / empty field maps.
+  final pageH = template.heightIn * PdfPageFormat.inch;
+  final footerH = showTitleHeader ? 78.0 : 58.0;
+  final planH = math.max(120.0, pageH - 2 * pad - footerH - 8);
+
   final children = showTitleHeader
       ? <pw.Widget>[
           footer,
           pw.SizedBox(height: 6),
-          pw.Expanded(child: plan),
+          pw.SizedBox(height: planH, child: plan),
         ]
       : <pw.Widget>[
-          pw.Expanded(child: plan),
+          pw.SizedBox(height: planH, child: plan),
           pw.SizedBox(height: 6),
           footer,
         ];

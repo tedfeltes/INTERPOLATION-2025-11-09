@@ -85,9 +85,41 @@ class DxfLinework {
   }) {
     final all = forLayers(selected);
     if (all.length <= maxEntities) return all;
-    // Prefer keeping shorter entities / spread across layers: take in order
-    // but stop at the budget (stable, predictable).
     return all.sublist(0, maxEntities);
+  }
+
+  /// Prefer linework near [points] so a large DXF does not steal the view.
+  List<LineworkEntity> forLayersNear(
+    Set<String> selected, {
+    required List<({double easting, double northing})> points,
+    int maxEntities = kMaxPlotLineworkEntities,
+  }) {
+    final all = forLayers(selected);
+    if (all.isEmpty || points.isEmpty) {
+      return forLayersCapped(selected, maxEntities: maxEntities);
+    }
+    if (all.length <= maxEntities) return all;
+
+    var midE = 0.0;
+    var midN = 0.0;
+    for (final p in points) {
+      midE += p.easting;
+      midN += p.northing;
+    }
+    midE /= points.length;
+    midN /= points.length;
+
+    double score(LineworkEntity e) {
+      for (final p in e.samplePoints) {
+        final dx = p[0] - midE;
+        final dy = p[1] - midN;
+        return dx * dx + dy * dy;
+      }
+      return double.infinity;
+    }
+
+    final ranked = [...all]..sort((a, b) => score(a).compareTo(score(b)));
+    return ranked.sublist(0, maxEntities);
   }
 
   /// Bounding box of selected layers as [minE, minN, maxE, maxN], or null.

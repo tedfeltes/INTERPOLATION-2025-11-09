@@ -8,6 +8,9 @@ import 'survey_point.dart';
 import 'symbol_preview.dart';
 
 /// Bottom sheet: browse library → place/edit a symbol on the plot.
+///
+/// Color / scale / rotation stay pinned at the bottom so DWG-block browsing
+/// does not bury the controls.
 Future<PlacedPlotSymbol?> showSymbolLibrarySheet({
   required BuildContext context,
   required List<SurveyPoint> anchorPoints,
@@ -54,8 +57,8 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
   late TextEditingController _eastCtrl;
   late TextEditingController _filterCtrl;
   String? _anchorId;
-  double _nudgeFt = 25;
   BlockCatalog? _catalog;
+  bool _showAdvancedLocation = false;
 
   @override
   void initState() {
@@ -84,12 +87,20 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
           TextEditingController(text: existing.northing.toStringAsFixed(3));
       _eastCtrl =
           TextEditingController(text: existing.easting.toStringAsFixed(3));
+      _showAdvancedLocation = true;
     } else if (pts.isNotEmpty) {
+      // Place at centroid of selected stakes — user drags on live preview.
+      var e = 0.0;
+      var n = 0.0;
+      for (final p in pts) {
+        e += p.easting;
+        n += p.northing;
+      }
+      e /= pts.length;
+      n /= pts.length;
       _anchorId = pts.first.id;
-      _northCtrl =
-          TextEditingController(text: pts.first.northing.toStringAsFixed(3));
-      _eastCtrl =
-          TextEditingController(text: pts.first.easting.toStringAsFixed(3));
+      _northCtrl = TextEditingController(text: n.toStringAsFixed(3));
+      _eastCtrl = TextEditingController(text: e.toStringAsFixed(3));
     } else {
       _northCtrl = TextEditingController(text: '0');
       _eastCtrl = TextEditingController(text: '0');
@@ -133,15 +144,6 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
     if (pt == null) return;
     _northCtrl.text = pt.northing.toStringAsFixed(3);
     _eastCtrl.text = pt.easting.toStringAsFixed(3);
-  }
-
-  void _nudge(double dE, double dN) {
-    final e = double.tryParse(_eastCtrl.text) ?? 0;
-    final n = double.tryParse(_northCtrl.text) ?? 0;
-    setState(() {
-      _eastCtrl.text = (e + dE).toStringAsFixed(3);
-      _northCtrl.text = (n + dN).toStringAsFixed(3);
-    });
   }
 
   void _submit() {
@@ -199,29 +201,31 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
     return all.where((b) => b.name.toLowerCase().contains(q)).toList();
   }
 
+  String get _selectedName {
+    if (_category == PlotSymbolCategory.dwgBlocks) {
+      return _block?.name ?? 'Select a block';
+    }
+    return _kind?.label ?? 'Select a symbol';
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final kinds = symbolsInCategory(_category);
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     final isDwg = _category == PlotSymbolCategory.dwgBlocks;
-    final sourceText = isDwg
-        ? (_block?.source ?? 'DWG block library')
-        : (_kind?.source ?? '');
+    final height = MediaQuery.sizeOf(context).height * 0.92;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
-      child: DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.92,
-        minChildSize: 0.55,
-        maxChildSize: 0.96,
-        builder: (context, scrollCtrl) {
-          return ListView(
-            controller: scrollCtrl,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            children: [
-              Row(
+      child: SizedBox(
+        height: height,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+              child: Row(
                 children: [
                   Text(
                     widget.existing == null
@@ -240,53 +244,65 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
                   ),
                 ],
               ),
-              Text(
-                'Built-in symbols from civil details/signage, plus every BLOCK '
-                'extracted from the project DWG. Place at a point or N/E, then '
-                'scale, rotate, and recolor.',
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Text(
+                'Pick a symbol, set color/scale below, then place it. '
+                'Drag on the live preview to position.',
                 style: TextStyle(
                   color: cs.onSurface.withValues(alpha: 0.7),
                   fontSize: 12,
                   height: 1.35,
                 ),
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final cat in PlotSymbolCategory.values)
-                    ChoiceChip(
-                      label: Text(
-                        cat == PlotSymbolCategory.dwgBlocks
-                            ? 'DWG blocks (${_catalog?.blocks.length ?? "…"})'
-                            : cat.label,
-                        style: const TextStyle(fontSize: 12),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final cat in PlotSymbolCategory.values) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text(
+                            cat == PlotSymbolCategory.dwgBlocks
+                                ? 'DWG (${_catalog?.blocks.length ?? "…"})'
+                                : cat.label,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          selected: _category == cat,
+                          onSelected: (_) {
+                            setState(() {
+                              _category = cat;
+                              if (cat == PlotSymbolCategory.dwgBlocks) {
+                                _kind = null;
+                                _block ??=
+                                    (_catalog?.sorted.isNotEmpty ?? false)
+                                        ? _catalog!.sorted.first
+                                        : null;
+                              } else {
+                                _block = null;
+                                final list = symbolsInCategory(cat);
+                                if (_kind == null || !list.contains(_kind)) {
+                                  _kind = list.isEmpty ? null : list.first;
+                                }
+                              }
+                            });
+                          },
+                        ),
                       ),
-                      selected: _category == cat,
-                      onSelected: (_) {
-                        setState(() {
-                          _category = cat;
-                          if (cat == PlotSymbolCategory.dwgBlocks) {
-                            _kind = null;
-                            _block ??= (_catalog?.sorted.isNotEmpty ?? false)
-                                ? _catalog!.sorted.first
-                                : null;
-                          } else {
-                            _block = null;
-                            final list = symbolsInCategory(cat);
-                            if (_kind == null || !list.contains(_kind)) {
-                              _kind = list.isEmpty ? null : list.first;
-                            }
-                          }
-                        });
-                      },
-                    ),
-                ],
+                    ],
+                  ],
+                ),
               ),
-              if (isDwg) ...[
-                const SizedBox(height: 10),
-                TextField(
+            ),
+            if (isDwg)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: TextField(
                   controller: _filterCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Filter blocks',
@@ -297,346 +313,374 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
-              ],
-              const SizedBox(height: 10),
-              if (isDwg)
-                ..._buildBlockGrid(cs)
-              else
-                GridView.count(
-                  crossAxisCount: 3,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 0.95,
-                  children: [
-                    for (final kind in kinds)
-                      InkWell(
-                        onTap: () => setState(() => _kind = kind),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
+              ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: isDwg
+                  ? _buildBlockGrid(cs)
+                  : GridView.count(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 0.95,
+                      children: [
+                        for (final kind in kinds)
+                          InkWell(
+                            onTap: () => setState(() => _kind = kind),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _kind == kind
-                                  ? cs.primary
-                                  : const Color(0x59E4572E),
-                              width: _kind == kind ? 2 : 1,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: _kind == kind
+                                      ? cs.primary
+                                      : const Color(0x59E4572E),
+                                  width: _kind == kind ? 2 : 1,
+                                ),
+                                color: const Color(0xCC162014),
+                              ),
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    child: CustomPaint(
+                                      painter: SymbolPreviewPainter(
+                                        kind,
+                                        color: Color(_colorArgb),
+                                      ),
+                                      child: const SizedBox.expand(),
+                                    ),
+                                  ),
+                                  Text(
+                                    kind.label,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            color: const Color(0xCC162014),
                           ),
-                          child: Column(
-                            children: [
-                              Expanded(
-                                child: CustomPaint(
-                                  painter: SymbolPreviewPainter(
-                                    kind,
+                      ],
+                    ),
+            ),
+            // Sticky attribute bar — always visible without scrolling the library.
+            Material(
+              color: const Color(0xFF1B281C),
+              elevation: 12,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: isDwg && _block != null
+                              ? CustomPaint(
+                                  painter: BlockPreviewPainter(
+                                    _block!,
                                     color: Color(_colorArgb),
                                   ),
-                                  child: const SizedBox.expand(),
+                                )
+                              : _kind != null
+                                  ? CustomPaint(
+                                      painter: SymbolPreviewPainter(
+                                        _kind!,
+                                        color: Color(_colorArgb),
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _selectedName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 34,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          for (final c in PlotSymbolColor.presets)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: GestureDetector(
+                                onTap: () =>
+                                    setState(() => _colorArgb = c.argb),
+                                child: Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    color: Color(c.argb),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: _colorArgb == c.argb
+                                          ? Colors.white
+                                          : Colors.white24,
+                                      width: _colorArgb == c.argb ? 3 : 1,
+                                    ),
+                                  ),
                                 ),
                               ),
-                              Text(
-                                kind.label,
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
+                            ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 64,
+                          child: Text(
+                            'Scale\n${_scale.toStringAsFixed(2)}×',
+                            style: const TextStyle(fontSize: 11, height: 1.2),
+                          ),
+                        ),
+                        Expanded(
+                          child: Slider(
+                            value: _scale.clamp(0.25, 5.0),
+                            min: 0.25,
+                            max: 5.0,
+                            divisions: 19,
+                            onChanged: (v) => setState(() => _scale = v),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 64,
+                          child: Text(
+                            'Rotate\n${_rotation.toStringAsFixed(0)}°',
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(fontSize: 11, height: 1.2),
+                          ),
+                        ),
+                        Expanded(
+                          child: Slider(
+                            value: _rotation.clamp(-180, 180),
+                            min: -180,
+                            max: 180,
+                            divisions: 72,
+                            onChanged: (v) => setState(() => _rotation = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Theme(
+                      data: Theme.of(context)
+                          .copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        initiallyExpanded: _showAdvancedLocation,
+                        tilePadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Location / label (optional)',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                        children: [
+                          if (widget.anchorPoints.isNotEmpty)
+                            DropdownButtonFormField<String?>(
+                              value: _anchorId,
+                              decoration: const InputDecoration(
+                                labelText: 'Snap to point',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              items: [
+                                const DropdownMenuItem(
+                                  value: null,
+                                  child: Text('Manual N / E'),
+                                ),
+                                for (final pt in widget.anchorPoints)
+                                  DropdownMenuItem(
+                                    value: pt.id,
+                                    child: Text('${pt.id}  ${pt.description}'),
+                                  ),
+                              ],
+                              onChanged: (v) =>
+                                  setState(() => _applyAnchor(v)),
+                            ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _northCtrl,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                    signed: true,
+                                  ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'[0-9.\-]'),
+                                    ),
+                                  ],
+                                  decoration: const InputDecoration(
+                                    labelText: 'Northing',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: _eastCtrl,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                    signed: true,
+                                  ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'[0-9.\-]'),
+                                    ),
+                                  ],
+                                  decoration: const InputDecoration(
+                                    labelText: 'Easting',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ),
-                  ],
-                ),
-              const SizedBox(height: 8),
-              Text(
-                'Source: $sourceText',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: cs.onSurface.withValues(alpha: 0.55),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Location',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: cs.primary,
-                ),
-              ),
-              if (widget.anchorPoints.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String?>(
-                  value: _anchorId,
-                  decoration: const InputDecoration(
-                    labelText: 'Snap to point',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Manual N / E'),
-                    ),
-                    for (final pt in widget.anchorPoints)
-                      DropdownMenuItem(
-                        value: pt.id,
-                        child: Text('${pt.id}  ${pt.description}'),
-                      ),
-                  ],
-                  onChanged: (v) => setState(() => _applyAnchor(v)),
-                ),
-              ],
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _northCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                        signed: true,
-                      ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.\-]')),
-                      ],
-                      decoration: const InputDecoration(
-                        labelText: 'Northing',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _eastCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                        signed: true,
-                      ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.\-]')),
-                      ],
-                      decoration: const InputDecoration(
-                        labelText: 'Easting',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text('Nudge ($_nudgeFt ft)', style: const TextStyle(fontSize: 12)),
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () => _nudge(0, _nudgeFt),
-                    icon: const Icon(Icons.keyboard_arrow_up),
-                    tooltip: 'North',
-                  ),
-                  IconButton(
-                    onPressed: () => _nudge(0, -_nudgeFt),
-                    icon: const Icon(Icons.keyboard_arrow_down),
-                    tooltip: 'South',
-                  ),
-                  IconButton(
-                    onPressed: () => _nudge(-_nudgeFt, 0),
-                    icon: const Icon(Icons.keyboard_arrow_left),
-                    tooltip: 'West',
-                  ),
-                  IconButton(
-                    onPressed: () => _nudge(_nudgeFt, 0),
-                    icon: const Icon(Icons.keyboard_arrow_right),
-                    tooltip: 'East',
-                  ),
-                  const Spacer(),
-                  DropdownButton<double>(
-                    value: _nudgeFt,
-                    items: const [
-                      DropdownMenuItem(value: 5, child: Text('5 ft')),
-                      DropdownMenuItem(value: 10, child: Text('10 ft')),
-                      DropdownMenuItem(value: 25, child: Text('25 ft')),
-                      DropdownMenuItem(value: 50, child: Text('50 ft')),
-                      DropdownMenuItem(value: 100, child: Text('100 ft')),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) setState(() => _nudgeFt = v);
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Scale  ${_scale.toStringAsFixed(2)}×',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              Slider(
-                value: _scale.clamp(0.25, 5.0),
-                min: 0.25,
-                max: 5.0,
-                divisions: 19,
-                label: '${_scale.toStringAsFixed(2)}×',
-                onChanged: (v) => setState(() => _scale = v),
-              ),
-              Text(
-                'Rotation  ${_rotation.toStringAsFixed(0)}°',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              Slider(
-                value: _rotation.clamp(-180, 180),
-                min: -180,
-                max: 180,
-                divisions: 72,
-                label: '${_rotation.toStringAsFixed(0)}°',
-                onChanged: (v) => setState(() => _rotation = v),
-              ),
-              const SizedBox(height: 4),
-              Text('Color', style: const TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final c in PlotSymbolColor.presets)
-                    GestureDetector(
-                      onTap: () => setState(() => _colorArgb = c.argb),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: Color(c.argb),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _colorArgb == c.argb
-                                ? Colors.white
-                                : Colors.white24,
-                            width: _colorArgb == c.argb ? 3 : 1,
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _labelCtrl,
+                            decoration: InputDecoration(
+                              labelText: 'Label (optional)',
+                              hintText: _selectedName,
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 4),
+                        ],
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _labelCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Label (optional)',
-                  hintText: isDwg
-                      ? (_block?.name ?? 'Block')
-                      : (_kind?.label ?? 'Symbol'),
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: _submit,
-                icon: const Icon(Icons.check),
-                label: Text(
-                  widget.existing == null ? 'Add to plot' : 'Update object',
-                ),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                  backgroundColor: cs.primary,
-                  foregroundColor: Colors.black,
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  List<Widget> _buildBlockGrid(ColorScheme cs) {
-    final blocks = _filteredBlocks;
-    if (_catalog == null) {
-      return [
-        const Padding(
-          padding: EdgeInsets.all(24),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      ];
-    }
-    if (blocks.isEmpty) {
-      return [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            'No blocks match that filter.',
-            style: TextStyle(color: cs.onSurface.withValues(alpha: 0.65)),
-          ),
-        ),
-      ];
-    }
-    return [
-      Text(
-        '${blocks.length} block${blocks.length == 1 ? '' : 's'}',
-        style: TextStyle(
-          fontSize: 12,
-          color: cs.onSurface.withValues(alpha: 0.65),
-        ),
-      ),
-      const SizedBox(height: 6),
-      GridView.count(
-        crossAxisCount: 3,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 0.95,
-        children: [
-          for (final block in blocks)
-            InkWell(
-              onTap: () => setState(() => _block = block),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _block?.id == block.id
-                        ? cs.primary
-                        : const Color(0x59E4572E),
-                    width: _block?.id == block.id ? 2 : 1,
-                  ),
-                  color: const Color(0xCC162014),
-                ),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: CustomPaint(
-                        painter: BlockPreviewPainter(
-                          block,
-                          color: Color(_colorArgb),
-                        ),
-                        child: const SizedBox.expand(),
+                    const SizedBox(height: 4),
+                    FilledButton.icon(
+                      onPressed: _submit,
+                      icon: const Icon(Icons.check),
+                      label: Text(
+                        widget.existing == null
+                            ? 'Place on plot — then drag to position'
+                            : 'Update object',
                       ),
-                    ),
-                    Text(
-                      block.name,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        backgroundColor: cs.primary,
+                        foregroundColor: Colors.black,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
-    ];
+    );
+  }
+
+  Widget _buildBlockGrid(ColorScheme cs) {
+    final blocks = _filteredBlocks;
+    if (_catalog == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (blocks.isEmpty) {
+      return Center(
+        child: Text(
+          'No blocks match that filter.',
+          style: TextStyle(color: cs.onSurface.withValues(alpha: 0.65)),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            '${blocks.length} block${blocks.length == 1 ? '' : 's'}',
+            style: TextStyle(
+              fontSize: 12,
+              color: cs.onSurface.withValues(alpha: 0.65),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 0.95,
+            ),
+            itemCount: blocks.length,
+            itemBuilder: (context, index) {
+              final block = blocks[index];
+              final selected = _block?.id == block.id;
+              return InkWell(
+                onTap: () => setState(() => _block = block),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: selected ? cs.primary : const Color(0x59E4572E),
+                      width: selected ? 2 : 1,
+                    ),
+                    color: const Color(0xCC162014),
+                  ),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: CustomPaint(
+                          painter: BlockPreviewPainter(
+                            block,
+                            color: Color(_colorArgb),
+                          ),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                      Text(
+                        block.name,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 }

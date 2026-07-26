@@ -109,6 +109,39 @@ void main() {
     expect(lw.forLayersCapped(lw.layers.toSet(), maxEntities: 100).length, 4);
   });
 
+  test('forLayersNear prefers entities close to stake points', () {
+    final near = LineworkEntity(
+      layer: 'CL',
+      type: 'LINE',
+      vertices: [
+        [100.0, 100.0],
+        [110.0, 100.0],
+      ],
+    );
+    final far = LineworkEntity(
+      layer: 'CL',
+      type: 'LINE',
+      vertices: [
+        [90000.0, 90000.0],
+        [90100.0, 90000.0],
+      ],
+    );
+    final lw = DxfLinework(
+      entities: [far, near, far, near],
+      layers: const ['CL'],
+      layerCounts: const {'CL': 4},
+    );
+    final picked = lw.forLayersNear(
+      {'CL'},
+      points: [(easting: 105.0, northing: 100.0)],
+      maxEntities: 2,
+    );
+    expect(picked.length, 2);
+    for (final e in picked) {
+      expect(e.vertices.first[0], lessThan(200));
+    }
+  });
+
   test('plan framing ignores distant linework so stakes stay on-sheet', () async {
     final pts = parsePointsCsv(
       File('test/fixtures/sample_points.csv').readAsStringSync(),
