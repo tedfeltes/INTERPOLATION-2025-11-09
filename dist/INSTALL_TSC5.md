@@ -29,10 +29,11 @@ Company MDM may block unknown APKs. Ask IT to allow unknown-source installs, or 
 
 1. Open **StakeDXF** → **Convert DWG → DXF**
 2. Pick the Civil 3D drawing
-3. Tap **Convert for Trimble Access**
-4. Confirm it reports stakeable entities (and proxy explode count when Civil 3D proxies were present)
-5. Review **Converted layers** — only layers with data are listed; uncheck anything you do not want
-6. Tap **Save DXF** (selected layers) and put it in:
+3. Allow **notifications** if prompted (keeps large conversions alive in the background)
+4. Tap **Convert for Trimble Access** — you can switch apps; a status notification shows progress
+5. Confirm it reports stakeable entities (and proxy explode count when Civil 3D proxies were present)
+6. Review **Converted layers** — only layers with data are listed; uncheck anything you do not want
+7. Tap **Save DXF** (selected layers) and put it in:
 
 ```text
 Trimble Data/Projects/<your project>/

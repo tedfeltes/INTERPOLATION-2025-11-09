@@ -32,19 +32,23 @@ Recover Civil 3D linework into a Trimble-stakeable DXF on the controller.
 
 1. Open **StakeDXF → Convert DWG → DXF**
 2. **Choose DWG / DXF**
-3. **Convert for Trimble Access**
-4. Confirm stakeable entity count (and proxy explode count when present)
-5. Review **Converted layers** (empty layers omitted) and select which to export
-6. **Save DXF** into `Trimble Data/Projects/<job>/`
-7. Trimble Access: **Map → Layer manager → Map files → selectable → Stakeout**
+3. Allow **notifications** when prompted (keeps the conversion job alive)
+4. **Convert for Trimble Access** — watch the on-screen progress bar
+5. You may switch to Trimble Access or another app; a **foreground notification** keeps conversion running
+6. Confirm stakeable entity count (and proxy explode count when present)
+7. Review **Converted layers** (empty layers omitted) and select which to export
+8. **Save DXF** into `Trimble Data/Projects/<job>/`
+9. Trimble Access: **Map → Layer manager → Map files → selectable → Stakeout**
 
 ### On-device pipeline
-1. LibreDWG: DWG → DXF  
-2. ezdxf: explode `ACAD_PROXY_ENTITY` / AEC proxies → LINE / ARC / POLYLINE  
-3. Keep Trimble-stakeable types only; purge empty layer-table entries  
-4. Optional: export a subset of layers from the on-screen checklist  
+1. Foreground service + wake lock (process keep-alive while converting)  
+2. LibreDWG: DWG → DXF (background isolate)  
+3. ezdxf (background worker): single-pass explode `ACAD_PROXY_ENTITY` / AEC proxies → LINE / ARC / POLYLINE  
+4. Keep Trimble-stakeable types only; purge empty layer-table entries  
+5. Optional: export a subset of layers from the on-screen checklist  
 
-**Tip:** Office DWGs should keep proxy graphics so Civil features can be recovered.
+**Tip:** Office DWGs should keep proxy graphics so Civil features can be recovered.  
+**Tip:** Very large Civil bases still take time — the notification shows percent complete so you can leave the app.
 
 ## 3. Usage — Export Points & staking plots
 

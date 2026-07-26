@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'converter.dart';
@@ -122,6 +123,8 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
   ConvertResult? _result;
   String? _error;
   bool _busy = false;
+  String? _progressMessage;
+  int _progressPercent = 0;
   final Set<String> _selectedLayers = {};
 
   Future<void> _pick() async {
@@ -163,15 +166,28 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
       _busy = true;
       _error = null;
       _result = null;
+      _progressMessage = 'Starting conversion…';
+      _progressPercent = 0;
       _selectedLayers.clear();
     });
     try {
+      if (Platform.isAndroid) {
+        // Needed so the conversion foreground notification can show (API 33+).
+        await Permission.notification.request();
+      }
       final dir = await getTemporaryDirectory();
       final stem = p.basenameWithoutExtension(input);
       final output = p.join(dir.path, '${stem}_trimble_access.dxf');
       final result = await _converter.convertFile(
         inputPath: input,
         outputPath: output,
+        onProgress: (stage, percent, message) {
+          if (!mounted) return;
+          setState(() {
+            _progressPercent = percent;
+            _progressMessage = message.isEmpty ? stage : message;
+          });
+        },
       );
       final docs = await getApplicationDocumentsDirectory();
       final durable = p.join(docs.path, p.basename(output));
@@ -182,16 +198,24 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
         layers = await _converter.listLayers(durable);
       }
 
+      if (!mounted) return;
       setState(() {
         _result = result.copyWith(outputPath: durable, layers: layers);
         _selectedLayers
           ..clear()
           ..addAll(layers.map((l) => l.name));
+        _progressMessage = null;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
-      setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _progressMessage = null;
+        });
+      }
     }
   }
 
@@ -276,7 +300,8 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
             Text(
               'Import a Civil 3D DWG, recover the stakeable linework on this '
               'device, review layers with data, then export a DXF for '
-              'Trimble Access.',
+              'Trimble Access. Large conversions run under a foreground '
+              'notification so you can switch apps without killing the job.',
               style: TextStyle(
                 color: cs.onSurface.withValues(alpha: 0.75),
                 height: 1.35,
@@ -313,6 +338,34 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
                       ),
                     ),
             ),
+            if (_busy && _result == null) ...[
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                value: _progressPercent > 0 ? _progressPercent / 100.0 : null,
+                minHeight: 6,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _progressMessage == null
+                    ? 'Converting…'
+                    : '${_progressPercent > 0 ? '$_progressPercent% · ' : ''}'
+                        '$_progressMessage',
+                style: TextStyle(
+                  color: cs.onSurface.withValues(alpha: 0.8),
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'You can switch to Trimble Access — conversion continues in '
+                'the background with a status notification.',
+                style: TextStyle(
+                  color: cs.onSurface.withValues(alpha: 0.55),
+                  fontSize: 12,
+                  height: 1.35,
+                ),
+              ),
+            ],
             if (_error != null) ...[
               const SizedBox(height: 16),
               Text(_error!, style: TextStyle(color: cs.error)),

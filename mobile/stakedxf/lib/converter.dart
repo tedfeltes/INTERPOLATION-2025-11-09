@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -191,34 +192,84 @@ List<LayerInfo> listLayersFromDxfText(String text) {
   return layers;
 }
 
+typedef ConvertProgressCallback = void Function(
+  String stage,
+  int percent,
+  String message,
+);
+
 class NativeConverter {
   static const _linework = MethodChannel('com.stakedxf/linework');
+  static const _progress = EventChannel('com.stakedxf/convert_progress');
 
   /// Convert DWG/DXF → Trimble stakeable DXF.
   ///
-  /// On Android: DWG→DXF via LibreDWG, then Python recovers Civil 3D proxy
-  /// linework (ACAD_PROXY_ENTITY) into LINE/ARC/POLYLINE before filtering.
+  /// On Android: starts a foreground-service keep-alive, runs DWG→DXF via
+  /// LibreDWG in an isolate, then recovers Civil 3D proxy linework on a
+  /// background Kotlin/Python worker (with staged progress).
   /// Empty layers are omitted; [ConvertResult.layers] lists layers with data.
   Future<ConvertResult> convertFile({
     required String inputPath,
     required String outputPath,
+    ConvertProgressCallback? onProgress,
   }) async {
     final lower = inputPath.toLowerCase();
     var rawDxf = outputPath;
+    StreamSubscription? progressSub;
 
-    if (lower.endsWith('.dwg')) {
-      rawDxf = '$outputPath.raw.dxf';
-      await compute(_dwgToDxfWorker, <String, String>{
-        'input': inputPath,
-        'output': rawDxf,
+    Future<void> notify(String stage, int percent, String message) async {
+      onProgress?.call(stage, percent, message);
+      if (Platform.isAndroid) {
+        try {
+          await _linework.invokeMethod<dynamic>('updateConvertGuard', {
+            'stage': stage,
+            'percent': percent,
+            'message': message,
+          });
+        } catch (_) {}
+      }
+    }
+
+    if (Platform.isAndroid) {
+      try {
+        await _linework.invokeMethod<dynamic>('startConvertGuard', {
+          'message': 'Preparing conversion…',
+        });
+      } catch (_) {
+        // Continue without FGS if the OEM blocks it; conversion still runs.
+      }
+      progressSub = _progress.receiveBroadcastStream().listen((event) {
+        if (event is Map) {
+          final type = event['type']?.toString();
+          if (type == 'progress') {
+            onProgress?.call(
+              event['stage']?.toString() ?? 'convert',
+              (event['percent'] as num?)?.toInt() ?? 0,
+              event['message']?.toString() ?? '',
+            );
+          }
+        }
       });
-    } else if (lower.endsWith('.dxf')) {
-      rawDxf = inputPath;
-    } else {
-      throw Exception('Choose a .dwg or .dxf file');
     }
 
     try {
+      await notify('prepare', 2, 'Preparing conversion…');
+
+      if (lower.endsWith('.dwg')) {
+        rawDxf = '$outputPath.raw.dxf';
+        await notify('dwg', 8, 'Reading DWG (LibreDWG)…');
+        await compute(_dwgToDxfWorker, <String, String>{
+          'input': inputPath,
+          'output': rawDxf,
+        });
+        await notify('dwg', 30, 'DWG decoded — recovering linework…');
+      } else if (lower.endsWith('.dxf')) {
+        rawDxf = inputPath;
+        await notify('dxf', 20, 'DXF selected — recovering linework…');
+      } else {
+        throw Exception('Choose a .dwg or .dxf file');
+      }
+
       if (Platform.isAndroid) {
         final raw = await _linework.invokeMethod<dynamic>('recoverLinework', {
           'input': rawDxf,
@@ -236,6 +287,7 @@ class NativeConverter {
             (stakeable > 0
                 ? 'Recovered $stakeable stakeable entities on ${layers.length} layer(s)'
                 : 'No stakeable linework found in this drawing.');
+        await notify('done', 100, message);
         return ConvertResult(
           outputPath: outputPath,
           stakeableCount: stakeable,
@@ -248,20 +300,29 @@ class NativeConverter {
       }
 
       // Host / iOS fallback: text filter only (no proxy explode).
+      await notify('filter', 50, 'Filtering stakeable entities…');
       final stakeable = await compute(_filterWorker, <String, String>{
         'input': rawDxf,
         'output': outputPath,
       });
       final layers = listLayersFromDxfText(File(outputPath).readAsStringSync());
+      final message = stakeable > 0
+          ? 'Ready for Trimble Access stakeout — ${layers.length} layer(s) with data'
+          : 'No stakeable linework found in this drawing.';
+      await notify('done', 100, message);
       return ConvertResult(
         outputPath: outputPath,
         stakeableCount: stakeable,
-        message: stakeable > 0
-            ? 'Ready for Trimble Access stakeout — ${layers.length} layer(s) with data'
-            : 'No stakeable linework found in this drawing.',
+        message: message,
         layers: layers,
       );
     } finally {
+      await progressSub?.cancel();
+      if (Platform.isAndroid) {
+        try {
+          await _linework.invokeMethod<dynamic>('stopConvertGuard');
+        } catch (_) {}
+      }
       if (rawDxf != inputPath && rawDxf != outputPath) {
         try {
           File(rawDxf).deleteSync();

@@ -3,12 +3,18 @@
 Called from Kotlin after LibreDWG (or for DXF inputs directly).
 Explodes ACAD_PROXY_ENTITY proxy graphics into stakeable LINE/ARC/POLYLINE.
 Only layers that contain stakeable entities are kept in the output DXF.
+
+Performance notes (v1.11+):
+- Single DXF load (no double-read)
+- In-place proxy explode + non-stakeable strip (Importer only when version coerce needed)
+- Optional progress bridge for foreground-service notifications
 """
 
 from __future__ import annotations
 
 import json
 from collections import Counter
+from typing import Any
 
 import ezdxf
 from ezdxf.addons import Importer
@@ -19,12 +25,35 @@ STAKEABLE = frozenset(
     {"ARC", "CIRCLE", "INSERT", "LINE", "POINT", "POLYLINE", "LWPOLYLINE"}
 )
 
+# Keep VERTEX/SEQEND with their parent POLYLINE during in-place strip.
+_KEEP_IN_PLACE = STAKEABLE | {"VERTEX", "SEQEND"}
 
-def _explode_proxies(doc) -> tuple[int, int]:
+# R2010 / AC1024 — preferred for Trimble Access
+_R2010 = frozenset({"R2010", "AC1024"})
+
+
+def _report(progress: Any, stage: str, percent: int, message: str) -> None:
+    if progress is None:
+        return
+    try:
+        # Kotlin ProgressBridge.on_progress(stage, percent, message)
+        progress.on_progress(stage, int(percent), message)
+    except Exception:
+        try:
+            progress(stage, int(percent), message)
+        except Exception:
+            pass
+
+
+def _explode_proxies(doc, progress: Any = None) -> tuple[int, int]:
     msp = doc.modelspace()
+    entities = list(msp)
+    total = max(len(entities), 1)
     exploded = 0
     primitives = 0
-    for entity in list(msp):
+    last_pct = -1
+
+    for idx, entity in enumerate(entities):
         etype = entity.dxftype().upper()
         graphic = getattr(entity, "proxy_graphic", None)
         is_proxy = etype in {"ACAD_PROXY_ENTITY", "ACAD_PROXY_OBJECT"} or bool(graphic)
@@ -47,16 +76,23 @@ def _explode_proxies(doc) -> tuple[int, int]:
         if not virt:
             continue
 
+        layer = None
+        try:
+            if hasattr(entity.dxf, "layer"):
+                layer = entity.dxf.layer
+        except Exception:
+            layer = None
+
         for item in virt:
             try:
                 clone = item.copy()
             except Exception:
                 clone = item
-            try:
-                if hasattr(entity.dxf, "layer"):
-                    clone.dxf.layer = entity.dxf.layer
-            except Exception:
-                pass
+            if layer is not None:
+                try:
+                    clone.dxf.layer = layer
+                except Exception:
+                    pass
             try:
                 msp.add_entity(clone)
                 primitives += 1
@@ -67,15 +103,56 @@ def _explode_proxies(doc) -> tuple[int, int]:
             exploded += 1
         except Exception:
             pass
+
+        pct = 15 + int(40 * (idx + 1) / total)
+        if pct != last_pct and (pct - last_pct >= 2 or idx + 1 == total):
+            last_pct = pct
+            _report(
+                progress,
+                "explode",
+                pct,
+                f"Exploding Civil 3D proxies… ({exploded} done)",
+            )
+
     return exploded, primitives
+
+
+def _strip_non_stakeable(doc, progress: Any = None) -> tuple[int, Counter]:
+    """Delete non-stakeable modelspace entities in place (fast path)."""
+    msp = doc.modelspace()
+    entities = list(msp)
+    total = max(len(entities), 1)
+    kept = 0
+    skipped: Counter[str] = Counter()
+    last_pct = -1
+
+    for idx, entity in enumerate(entities):
+        etype = entity.dxftype().upper()
+        if etype in _KEEP_IN_PLACE:
+            if etype in STAKEABLE:
+                kept += 1
+        else:
+            skipped[etype] += 1
+            try:
+                msp.delete_entity(entity)
+            except Exception:
+                pass
+        pct = 55 + int(25 * (idx + 1) / total)
+        if pct != last_pct and (pct - last_pct >= 3 or idx + 1 == total):
+            last_pct = pct
+            _report(progress, "filter", pct, "Keeping stakeable entities…")
+
+    return kept, skipped
 
 
 def _layer_stats(doc) -> list[dict]:
     counts: Counter[str] = Counter()
     types: dict[str, Counter[str]] = {}
     for entity in doc.modelspace():
-        layer = getattr(entity.dxf, "layer", "0") or "0"
         etype = entity.dxftype().upper()
+        if etype not in STAKEABLE:
+            continue
+        layer = getattr(entity.dxf, "layer", "0") or "0"
         counts[layer] += 1
         types.setdefault(layer, Counter())[etype] += 1
     rows = []
@@ -98,10 +175,8 @@ def _purge_empty_layers(doc) -> int:
         name = layer.dxf.name
         if name in used:
             continue
-        if name.upper() in {"0", "DEFPOINTS"}:
-            # Keep 0 always; drop Defpoints if unused
-            if name.upper() == "0":
-                continue
+        if name.upper() == "0":
+            continue
         try:
             doc.layers.remove(name)
             removed += 1
@@ -133,27 +208,66 @@ def _import_stakeable(working, out, include_layers: set[str] | None = None) -> t
     return kept, skipped
 
 
-def recover_linework(input_path: str, output_path: str) -> dict:
-    """
-    Recover Civil 3D / AEC linework into a Trimble-stakeable DXF.
-
-    Empty layers are omitted. Returns layer stats for the UI checklist.
-    """
-    source = ezdxf.readfile(input_path)
-    working = ezdxf.readfile(input_path)
-    exploded, primitives = _explode_proxies(working)
-
-    out = ezdxf.new("R2010")
+def _copy_units(source, out) -> None:
     try:
         if "INSUNITS" in source.header:
             out.header["$INSUNITS"] = source.header["$INSUNITS"]
     except Exception:
         pass
 
-    kept, skipped = _import_stakeable(working, out)
-    purged = _purge_empty_layers(out)
+
+def _save_trimble(doc, output_path: str, progress: Any = None) -> int | None:
+    """
+    Save as R2010 Trimble-friendly DXF.
+
+    Fast path: in-place save when already R2010 after strip (returns None —
+    caller keeps its entity count). Slow path: Importer rebuild into a new
+    R2010 doc (returns imported count).
+    """
+    version = str(getattr(doc, "dxfversion", "") or "")
+    if version.upper() in _R2010 or version in _R2010:
+        _report(progress, "write", 90, "Writing Trimble DXF…")
+        doc.saveas(output_path)
+        return None
+
+    _report(progress, "write", 88, "Normalizing to R2010 DXF…")
+    out = ezdxf.new("R2010")
+    _copy_units(doc, out)
+    kept, _ = _import_stakeable(doc, out)
+    _purge_empty_layers(out)
     out.saveas(output_path)
-    layers = _layer_stats(out)
+    return kept
+
+
+def recover_linework(
+    input_path: str,
+    output_path: str,
+    progress: Any = None,
+) -> dict:
+    """
+    Recover Civil 3D / AEC linework into a Trimble-stakeable DXF.
+
+    Empty layers are omitted. Returns layer stats for the UI checklist.
+    [progress] may be a Kotlin bridge with on_progress(stage, percent, message).
+    """
+    _report(progress, "load", 5, "Loading DXF…")
+    doc = ezdxf.readfile(input_path)  # single load
+
+    _report(progress, "explode", 15, "Exploding Civil 3D proxies…")
+    exploded, primitives = _explode_proxies(doc, progress)
+
+    _report(progress, "filter", 55, "Keeping stakeable entities…")
+    kept, skipped = _strip_non_stakeable(doc, progress)
+
+    _report(progress, "purge", 82, "Purging empty layers…")
+    purged = _purge_empty_layers(doc)
+    layers = _layer_stats(doc)
+
+    imported = _save_trimble(doc, output_path, progress)
+    if imported is not None:
+        kept = imported
+
+    _report(progress, "done", 100, "Conversion complete")
 
     return {
         "stakeable_count": kept,
@@ -207,21 +321,58 @@ def filter_layers(input_path: str, output_path: str, layers_json: str) -> dict:
         }
 
     source = ezdxf.readfile(input_path)
-    out = ezdxf.new("R2010")
-    try:
-        if "INSUNITS" in source.header:
-            out.header["$INSUNITS"] = source.header["$INSUNITS"]
-    except Exception:
-        pass
+    include_l = {n.lower() for n in include}
+    msp = source.modelspace()
+    # First pass: decide which POLYLINE parents stay, then keep their VERTEX/SEQEND.
+    keep_poly = False
+    for entity in list(msp):
+        etype = entity.dxftype().upper()
+        layer = (getattr(entity.dxf, "layer", "0") or "0").lower()
+        if etype == "POLYLINE":
+            keep_poly = etype in STAKEABLE and layer in include_l
+            if not keep_poly:
+                try:
+                    msp.delete_entity(entity)
+                except Exception:
+                    pass
+            continue
+        if etype in {"VERTEX", "SEQEND"}:
+            if not keep_poly:
+                try:
+                    msp.delete_entity(entity)
+                except Exception:
+                    pass
+            if etype == "SEQEND":
+                keep_poly = False
+            continue
+        if etype not in STAKEABLE or layer not in include_l:
+            try:
+                msp.delete_entity(entity)
+            except Exception:
+                pass
 
-    kept, skipped = _import_stakeable(source, out, include_layers=include)
-    _purge_empty_layers(out)
-    out.saveas(output_path)
-    layers = _layer_stats(out)
+    kept = sum(
+        1
+        for e in source.modelspace()
+        if e.dxftype().upper() in STAKEABLE
+    )
+    _purge_empty_layers(source)
+
+    version = str(getattr(source, "dxfversion", "") or "")
+    if version.upper() in _R2010 or version in _R2010:
+        source.saveas(output_path)
+        layers = _layer_stats(source)
+    else:
+        out = ezdxf.new("R2010")
+        _copy_units(source, out)
+        kept, _ = _import_stakeable(source, out, include_layers=include)
+        _purge_empty_layers(out)
+        out.saveas(output_path)
+        layers = _layer_stats(out)
+
     return {
         "ok": kept > 0,
         "stakeable_count": kept,
-        "skipped": dict(skipped),
         "layers": layers,
         "layers_json": json.dumps(layers),
         "message": (
