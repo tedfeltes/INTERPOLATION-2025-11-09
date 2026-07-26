@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'block_catalog.dart';
 import 'dxf_linework.dart';
 import 'label_placement.dart';
+import 'linetype_catalog.dart';
+import 'linework_draw.dart';
 import 'plot_options.dart';
 import 'plot_pdf.dart';
 import 'plot_symbols.dart';
@@ -16,6 +18,7 @@ import 'symbol_preview.dart';
 ///
 /// - Drag **labels** (Civil 3D drag state) — point markers stay fixed
 /// - Drag **library objects** to set survey N/E
+/// - Tap **linework** to select; nodes/segments for editing
 /// - Point markers themselves cannot be moved
 class PlotPreview extends StatefulWidget {
   const PlotPreview({
@@ -25,10 +28,18 @@ class PlotPreview extends StatefulWidget {
     this.linework = const [],
     this.symbols = const [],
     this.blockCatalog,
+    this.linetypeCatalog,
+    this.layerStyles = const {},
     this.selectedSymbolId,
     this.selectedLabelPointId,
+    this.selectedLineworkId,
+    this.selectedNodeIndex,
+    this.selectedSegmentIndex,
     this.onSelectSymbol,
     this.onSelectLabelPoint,
+    this.onSelectLinework,
+    this.onSelectNode,
+    this.onSelectSegment,
     this.onMoveSymbol,
     this.onMoveLabel,
     this.height = 280,
@@ -39,10 +50,18 @@ class PlotPreview extends StatefulWidget {
   final List<LineworkEntity> linework;
   final List<PlacedPlotSymbol> symbols;
   final BlockCatalog? blockCatalog;
+  final LinetypeCatalog? linetypeCatalog;
+  final Map<String, DxfLayerStyle> layerStyles;
   final String? selectedSymbolId;
   final String? selectedLabelPointId;
+  final String? selectedLineworkId;
+  final int? selectedNodeIndex;
+  final int? selectedSegmentIndex;
   final ValueChanged<String?>? onSelectSymbol;
   final ValueChanged<String?>? onSelectLabelPoint;
+  final ValueChanged<String?>? onSelectLinework;
+  final ValueChanged<int?>? onSelectNode;
+  final ValueChanged<int?>? onSelectSegment;
   final void Function(String id, double easting, double northing)? onMoveSymbol;
   final void Function(String pointId, double offsetE, double offsetN)?
       onMoveLabel;
@@ -117,7 +136,7 @@ class _PlotPreviewState extends State<PlotPreview> {
             const Spacer(),
             Flexible(
               child: Text(
-                'Drag labels (points stay fixed) · drag objects to place',
+                'Drag labels · objects · tap linework to edit',
                 textAlign: TextAlign.right,
                 style: TextStyle(
                   fontSize: 11,
@@ -163,8 +182,14 @@ class _PlotPreviewState extends State<PlotPreview> {
                         symbols: widget.symbols,
                         options: widget.options,
                         blockCatalog: widget.blockCatalog,
+                        linetypeCatalog:
+                            widget.linetypeCatalog ?? LinetypeCatalog.builtin(),
+                        layerStyles: widget.layerStyles,
                         selectedSymbolId: widget.selectedSymbolId,
                         selectedLabelPointId: widget.selectedLabelPointId,
+                        selectedLineworkId: widget.selectedLineworkId,
+                        selectedNodeIndex: widget.selectedNodeIndex,
+                        selectedSegmentIndex: widget.selectedSegmentIndex,
                         draggingId: _draggingId,
                         dragKind: _dragKind,
                         labelDrags: drags,
@@ -187,11 +212,51 @@ class _PlotPreviewState extends State<PlotPreview> {
     if (labelHit != null) {
       widget.onSelectLabelPoint?.call(labelHit);
       widget.onSelectSymbol?.call(null);
+      widget.onSelectLinework?.call(null);
       return;
     }
     final sym = _hitSymbol(local, map);
-    widget.onSelectSymbol?.call(sym?.id);
-    if (sym != null) widget.onSelectLabelPoint?.call(null);
+    if (sym != null) {
+      widget.onSelectSymbol?.call(sym.id);
+      widget.onSelectLabelPoint?.call(null);
+      widget.onSelectLinework?.call(null);
+      return;
+    }
+
+    // Prefer node/segment hits on the currently selected entity.
+    final selId = widget.selectedLineworkId;
+    if (selId != null) {
+      LineworkEntity? sel;
+      for (final e in widget.linework) {
+        if (e.id == selId) {
+          sel = e;
+          break;
+        }
+      }
+      if (sel != null) {
+        final node = hitTestNode(local, sel, map.toPixel);
+        if (node != null) {
+          widget.onSelectNode?.call(node);
+          widget.onSelectSegment?.call(null);
+          return;
+        }
+        final seg = hitTestSegment(local, sel, map.toPixel);
+        if (seg != null) {
+          widget.onSelectSegment?.call(seg);
+          widget.onSelectNode?.call(null);
+          return;
+        }
+      }
+    }
+
+    final lw = hitTestLinework(local, widget.linework, map.toPixel);
+    widget.onSelectLinework?.call(lw);
+    widget.onSelectSymbol?.call(null);
+    widget.onSelectLabelPoint?.call(null);
+    if (lw == null) {
+      widget.onSelectNode?.call(null);
+      widget.onSelectSegment?.call(null);
+    }
   }
 
   void _handlePanStart(Offset local, Map<String, LabelDragState> drags) {
@@ -339,8 +404,13 @@ class _PlotPreviewPainter extends CustomPainter {
     required this.symbols,
     required this.options,
     required this.blockCatalog,
+    required this.linetypeCatalog,
+    required this.layerStyles,
     required this.selectedSymbolId,
     required this.selectedLabelPointId,
+    required this.selectedLineworkId,
+    required this.selectedNodeIndex,
+    required this.selectedSegmentIndex,
     required this.draggingId,
     required this.dragKind,
     required this.labelDrags,
@@ -352,8 +422,13 @@ class _PlotPreviewPainter extends CustomPainter {
   final List<PlacedPlotSymbol> symbols;
   final PlotOptions options;
   final BlockCatalog? blockCatalog;
+  final LinetypeCatalog linetypeCatalog;
+  final Map<String, DxfLayerStyle> layerStyles;
   final String? selectedSymbolId;
   final String? selectedLabelPointId;
+  final String? selectedLineworkId;
+  final int? selectedNodeIndex;
+  final int? selectedSegmentIndex;
   final String? draggingId;
   final _DragKind dragKind;
   final Map<String, LabelDragState> labelDrags;
@@ -397,25 +472,19 @@ class _PlotPreviewPainter extends CustomPainter {
   }
 
   void _paintLinework(Canvas canvas) {
-    final paint = Paint()
-      ..color = const Color(0xFF1A1A1A)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-    for (final ent in linework) {
-      final samples = [
-        for (final p in ent.samplePoints)
-          if (p[0].isFinite && p[1].isFinite) p,
-      ];
-      if (samples.length < 2) continue;
-      final first = map.toPixel(samples.first[0], samples.first[1]);
-      final path = Path()..moveTo(first.dx, first.dy);
-      for (var i = 1; i < samples.length; i++) {
-        final o = map.toPixel(samples[i][0], samples[i][1]);
-        path.lineTo(o.dx, o.dy);
-      }
-      if (ent.closed || ent.type == 'CIRCLE') path.close();
-      canvas.drawPath(path, paint);
-    }
+    paintLineworkFlutter(
+      canvas: canvas,
+      linework: linework,
+      toPixel: map.toPixel,
+      catalog: linetypeCatalog,
+      layerStyles: layerStyles,
+      layerOverrides: options.layerStyleOverrides,
+      entityOverrides: options.entityStyleOverrides,
+      globalLinetypeScale: options.globalLinetypeScale,
+      selectedId: selectedLineworkId,
+      selectedSegmentIndex: selectedSegmentIndex,
+      selectedNodeIndex: selectedNodeIndex,
+    );
   }
 
   void _paintPointsAndLabels(Canvas canvas) {
@@ -613,8 +682,12 @@ class _PlotPreviewPainter extends CustomPainter {
         old.options != options ||
         old.selectedSymbolId != selectedSymbolId ||
         old.selectedLabelPointId != selectedLabelPointId ||
+        old.selectedLineworkId != selectedLineworkId ||
+        old.selectedNodeIndex != selectedNodeIndex ||
+        old.selectedSegmentIndex != selectedSegmentIndex ||
         old.draggingId != draggingId ||
         old.dragKind != dragKind ||
-        old.labelDrags != labelDrags;
+        old.labelDrags != labelDrags ||
+        old.layerStyles != layerStyles;
   }
 }

@@ -13,6 +13,10 @@ import 'block_catalog_asset.dart';
 import 'csv_io.dart';
 import 'dxf_linework.dart';
 import 'label_placement.dart';
+import 'linetype_catalog.dart';
+import 'linework_edit.dart';
+import 'linework_properties_panel.dart';
+import 'linework_style.dart';
 import 'plot_options.dart';
 import 'plot_pdf.dart';
 import 'plot_preview.dart';
@@ -42,7 +46,12 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   final List<PlacedPlotSymbol> _symbols = [];
   String? _selectedSymbolId;
   String? _selectedLabelPointId;
+  String? _selectedLineworkId;
+  String? _selectedLineworkLayer;
+  int? _selectedNodeIndex;
+  int? _selectedSegmentIndex;
   BlockCatalog? _blockCatalog;
+  LinetypeCatalog _linetypeCatalog = LinetypeCatalog.builtin();
   String? _error;
   String? _status;
   bool _busy = false;
@@ -57,6 +66,10 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     BlockCatalogAsset.loadCached().then((c) {
       if (!mounted) return;
       setState(() => _blockCatalog = c);
+    });
+    LinetypeCatalog.load().then((c) {
+      if (!mounted) return;
+      setState(() => _linetypeCatalog = c);
     });
   }
 
@@ -80,6 +93,110 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         for (final p in pts) (easting: p.easting, northing: p.northing),
       ],
     );
+  }
+
+  LineworkEntity? get _selectedLineworkEntity {
+    final id = _selectedLineworkId;
+    final lw = _linework;
+    if (id == null || lw == null) return null;
+    for (final e in lw.entities) {
+      if (e.id == id) return e;
+    }
+    return null;
+  }
+
+  void _applyLineworkOverride({
+    required bool toEntity,
+    required LineworkStyleOverride override,
+  }) {
+    setState(() {
+      if (toEntity) {
+        final id = _selectedLineworkId;
+        if (id == null) return;
+        final map = Map<String, LineworkStyleOverride>.from(
+          _options.entityStyleOverrides,
+        );
+        map[id] = override;
+        _options = _options.copyWith(entityStyleOverrides: map);
+      } else {
+        final layer = _selectedLineworkLayer ?? _selectedLineworkEntity?.layer;
+        if (layer == null) return;
+        final map = Map<String, LineworkStyleOverride>.from(
+          _options.layerStyleOverrides,
+        );
+        map[layer] = override;
+        _options = _options.copyWith(layerStyleOverrides: map);
+        _selectedLineworkLayer = layer;
+      }
+    });
+  }
+
+  void _explodeSelectedLinework() {
+    final id = _selectedLineworkId;
+    final lw = _linework;
+    if (id == null || lw == null) return;
+    final next = explodeEntitiesById(lw.entities, id);
+    setState(() {
+      _linework = lw.copyWithEntities(next);
+      _selectedLineworkId = null;
+      _selectedNodeIndex = null;
+      _selectedSegmentIndex = null;
+      _status =
+          'Exploded into ${next.length - lw.entities.length + 1} segment(s)';
+      _lineworkOpen = true;
+    });
+  }
+
+  void _removeSelectedSegment() {
+    final ent = _selectedLineworkEntity;
+    final seg = _selectedSegmentIndex;
+    final lw = _linework;
+    if (ent == null || seg == null || lw == null) return;
+    final pieces = removeSegment(ent, segmentIndex: seg);
+    final next = replaceEntity(lw.entities, ent.id, pieces);
+    setState(() {
+      _linework = lw.copyWithEntities(next);
+      _selectedLineworkId = pieces.isEmpty ? null : pieces.first.id;
+      _selectedNodeIndex = null;
+      _selectedSegmentIndex = null;
+      _status = pieces.isEmpty
+          ? 'Removed line segment'
+          : 'Removed segment — ${pieces.length} piece(s) remain';
+    });
+  }
+
+  void _removeSelectedNode() {
+    final ent = _selectedLineworkEntity;
+    final node = _selectedNodeIndex;
+    final lw = _linework;
+    if (ent == null || node == null || lw == null) return;
+    final pieces = removeNode(ent, nodeIndex: node);
+    final next = replaceEntity(lw.entities, ent.id, pieces);
+    setState(() {
+      _linework = lw.copyWithEntities(next);
+      _selectedLineworkId = pieces.isEmpty ? null : pieces.first.id;
+      _selectedNodeIndex = null;
+      _selectedSegmentIndex = null;
+      _status = pieces.isEmpty ? 'Removed entity' : 'Removed vertex node';
+    });
+  }
+
+  void _deleteSelectedLinework() {
+    final id = _selectedLineworkId;
+    final lw = _linework;
+    if (id == null || lw == null) return;
+    final next = lw.entities.where((e) => e.id != id).toList();
+    final ov = Map<String, LineworkStyleOverride>.from(
+      _options.entityStyleOverrides,
+    )..remove(id);
+    setState(() {
+      _linework = lw.copyWithEntities(next);
+      _options = _options.copyWith(entityStyleOverrides: ov);
+      _selectedLineworkId = null;
+      _selectedNodeIndex = null;
+      _selectedSegmentIndex = null;
+      _status = 'Deleted linework entity';
+    });
   }
 
   PlacedPlotSymbol? get _selectedSymbol {
@@ -267,10 +384,20 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         _selectedLayers
           ..clear()
           ..addAll(parsed.layers);
-        _options = _options.copyWith(includeLinework: true);
+        _selectedLineworkId = null;
+        _selectedLineworkLayer = null;
+        _selectedNodeIndex = null;
+        _selectedSegmentIndex = null;
+        _lineworkOpen = true;
+        _options = _options.copyWith(
+          includeLinework: true,
+          layerStyleOverrides: const {},
+          entityStyleOverrides: const {},
+        );
         _status =
             'Linked ${parsed.entities.length} entities on ${parsed.layers.length} layers'
-            '${sizeMb >= 1 ? ' (${sizeMb.toStringAsFixed(1)} MB)' : ''}'
+            ' (${parsed.layerStyles.length} layer styles)'
+            '${sizeMb >= 1 ? ' · ${sizeMb.toStringAsFixed(1)} MB' : ''}'
             '${capped ? ' — plot will draw first $kMaxPlotLineworkEntities for stability' : ''}';
       });
     } catch (e) {
@@ -285,6 +412,14 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       _linework = null;
       _dxfName = null;
       _selectedLayers.clear();
+      _selectedLineworkId = null;
+      _selectedLineworkLayer = null;
+      _selectedNodeIndex = null;
+      _selectedSegmentIndex = null;
+      _options = _options.copyWith(
+        layerStyleOverrides: const {},
+        entityStyleOverrides: const {},
+      );
       _status = 'Cleared linked DXF linework';
     });
   }
@@ -399,6 +534,8 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         linework: linework,
         symbols: symbols,
         blockCatalog: _blockCatalog,
+        layerStyles: _linework?.layerStyles ?? const {},
+        linetypeCatalog: _linetypeCatalog,
       );
       final scale = chooseEngineeringScale(
         chosen,
@@ -468,15 +605,50 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       linework: _chosenLinework,
                       symbols: _symbols,
                       blockCatalog: _blockCatalog,
+                      linetypeCatalog: _linetypeCatalog,
+                      layerStyles: _linework?.layerStyles ?? const {},
                       selectedSymbolId: _selectedSymbolId,
                       selectedLabelPointId: _selectedLabelPointId,
+                      selectedLineworkId: _selectedLineworkId,
+                      selectedNodeIndex: _selectedNodeIndex,
+                      selectedSegmentIndex: _selectedSegmentIndex,
                       onSelectSymbol: (id) => setState(() {
                         _selectedSymbolId = id;
-                        if (id != null) _selectedLabelPointId = null;
+                        if (id != null) {
+                          _selectedLabelPointId = null;
+                          _selectedLineworkId = null;
+                          _selectedNodeIndex = null;
+                          _selectedSegmentIndex = null;
+                        }
                       }),
                       onSelectLabelPoint: (id) => setState(() {
                         _selectedLabelPointId = id;
-                        if (id != null) _selectedSymbolId = null;
+                        if (id != null) {
+                          _selectedSymbolId = null;
+                          _selectedLineworkId = null;
+                          _selectedNodeIndex = null;
+                          _selectedSegmentIndex = null;
+                        }
+                      }),
+                      onSelectLinework: (id) => setState(() {
+                        _selectedLineworkId = id;
+                        _selectedNodeIndex = null;
+                        _selectedSegmentIndex = null;
+                        if (id != null) {
+                          _selectedSymbolId = null;
+                          _selectedLabelPointId = null;
+                          final ent = _selectedLineworkEntity;
+                          _selectedLineworkLayer = ent?.layer;
+                          _lineworkOpen = true;
+                        }
+                      }),
+                      onSelectNode: (i) => setState(() {
+                        _selectedNodeIndex = i;
+                        if (i != null) _selectedSegmentIndex = null;
+                      }),
+                      onSelectSegment: (i) => setState(() {
+                        _selectedSegmentIndex = i;
+                        if (i != null) _selectedNodeIndex = null;
                       }),
                       onMoveSymbol: _moveSymbol,
                       onMoveLabel: _moveLabel,
@@ -969,11 +1141,60 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                     ),
                           ),
                           if (_options.includeLinework) ...[
+                            LineworkPropertiesPanel(
+                              catalog: _linetypeCatalog,
+                              layerStyles: lw.layerStyles,
+                              selectedLayer: _selectedLineworkLayer,
+                              selectedEntity: _selectedLineworkEntity,
+                              layerOverride: _selectedLineworkLayer == null
+                                  ? null
+                                  : _options.layerStyleOverrides[
+                                      _selectedLineworkLayer!],
+                              entityOverride: _selectedLineworkId == null
+                                  ? null
+                                  : _options.entityStyleOverrides[
+                                      _selectedLineworkId!],
+                              globalLinetypeScale:
+                                  _options.globalLinetypeScale,
+                              selectedNodeIndex: _selectedNodeIndex,
+                              selectedSegmentIndex: _selectedSegmentIndex,
+                              onGlobalLinetypeScale: (v) => setState(
+                                () => _options = _options.copyWith(
+                                  globalLinetypeScale: v,
+                                ),
+                              ),
+                              onApplyLayerOverride: (o) =>
+                                  _applyLineworkOverride(
+                                    toEntity: false,
+                                    override: o,
+                                  ),
+                              onApplyEntityOverride: (o) =>
+                                  _applyLineworkOverride(
+                                    toEntity: true,
+                                    override: o,
+                                  ),
+                              onExplode: _busy ? null : _explodeSelectedLinework,
+                              onRemoveSegment:
+                                  _busy ? null : _removeSelectedSegment,
+                              onRemoveNode:
+                                  _busy ? null : _removeSelectedNode,
+                              onDeleteEntity:
+                                  _busy ? null : _deleteSelectedLinework,
+                              onClearSelection: () => setState(() {
+                                _selectedLineworkId = null;
+                                _selectedLineworkLayer = null;
+                                _selectedNodeIndex = null;
+                                _selectedSegmentIndex = null;
+                              }),
+                            ),
+                            const Divider(height: 20),
                             Row(
                               children: [
-                                const Text(
-                                  'Layers',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                Text(
+                                  'Layers · ${_linetypeCatalog.linetypes.length} linetypes loaded',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 const Spacer(),
                                 TextButton(
@@ -985,15 +1206,21 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                             ),
                             ...lw.layers.map((layer) {
                               final count = lw.countForLayer(layer);
+                              final style = lw.layerStyles[layer];
+                              final selected =
+                                  layer == _selectedLineworkLayer &&
+                                      _selectedLineworkId == null;
                               return CheckboxListTile(
                                 value: _selectedLayers.contains(layer),
                                 dense: true,
+                                selected: selected,
                                 contentPadding: EdgeInsets.zero,
                                 controlAffinity:
                                     ListTileControlAffinity.leading,
                                 title: Text(layer),
                                 subtitle: Text(
-                                  '$count entit${count == 1 ? "y" : "ies"}',
+                                  '$count entit${count == 1 ? "y" : "ies"}'
+                                  '${style == null ? '' : ' · ${style.linetypeName} · ACI ${style.colorAci}'}',
                                 ),
                                 onChanged: _busy
                                     ? null
@@ -1004,6 +1231,10 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                           } else {
                                             _selectedLayers.remove(layer);
                                           }
+                                          _selectedLineworkLayer = layer;
+                                          _selectedLineworkId = null;
+                                          _selectedNodeIndex = null;
+                                          _selectedSegmentIndex = null;
                                         });
                                       },
                               );

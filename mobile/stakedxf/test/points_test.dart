@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stakedxf/points/csv_io.dart';
 import 'package:stakedxf/points/dxf_linework.dart';
 import 'package:stakedxf/points/label_placement.dart';
+import 'package:stakedxf/points/linetype_catalog.dart';
+import 'package:stakedxf/points/linework_edit.dart';
 import 'package:stakedxf/points/plot_options.dart';
 import 'package:stakedxf/points/plot_pdf.dart';
 import 'package:stakedxf/points/plot_templates.dart';
@@ -280,6 +283,58 @@ void main() {
     );
     expect(farSpread['A']!.isDragged, isTrue);
     expect(farSpread['B']!.isDragged, isTrue);
+  });
+
+  test('linetype catalog resolves Civil utility styles', () {
+    final cat = LinetypeCatalog.builtin();
+    expect(cat.resolve('DASHED').isContinuous, isFalse);
+    expect(cat.resolve('Continuous').isContinuous, isTrue);
+    expect(cat.resolve('STORM').elements, isNotEmpty);
+    expect(aciToArgb(1) & 0x00FF0000, greaterThan(0));
+    expect(lineweightToPoints(50), greaterThan(1.0));
+
+    final json = jsonDecode(
+      File('assets/linework/linetype_catalog.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final full = LinetypeCatalog.fromJson(json);
+    expect(full.linetypes.length, greaterThanOrEqualTo(20));
+    expect(full.resolve('LEDG_WATER').elements, isNotEmpty);
+    expect(full.resolve(r'RES_SURVEY$0$DASHED').name.toUpperCase(), 'DASHED');
+  });
+
+  test('DXF LAYER table styles are parsed', () {
+    final path =
+        'test/fixtures/pheasant_farm_staking_layers_clip.dxf';
+    if (!File(path).existsSync()) return;
+    final lw = parseDxfLineworkFile(path);
+    expect(lw.layerStyles, isNotEmpty);
+    expect(lw.entities.first.id, isNotEmpty);
+  });
+
+  test('explode polyline and remove segment/node', () {
+    const poly = LineworkEntity(
+      id: 'p1',
+      layer: 'CL',
+      type: 'LWPOLYLINE',
+      vertices: [
+        [0.0, 0.0],
+        [10.0, 0.0],
+        [20.0, 0.0],
+        [30.0, 0.0],
+      ],
+    );
+    final exploded = explodeLineworkEntity(poly);
+    expect(exploded.length, 3);
+    expect(exploded.every((e) => e.type == 'LINE'), isTrue);
+
+    final cut = removeSegment(poly, segmentIndex: 1);
+    expect(cut.length, 2);
+    expect(cut[0].vertices.length, 2);
+    expect(cut[1].vertices.length, 2);
+
+    final noded = removeNode(poly, nodeIndex: 1);
+    expect(noded.length, 1);
+    expect(noded.first.vertices.length, 3);
   });
 
   test('custom label text and annotation options export', () async {

@@ -1,4 +1,5 @@
 import 'label_placement.dart';
+import 'linework_style.dart';
 import 'plot_templates.dart';
 
 /// Marker symbol drawn at each stake point.
@@ -41,6 +42,9 @@ class PlotOptions {
     this.showObjectLabels = false,
     this.symbolPaperInches = 0.28,
     this.autoSpreadLabels = true,
+    this.globalLinetypeScale = 1.0,
+    this.layerStyleOverrides = const {},
+    this.entityStyleOverrides = const {},
   });
 
   final PointMarkerStyle markerStyle;
@@ -71,6 +75,15 @@ class PlotOptions {
   /// When true, auto-spread undragged labels before paint/export.
   final bool autoSpreadLabels;
 
+  /// Global multiplier applied on top of per-entity/layer linetype scale.
+  final double globalLinetypeScale;
+
+  /// Per-layer paint overrides (color / weight / linetype / opacity / scale).
+  final Map<String, LineworkStyleOverride> layerStyleOverrides;
+
+  /// Per-entity paint overrides (after explode / selection).
+  final Map<String, LineworkStyleOverride> entityStyleOverrides;
+
   PlotOptions copyWith({
     PointMarkerStyle? markerStyle,
     PointLabelFormat? labelFormat,
@@ -82,6 +95,9 @@ class PlotOptions {
     bool? showObjectLabels,
     double? symbolPaperInches,
     bool? autoSpreadLabels,
+    double? globalLinetypeScale,
+    Map<String, LineworkStyleOverride>? layerStyleOverrides,
+    Map<String, LineworkStyleOverride>? entityStyleOverrides,
   }) {
     return PlotOptions(
       markerStyle: markerStyle ?? this.markerStyle,
@@ -94,6 +110,9 @@ class PlotOptions {
       showObjectLabels: showObjectLabels ?? this.showObjectLabels,
       symbolPaperInches: symbolPaperInches ?? this.symbolPaperInches,
       autoSpreadLabels: autoSpreadLabels ?? this.autoSpreadLabels,
+      globalLinetypeScale: globalLinetypeScale ?? this.globalLinetypeScale,
+      layerStyleOverrides: layerStyleOverrides ?? this.layerStyleOverrides,
+      entityStyleOverrides: entityStyleOverrides ?? this.entityStyleOverrides,
     );
   }
 }

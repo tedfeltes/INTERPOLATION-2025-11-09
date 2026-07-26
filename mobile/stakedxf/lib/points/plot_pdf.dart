@@ -7,6 +7,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'block_catalog.dart';
 import 'dxf_linework.dart';
 import 'label_placement.dart';
+import 'linetype_catalog.dart';
+import 'linework_draw.dart';
 import 'plot_options.dart';
 import 'plot_symbols.dart';
 import 'plot_templates.dart';
@@ -28,7 +30,6 @@ const _trioAddress =
     '262.790.1480';
 
 const _markerRed = PdfColor.fromInt(0xFFE10600);
-const _lineworkColor = PdfColor.fromInt(0xFF1A1A1A);
 
 /// Build a staking plot PDF with user [options] (including sheet template).
 Future<Uint8List> buildStakingPlotPdf({
@@ -40,6 +41,8 @@ Future<Uint8List> buildStakingPlotPdf({
   List<LineworkEntity> linework = const [],
   List<PlacedPlotSymbol> symbols = const [],
   BlockCatalog? blockCatalog,
+  Map<String, DxfLayerStyle> layerStyles = const {},
+  LinetypeCatalog? linetypeCatalog,
 }) async {
   if (points.isEmpty) {
     throw ArgumentError('Select at least one point');
@@ -62,6 +65,7 @@ Future<Uint8List> buildStakingPlotPdf({
   );
 
   final drawnLinework = options.includeLinework ? linework : const <LineworkEntity>[];
+  final catalog = linetypeCatalog ?? LinetypeCatalog.builtin();
 
   doc.addPage(
     pw.Page(
@@ -80,6 +84,8 @@ Future<Uint8List> buildStakingPlotPdf({
               linework: drawnLinework,
               symbols: symbols,
               blockCatalog: blockCatalog,
+              layerStyles: layerStyles,
+              linetypeCatalog: catalog,
             );
           case PlotTemplateLayout.fieldMap:
             return _buildFieldMapPage(
@@ -94,6 +100,8 @@ Future<Uint8List> buildStakingPlotPdf({
               symbols: symbols,
               blockCatalog: blockCatalog,
               showTitleHeader: false,
+              layerStyles: layerStyles,
+              linetypeCatalog: catalog,
             );
           case PlotTemplateLayout.fieldHeader:
             return _buildFieldMapPage(
@@ -108,6 +116,8 @@ Future<Uint8List> buildStakingPlotPdf({
               symbols: symbols,
               blockCatalog: blockCatalog,
               showTitleHeader: true,
+              layerStyles: layerStyles,
+              linetypeCatalog: catalog,
             );
         }
       },
@@ -128,6 +138,8 @@ pw.Widget _buildSidePanelPage({
   required List<LineworkEntity> linework,
   required List<PlacedPlotSymbol> symbols,
   required BlockCatalog? blockCatalog,
+  Map<String, DxfLayerStyle> layerStyles = const {},
+  LinetypeCatalog? linetypeCatalog,
 }) {
   final showTable = options.showPointList;
   final plotFlex = showTable ? 58 : 78;
@@ -153,6 +165,8 @@ pw.Widget _buildSidePanelPage({
                 linework: linework,
                 symbols: symbols,
                 blockCatalog: blockCatalog,
+                layerStyles: layerStyles,
+                linetypeCatalog: linetypeCatalog,
               ),
             ),
           ),
@@ -191,6 +205,8 @@ pw.Widget _buildFieldMapPage({
   required List<PlacedPlotSymbol> symbols,
   required BlockCatalog? blockCatalog,
   required bool showTitleHeader,
+  Map<String, DxfLayerStyle> layerStyles = const {},
+  LinetypeCatalog? linetypeCatalog,
 }) {
   final pad = template.outerPaddingPt;
   final footer = _FieldLegendStrip(
@@ -211,6 +227,8 @@ pw.Widget _buildFieldMapPage({
     linework: linework,
     symbols: symbols,
     blockCatalog: blockCatalog,
+    layerStyles: layerStyles,
+    linetypeCatalog: linetypeCatalog,
   );
 
   // Explicit plan height — pdf Expanded can collapse to 0 on some sheets,
@@ -361,6 +379,8 @@ class _PlanPanel extends pw.StatelessWidget {
     required this.linework,
     required this.symbols,
     this.blockCatalog,
+    this.layerStyles = const {},
+    this.linetypeCatalog,
   });
 
   final List<SurveyPoint> points;
@@ -369,6 +389,8 @@ class _PlanPanel extends pw.StatelessWidget {
   final List<PlacedPlotSymbol> symbols;
   final List<LineworkEntity> linework;
   final BlockCatalog? blockCatalog;
+  final Map<String, DxfLayerStyle> layerStyles;
+  final LinetypeCatalog? linetypeCatalog;
 
   @override
   pw.Widget build(pw.Context context) {
@@ -406,6 +428,8 @@ class _PlanPanel extends pw.StatelessWidget {
               linework,
               symbols,
               blockCatalog,
+              layerStyles: layerStyles,
+              linetypeCatalog: linetypeCatalog,
             ),
           ),
         );
@@ -427,8 +451,10 @@ void paintStakingPlan(
   PlotOptions options,
   List<LineworkEntity> linework,
   List<PlacedPlotSymbol> symbols,
-  BlockCatalog? blockCatalog,
-) {
+  BlockCatalog? blockCatalog, {
+  Map<String, DxfLayerStyle> layerStyles = const {},
+  LinetypeCatalog? linetypeCatalog,
+}) {
   if (size.x < 8 || size.y < 8 || !size.x.isFinite || !size.y.isFinite) {
     return;
   }
@@ -479,27 +505,17 @@ void paintStakingPlan(
   }
   canvas.strokePath();
 
-  // Linework under markers
-  canvas
-    ..setStrokeColor(_lineworkColor)
-    ..setLineWidth(0.7);
-  for (final ent in linework) {
-    final samples = <List<double>>[
-      for (final p in ent.samplePoints)
-        if (_finite2(p[0], p[1])) p,
-    ];
-    if (samples.length < 2) continue;
-    final first = toPage(samples.first[0], samples.first[1]);
-    canvas.moveTo(first.x, first.y);
-    for (var i = 1; i < samples.length; i++) {
-      final pt = toPage(samples[i][0], samples[i][1]);
-      canvas.lineTo(pt.x, pt.y);
-    }
-    if (ent.closed || ent.type == 'CIRCLE') {
-      canvas.closePath();
-    }
-    canvas.strokePath();
-  }
+  // Linework under markers — styled dashes / colors / weights.
+  paintLineworkPdf(
+    canvas: canvas,
+    linework: linework,
+    toPage: toPage,
+    catalog: linetypeCatalog ?? LinetypeCatalog.builtin(),
+    layerStyles: layerStyles,
+    layerOverrides: options.layerStyleOverrides,
+    entityOverrides: options.entityStyleOverrides,
+    globalLinetypeScale: options.globalLinetypeScale,
+  );
 
   // Library objects — paper-sized; labels off unless requested.
   if (symbols.isNotEmpty) {
@@ -651,10 +667,6 @@ void _drawMarker(
         ..fillPath();
       break;
   }
-}
-
-bool _overlap(List<double> a, List<double> b) {
-  return !(a[2] <= b[0] || b[2] <= a[0] || a[3] <= b[1] || b[3] <= a[1]);
 }
 
 class _FieldLegendStrip extends pw.StatelessWidget {
