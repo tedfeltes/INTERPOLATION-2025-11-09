@@ -69,6 +69,13 @@ Recover Civil 3D linework into a Trimble-stakeable DXF on the controller.
 - PNEZD: Point, Northing, Easting, Elevation, Description (headered or not)
 - Common header aliases (`Point #`, `Elev`, `Desc`, …)
 
+### Plot styles (CTB)
+
+Staking plots use the project color-dependent plot style table
+(`assets/plot_styles/staking_plot.ctb`). Linework defaults to ACI 252 (grey);
+points and labels use ACI 10 (plots black on paper). Lineweights follow the CTB
+table unless you override them in **Line edit**.
+
 ### Linked DXF linework
 Draws `LINE`, `LWPOLYLINE`, `POLYLINE`, `ARC`, `CIRCLE` for checked layers.
 
