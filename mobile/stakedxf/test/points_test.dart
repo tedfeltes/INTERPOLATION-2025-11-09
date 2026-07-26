@@ -4,10 +4,12 @@ import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stakedxf/points/csv_io.dart';
+import 'package:stakedxf/points/ctb_plot_style.dart';
 import 'package:stakedxf/points/dxf_linework.dart';
 import 'package:stakedxf/points/label_placement.dart';
 import 'package:stakedxf/points/linetype_catalog.dart';
 import 'package:stakedxf/points/linework_edit.dart';
+import 'package:stakedxf/points/linework_style.dart';
 import 'package:stakedxf/points/plot_options.dart';
 import 'package:stakedxf/points/plot_pdf.dart';
 import 'package:stakedxf/points/plot_symbols.dart';
@@ -330,6 +332,39 @@ void main() {
     );
     expect(withSym.rangeE, without.rangeE);
     expect(withSym.rangeN, without.rangeN);
+  });
+
+  test('CTB plot styles drive ACI color and lineweight', () {
+    final json = jsonDecode(
+      File('assets/plot_styles/staking_plot_ctb.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final ctb = CtbPlotStyleTable.fromJson(json);
+    // ACI 10 is white in CTB → black on paper; 0.254 mm.
+    final p10 = ctb.resolve(10);
+    expect(p10.colorArgb & 0x00FFFFFF, 0x000000);
+    expect(p10.strokeWidthPt, closeTo(0.254 * 72 / 25.4, 0.01));
+    // ACI 252 forced grey.
+    final p252 = ctb.resolve(252);
+    expect((p252.colorArgb >> 16) & 0xFF, 152);
+    // Object-color ACI 1 keeps red hue via ACI palette.
+    final p1 = ctb.resolve(1);
+    expect((p1.colorArgb >> 16) & 0xFF, greaterThan(200));
+
+    final style = resolveLineworkStyle(
+      entity: const LineworkEntity(
+        id: 'e',
+        layer: 'CL',
+        type: 'LINE',
+        vertices: [
+          [0.0, 0.0],
+          [1.0, 0.0],
+        ],
+        colorAci: 252,
+      ),
+      catalog: LinetypeCatalog.builtin(),
+      ctb: ctb,
+    );
+    expect((style.colorArgb >> 16) & 0xFF, 152);
   });
 
   test('linetype catalog resolves Civil utility styles', () {

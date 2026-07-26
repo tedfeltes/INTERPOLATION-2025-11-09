@@ -8,10 +8,10 @@ Companion PDFs:
 
 ## 1. Installation (Trimble TSC5)
 
-**File:** `dist/StakeDXF-tsc5.apk` (~65 MB)  
+**File:** `dist/Staking Plot v1.16.0.apk` (~65 MB)  
 **Package:** `com.stakedxf.stakedxf`
 
-1. Copy `StakeDXF-tsc5.apk` onto the TSC5 (USB File Transfer or your usual file share).
+1. Copy `Staking Plot v1.16.0.apk` onto the TSC5 (USB File Transfer or your usual file share).
 2. Open **Files / Downloads** and tap the APK.
 3. If blocked, enable **Allow from this source** for the app that opened the APK.
 4. Tap **Install**, then open **StakeDXF**.

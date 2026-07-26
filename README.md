@@ -8,7 +8,7 @@
 Prebuilt APK:
 
 ```text
-dist/StakeDXF-tsc5.apk
+dist/Staking Plot vX.Y.Z.apk
 ```
 
 1. Copy the APK to the TSC5 (OneDrive or USB)
@@ -25,8 +25,8 @@ dist/StakeDXF-tsc5.apk
 
 cd mobile/stakedxf
 flutter pub get
-flutter build apk --release
-# → build/app/outputs/flutter-apk/app-release.apk
+./tool/ship_apk.sh
+# → dist/Staking Plot vX.Y.Z.apk
 ```
 
 See [mobile/README.md](mobile/README.md).

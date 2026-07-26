@@ -12,6 +12,7 @@ import 'block_catalog.dart';
 import 'block_catalog_asset.dart';
 import 'csv_io.dart';
 import 'dxf_linework.dart';
+import 'ctb_plot_style.dart';
 import 'label_placement.dart';
 import 'linetype_catalog.dart';
 import 'linework_edit.dart';
@@ -52,6 +53,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   int? _selectedSegmentIndex;
   BlockCatalog? _blockCatalog;
   LinetypeCatalog _linetypeCatalog = LinetypeCatalog.builtin();
+  CtbPlotStyleTable _ctbPlotStyle = CtbPlotStyleTable.builtin();
   String? _error;
   String? _status;
   bool _busy = false;
@@ -71,6 +73,10 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     LinetypeCatalog.load().then((c) {
       if (!mounted) return;
       setState(() => _linetypeCatalog = c);
+    });
+    CtbPlotStyleTable.load().then((c) {
+      if (!mounted) return;
+      setState(() => _ctbPlotStyle = c);
     });
   }
 
@@ -568,6 +574,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         blockCatalog: _blockCatalog,
         layerStyles: _linework?.layerStyles ?? const {},
         linetypeCatalog: _linetypeCatalog,
+        ctbPlotStyle: _ctbPlotStyle,
       );
       final scale = chooseEngineeringScale(
         chosen,
@@ -638,6 +645,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       symbols: _symbols,
                       blockCatalog: _blockCatalog,
                       linetypeCatalog: _linetypeCatalog,
+                      ctbPlotStyle: _ctbPlotStyle,
                       layerStyles: _linework?.layerStyles ?? const {},
                       selectedSymbolId: _selectedSymbolId,
                       selectedLabelPointId: _selectedLabelPointId,
@@ -1213,8 +1221,8 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                       'green segment or blue node. Explode splits '
                                       'polylines into editable pieces.'
                                   : 'Turn on Line edit above the preview to select '
-                                      'and trim linework. Default color is ACI 252 '
-                                      '(grey); points/labels are ACI 10 (red).',
+                                      'and trim linework. Colors/weights follow the '
+                                      'project CTB (ACI 252 linework, ACI 10 points).',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: cs.onSurface.withValues(alpha: 0.65),
@@ -1240,6 +1248,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                         _selectedLineworkId!],
                                 globalLinetypeScale:
                                     _options.globalLinetypeScale,
+                                ctbPlotStyle: _ctbPlotStyle,
                                 selectedNodeIndex: _selectedNodeIndex,
                                 selectedSegmentIndex: _selectedSegmentIndex,
                                 onGlobalLinetypeScale: (v) => setState(

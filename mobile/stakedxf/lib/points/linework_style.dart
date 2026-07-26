@@ -1,3 +1,4 @@
+import 'ctb_plot_style.dart';
 import 'dxf_linework.dart';
 import 'linetype_catalog.dart';
 
@@ -74,7 +75,7 @@ class LineworkStyleOverride {
   }
 }
 
-/// Resolve entity → layer override → layer table → app defaults.
+/// Resolve entity → user override → CTB(ACI) → app defaults.
 ResolvedLineworkStyle resolveLineworkStyle({
   required LineworkEntity entity,
   required LinetypeCatalog catalog,
@@ -82,25 +83,24 @@ ResolvedLineworkStyle resolveLineworkStyle({
   Map<String, LineworkStyleOverride> layerOverrides = const {},
   Map<String, LineworkStyleOverride> entityOverrides = const {},
   double globalLinetypeScale = 1.0,
+  CtbPlotStyleTable? ctb,
   double defaultStrokePt = 0.7,
-  int defaultColorArgb = 0xFFA0A0A4, // ACI 252 grey
 }) {
+  final table = ctb ?? CtbPlotStyleTable.builtin();
   final layer = layerStyles[entity.layer];
   final layerOv = layerOverrides[entity.layer];
   final entOv = entityOverrides[entity.id];
 
-  // App default ACI 252 unless the user overrode or DXF gave an explicit color.
-  // Layer ACI 7 ("white") is treated as ByLayer-on-paper → default grey.
-  final layerAci = layer?.colorAci;
-  final layerColor = (layerAci == null || layerAci.abs() == 7)
-      ? null
-      : aciToArgb(layerAci);
+  // Effective ACI: entity → layer → CTB default linework grey (252).
+  final aci = entity.colorAci?.abs() ??
+      ((layer != null && layer.colorAci.abs() != 7) ? layer.colorAci.abs() : null) ??
+      kCtbDefaultLineworkAci;
+
+  final ctbResolved = table.resolve(aci);
 
   final color = entOv?.colorArgb ??
-      (entity.colorAci != null ? aciToArgb(entity.colorAci!) : null) ??
       layerOv?.colorArgb ??
-      layerColor ??
-      defaultColorArgb;
+      ctbResolved.colorArgb;
 
   final opacity = (entOv?.opacity ??
           entity.opacity ??
@@ -108,15 +108,22 @@ ResolvedLineworkStyle resolveLineworkStyle({
           1.0)
       .clamp(0.05, 1.0);
 
+  // Stroke: user override → DXF lineweight → CTB lineweight for ACI.
   final stroke = entOv?.strokeWidthPt ??
-      (entity.lineweight370 != null
-          ? lineweightToPoints(entity.lineweight370!, fallback: defaultStrokePt)
-          : null) ??
       layerOv?.strokeWidthPt ??
-      (layer != null
-          ? lineweightToPoints(layer.lineweight370, fallback: defaultStrokePt)
+      (entity.lineweight370 != null
+          ? lineweightToPoints(
+              entity.lineweight370!,
+              fallback: ctbResolved.strokeWidthPt,
+            )
           : null) ??
-      defaultStrokePt;
+      (layer != null && layer.lineweight370 >= 0
+          ? lineweightToPoints(
+              layer.lineweight370,
+              fallback: ctbResolved.strokeWidthPt,
+            )
+          : null) ??
+      ctbResolved.strokeWidthPt;
 
   final ltName = entOv?.linetypeName ??
       entity.linetypeName ??
@@ -133,7 +140,7 @@ ResolvedLineworkStyle resolveLineworkStyle({
   return ResolvedLineworkStyle(
     colorArgb: color,
     opacity: opacity,
-    strokeWidthPt: stroke.clamp(0.2, 8.0),
+    strokeWidthPt: stroke.clamp(0.15, 8.0),
     linetype: catalog.resolve(ltName),
     linetypeScale: ltScale.clamp(0.05, 50.0),
   );

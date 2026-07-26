@@ -6,6 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import 'block_catalog.dart';
 import 'dxf_linework.dart';
+import 'ctb_plot_style.dart';
 import 'label_placement.dart';
 import 'leader_geometry.dart';
 import 'linetype_catalog.dart';
@@ -30,8 +31,13 @@ const _trioAddress =
     'Brookfield, WI 53005\n'
     '262.790.1480';
 
-/// ACI 10 — stake points and labels.
-const _markerRed = PdfColor.fromInt(0xFFFF0000);
+/// Fallback when CTB is unavailable — CTB ACI 10 plots black on paper.
+PdfColor _pointLabelColor(CtbPlotStyleTable? ctb) {
+  final argb = (ctb ?? CtbPlotStyleTable.builtin())
+      .resolve(kCtbPointLabelAci)
+      .colorArgb;
+  return PdfColor.fromInt(argb);
+}
 
 /// Build a staking plot PDF with user [options] (including sheet template).
 Future<Uint8List> buildStakingPlotPdf({
@@ -45,6 +51,7 @@ Future<Uint8List> buildStakingPlotPdf({
   BlockCatalog? blockCatalog,
   Map<String, DxfLayerStyle> layerStyles = const {},
   LinetypeCatalog? linetypeCatalog,
+  CtbPlotStyleTable? ctbPlotStyle,
 }) async {
   if (points.isEmpty) {
     throw ArgumentError('Select at least one point');
@@ -68,6 +75,7 @@ Future<Uint8List> buildStakingPlotPdf({
 
   final drawnLinework = options.includeLinework ? linework : const <LineworkEntity>[];
   final catalog = linetypeCatalog ?? LinetypeCatalog.builtin();
+  final ctb = ctbPlotStyle ?? CtbPlotStyleTable.builtin();
 
   doc.addPage(
     pw.Page(
@@ -88,6 +96,7 @@ Future<Uint8List> buildStakingPlotPdf({
               blockCatalog: blockCatalog,
               layerStyles: layerStyles,
               linetypeCatalog: catalog,
+              ctbPlotStyle: ctb,
             );
           case PlotTemplateLayout.fieldMap:
             return _buildFieldMapPage(
@@ -104,6 +113,7 @@ Future<Uint8List> buildStakingPlotPdf({
               showTitleHeader: false,
               layerStyles: layerStyles,
               linetypeCatalog: catalog,
+              ctbPlotStyle: ctb,
             );
           case PlotTemplateLayout.fieldHeader:
             return _buildFieldMapPage(
@@ -120,6 +130,7 @@ Future<Uint8List> buildStakingPlotPdf({
               showTitleHeader: true,
               layerStyles: layerStyles,
               linetypeCatalog: catalog,
+              ctbPlotStyle: ctb,
             );
         }
       },
@@ -142,6 +153,7 @@ pw.Widget _buildSidePanelPage({
   required BlockCatalog? blockCatalog,
   Map<String, DxfLayerStyle> layerStyles = const {},
   LinetypeCatalog? linetypeCatalog,
+  CtbPlotStyleTable? ctbPlotStyle,
 }) {
   final showTable = options.showPointList;
   final plotFlex = showTable ? 58 : 78;
@@ -169,6 +181,7 @@ pw.Widget _buildSidePanelPage({
                 blockCatalog: blockCatalog,
                 layerStyles: layerStyles,
                 linetypeCatalog: linetypeCatalog,
+                ctbPlotStyle: ctbPlotStyle,
               ),
             ),
           ),
@@ -209,6 +222,7 @@ pw.Widget _buildFieldMapPage({
   required bool showTitleHeader,
   Map<String, DxfLayerStyle> layerStyles = const {},
   LinetypeCatalog? linetypeCatalog,
+  CtbPlotStyleTable? ctbPlotStyle,
 }) {
   final pad = template.outerPaddingPt;
   final footer = _FieldLegendStrip(
@@ -231,6 +245,7 @@ pw.Widget _buildFieldMapPage({
     blockCatalog: blockCatalog,
     layerStyles: layerStyles,
     linetypeCatalog: linetypeCatalog,
+    ctbPlotStyle: ctbPlotStyle,
   );
 
   // Explicit plan height — pdf Expanded can collapse to 0 on some sheets,
@@ -386,6 +401,7 @@ class _PlanPanel extends pw.StatelessWidget {
     this.blockCatalog,
     this.layerStyles = const {},
     this.linetypeCatalog,
+    this.ctbPlotStyle,
   });
 
   final List<SurveyPoint> points;
@@ -396,6 +412,7 @@ class _PlanPanel extends pw.StatelessWidget {
   final BlockCatalog? blockCatalog;
   final Map<String, DxfLayerStyle> layerStyles;
   final LinetypeCatalog? linetypeCatalog;
+  final CtbPlotStyleTable? ctbPlotStyle;
 
   @override
   pw.Widget build(pw.Context context) {
@@ -435,6 +452,7 @@ class _PlanPanel extends pw.StatelessWidget {
               blockCatalog,
               layerStyles: layerStyles,
               linetypeCatalog: linetypeCatalog,
+              ctbPlotStyle: ctbPlotStyle,
             ),
           ),
         );
@@ -459,10 +477,13 @@ void paintStakingPlan(
   BlockCatalog? blockCatalog, {
   Map<String, DxfLayerStyle> layerStyles = const {},
   LinetypeCatalog? linetypeCatalog,
+  CtbPlotStyleTable? ctbPlotStyle,
 }) {
   if (size.x < 8 || size.y < 8 || !size.x.isFinite || !size.y.isFinite) {
     return;
   }
+  final ctb = ctbPlotStyle ?? CtbPlotStyleTable.builtin();
+  final pointColor = _pointLabelColor(ctb);
 
   final bounds = computePlanViewBounds(
     points,
@@ -520,6 +541,7 @@ void paintStakingPlan(
     layerOverrides: options.layerStyleOverrides,
     entityOverrides: options.entityStyleOverrides,
     globalLinetypeScale: options.globalLinetypeScale,
+    ctb: ctb,
   );
 
   // Library objects — paper-sized; labels off unless requested.
@@ -558,7 +580,13 @@ void paintStakingPlan(
   for (final p in points) {
     if (!_finite2(p.easting, p.northing)) continue;
     final c = toPage(p.easting, p.northing);
-    _drawMarker(canvas, c, options.markerStyle, sizeScale: ann);
+    _drawMarker(
+      canvas,
+      c,
+      options.markerStyle,
+      sizeScale: ann,
+      color: pointColor,
+    );
   }
 
   // Labels with Civil-style dogleg leaders (never through text).
@@ -590,14 +618,14 @@ void paintStakingPlan(
         math.sqrt(oE * oE + oN * oN) > 8;
     if (dragged) {
       canvas
-        ..setStrokeColor(_markerRed)
+        ..setStrokeColor(pointColor)
         ..setLineWidth(0.65)
         ..drawLine(g.ax, g.ay, g.ex, g.ey)
         ..drawLine(g.ex, g.ey, g.lx, g.ly)
         ..strokePath();
     }
 
-    canvas.setFillColor(_markerRed);
+    canvas.setFillColor(pointColor);
     var ty = g.oy + labelH - fontSize * 0.2;
     for (final line in lines) {
       canvas.drawString(labelFont, fontSize, line, g.ox, ty);
@@ -613,11 +641,12 @@ void _drawMarker(
   PdfPoint c,
   PointMarkerStyle style, {
   double sizeScale = 1.0,
+  PdfColor color = const PdfColor.fromInt(0xFF000000),
 }) {
   final k = sizeScale.clamp(0.6, 3.0);
   canvas
-    ..setStrokeColor(_markerRed)
-    ..setFillColor(_markerRed)
+    ..setStrokeColor(color)
+    ..setFillColor(color)
     ..setLineWidth(0.9 * k);
 
   switch (style) {

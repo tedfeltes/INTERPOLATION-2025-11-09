@@ -20,19 +20,19 @@ Installable on-device converter. **No cloud.**
 # 2) Build native converter .so into jniLibs
 ./native/build_android.sh
 
-# 3) Build release APK
+# 3) Build + ship release APK
 cd mobile/stakedxf
 flutter pub get
-flutter build apk --release
+./tool/ship_apk.sh
 ```
 
 APK output:
 
 ```text
-mobile/stakedxf/build/app/outputs/flutter-apk/app-release.apk
+dist/Staking Plot vX.Y.Z.apk
 ```
 
-Also copied for distribution as `dist/StakeDXF-tsc5.apk`.
+(`tool/ship_apk.sh` names the file from `pubspec.yaml` version.)
 
 ### Install on TSC5
 

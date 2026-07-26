@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'ctb_plot_style.dart';
 import 'dxf_linework.dart';
 import 'linetype_catalog.dart';
 import 'linework_style.dart';
@@ -43,6 +44,7 @@ class LineworkPropertiesPanel extends StatelessWidget {
     required this.onRemoveNode,
     required this.onDeleteEntity,
     required this.onClearSelection,
+    this.ctbPlotStyle,
   });
 
   final LinetypeCatalog catalog;
@@ -62,6 +64,7 @@ class LineworkPropertiesPanel extends StatelessWidget {
   final VoidCallback? onRemoveNode;
   final VoidCallback? onDeleteEntity;
   final VoidCallback? onClearSelection;
+  final CtbPlotStyleTable? ctbPlotStyle;
 
   bool get _editingEntity => selectedEntity != null;
 
@@ -95,6 +98,7 @@ class LineworkPropertiesPanel extends StatelessWidget {
         if (ent != null && entityOverride != null) ent.id: entityOverride!,
       },
       globalLinetypeScale: globalLinetypeScale,
+      ctb: ctbPlotStyle,
     );
   }
 

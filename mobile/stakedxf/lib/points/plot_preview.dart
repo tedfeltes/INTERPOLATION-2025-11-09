@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import 'block_catalog.dart';
+import 'ctb_plot_style.dart';
 import 'dxf_linework.dart';
 import 'label_placement.dart';
 import 'leader_geometry.dart';
@@ -15,9 +16,6 @@ import 'plot_symbols.dart';
 import 'plot_templates.dart';
 import 'survey_point.dart';
 import 'symbol_preview.dart';
-
-/// ACI 10 — stake points and labels.
-const kPointLabelColor = Color(0xFFFF0000);
 
 /// Live interactive plan preview framed to the selected sheet template.
 ///
@@ -34,6 +32,7 @@ class PlotPreview extends StatefulWidget {
     this.symbols = const [],
     this.blockCatalog,
     this.linetypeCatalog,
+    this.ctbPlotStyle,
     this.layerStyles = const {},
     this.selectedSymbolId,
     this.selectedLabelPointId,
@@ -57,6 +56,7 @@ class PlotPreview extends StatefulWidget {
   final List<PlacedPlotSymbol> symbols;
   final BlockCatalog? blockCatalog;
   final LinetypeCatalog? linetypeCatalog;
+  final CtbPlotStyleTable? ctbPlotStyle;
   final Map<String, DxfLayerStyle> layerStyles;
   final String? selectedSymbolId;
   final String? selectedLabelPointId;
@@ -237,6 +237,8 @@ class _PlotPreviewState extends State<PlotPreview> {
                               blockCatalog: widget.blockCatalog,
                               linetypeCatalog: widget.linetypeCatalog ??
                                   LinetypeCatalog.builtin(),
+                              ctbPlotStyle: widget.ctbPlotStyle ??
+                                  CtbPlotStyleTable.builtin(),
                               layerStyles: widget.layerStyles,
                               selectedSymbolId: widget.selectedSymbolId,
                               selectedLabelPointId:
@@ -579,6 +581,7 @@ class _PlotPreviewPainter extends CustomPainter {
     required this.options,
     required this.blockCatalog,
     required this.linetypeCatalog,
+    required this.ctbPlotStyle,
     required this.layerStyles,
     required this.selectedSymbolId,
     required this.selectedLabelPointId,
@@ -599,6 +602,7 @@ class _PlotPreviewPainter extends CustomPainter {
   final PlotOptions options;
   final BlockCatalog? blockCatalog;
   final LinetypeCatalog linetypeCatalog;
+  final CtbPlotStyleTable ctbPlotStyle;
   final Map<String, DxfLayerStyle> layerStyles;
   final String? selectedSymbolId;
   final String? selectedLabelPointId;
@@ -700,6 +704,7 @@ class _PlotPreviewPainter extends CustomPainter {
       layerOverrides: options.layerStyleOverrides,
       entityOverrides: options.entityStyleOverrides,
       globalLinetypeScale: options.globalLinetypeScale,
+      ctb: ctbPlotStyle,
       selectedId: lineEditMode ? selectedLineworkId : null,
       selectedSegmentIndex: lineEditMode ? selectedSegmentIndex : null,
       selectedNodeIndex: lineEditMode ? selectedNodeIndex : null,
@@ -708,7 +713,7 @@ class _PlotPreviewPainter extends CustomPainter {
   }
 
   void _paintPointsAndLabels(Canvas canvas) {
-    final color = kPointLabelColor;
+    final color = Color(ctbPlotStyle.resolve(kCtbPointLabelAci).colorArgb);
     final fill = Paint()..color = color;
     final stroke = Paint()
       ..color = color

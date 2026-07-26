@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 
+import 'ctb_plot_style.dart';
 import 'dxf_linework.dart';
 import 'linetype_catalog.dart';
 import 'linework_style.dart';
@@ -15,6 +16,7 @@ void paintLineworkFlutter({
   Map<String, LineworkStyleOverride> layerOverrides = const {},
   Map<String, LineworkStyleOverride> entityOverrides = const {},
   double globalLinetypeScale = 1.0,
+  CtbPlotStyleTable? ctb,
   String? selectedId,
   int? selectedSegmentIndex,
   int? selectedNodeIndex,
@@ -28,6 +30,7 @@ void paintLineworkFlutter({
       layerOverrides: layerOverrides,
       entityOverrides: entityOverrides,
       globalLinetypeScale: globalLinetypeScale,
+      ctb: ctb,
       defaultStrokePt: 1.2,
     );
     final samples = [
@@ -164,6 +167,7 @@ void paintLineworkPdf({
   Map<String, LineworkStyleOverride> layerOverrides = const {},
   Map<String, LineworkStyleOverride> entityOverrides = const {},
   double globalLinetypeScale = 1.0,
+  CtbPlotStyleTable? ctb,
 }) {
   for (final ent in linework) {
     final style = resolveLineworkStyle(
@@ -173,6 +177,7 @@ void paintLineworkPdf({
       layerOverrides: layerOverrides,
       entityOverrides: entityOverrides,
       globalLinetypeScale: globalLinetypeScale,
+      ctb: ctb,
     );
     final samples = <PdfPoint>[
       for (final p in ent.samplePoints)

@@ -470,7 +470,7 @@ def build_slide_deck() -> Path:
         48,
         100,
         [
-            "Copy dist/StakeDXF-tsc5.apk onto the TSC5 (USB or Files)",
+            "Copy dist/Staking Plot vX.Y.Z.apk onto the TSC5 (USB or Files)",
             "Open the APK → allow Install from this source if prompted",
             "Open StakeDXF from the app drawer",
             "If Install is blocked, ask IT to allow unknown sources / MDM exception",
@@ -572,10 +572,10 @@ def build_tutorial_pdf() -> Path:
     y = 80
     text = (
         "StakeDXF ships as an Android APK for the Trimble TSC5.\n\n"
-        "File: dist/StakeDXF-tsc5.apk  (~65 MB)\n"
+        "File: dist/Staking Plot vX.Y.Z.apk  (~65 MB)\n"
         "Package: com.stakedxf.stakedxf\n\n"
         "Steps\n"
-        "1. Copy StakeDXF-tsc5.apk onto the TSC5 (USB File Transfer, or any file share you already use).\n"
+        "1. Copy Staking Plot vX.Y.Z.apk onto the TSC5 (USB File Transfer, or any file share you already use).\n"
         "2. On the TSC5 open Files / Downloads and tap the APK.\n"
         "3. If Android blocks it, enable Allow from this source for Files (or the app that opened the APK).\n"
         "4. Tap Install, then open StakeDXF from the app drawer.\n\n"
@@ -717,10 +717,10 @@ Companion PDFs:
 
 ## 1. Installation (Trimble TSC5)
 
-**File:** `dist/StakeDXF-tsc5.apk` (~65 MB)  
+**File:** `dist/Staking Plot vX.Y.Z.apk` (~65 MB)  
 **Package:** `com.stakedxf.stakedxf`
 
-1. Copy `StakeDXF-tsc5.apk` onto the TSC5 (USB File Transfer or your usual file share).
+1. Copy `Staking Plot vX.Y.Z.apk` onto the TSC5 (USB File Transfer or your usual file share).
 2. Open **Files / Downloads** and tap the APK.
 3. If blocked, enable **Allow from this source** for the app that opened the APK.
 4. Tap **Install**, then open **StakeDXF**.

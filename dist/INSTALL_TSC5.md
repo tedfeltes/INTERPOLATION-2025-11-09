@@ -3,7 +3,7 @@
 The file you need is:
 
 ```text
-dist/StakeDXF-tsc5.apk
+dist/Staking Plot v1.16.0.apk
 ```
 
 That is an **Android installer**. It goes on the **TSC5** (Android controller).
@@ -16,7 +16,7 @@ That is an **Android installer**. It goes on the **TSC5** (Android controller).
 
 ## Install the APK
 
-1. Copy `StakeDXF-tsc5.apk` onto the TSC5 (USB, Files, or any file transfer you already use).
+1. Copy `Staking Plot v1.16.0.apk` onto the TSC5 (USB, Files, or any file transfer you already use).
 2. On the TSC5, open the APK from **Files** / **Downloads**.
 3. If Android blocks it, enable **Allow from this source** for the app that opened the APK.
 4. Tap **Install**, then open **StakeDXF**.
