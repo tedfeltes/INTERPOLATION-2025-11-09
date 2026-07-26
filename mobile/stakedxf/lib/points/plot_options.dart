@@ -1,3 +1,4 @@
+import 'label_placement.dart';
 import 'plot_templates.dart';
 
 /// Marker symbol drawn at each stake point.
@@ -35,6 +36,11 @@ class PlotOptions {
     this.showPointList = false,
     this.includeLinework = true,
     this.template = kDefaultPlotTemplate,
+    this.labelDrags = const {},
+    this.annotationScale = 1.0,
+    this.showObjectLabels = false,
+    this.symbolPaperInches = 0.28,
+    this.autoSpreadLabels = true,
   });
 
   final PointMarkerStyle markerStyle;
@@ -49,12 +55,33 @@ class PlotOptions {
   /// Sheet size / orientation / layout template.
   final PlotTemplate template;
 
+  /// Civil 3D–style dragged label offsets keyed by point id.
+  final Map<String, LabelDragState> labelDrags;
+
+  /// Multiplier for paper-space annotation size (labels, markers, symbols).
+  /// Keeps callouts readable when the engineering scale is large.
+  final double annotationScale;
+
+  /// When true, draw text next to library objects (off by default).
+  final bool showObjectLabels;
+
+  /// Base paper diameter (inches) for a library object at scale 1.0.
+  final double symbolPaperInches;
+
+  /// When true, auto-spread undragged labels before paint/export.
+  final bool autoSpreadLabels;
+
   PlotOptions copyWith({
     PointMarkerStyle? markerStyle,
     PointLabelFormat? labelFormat,
     bool? showPointList,
     bool? includeLinework,
     PlotTemplate? template,
+    Map<String, LabelDragState>? labelDrags,
+    double? annotationScale,
+    bool? showObjectLabels,
+    double? symbolPaperInches,
+    bool? autoSpreadLabels,
   }) {
     return PlotOptions(
       markerStyle: markerStyle ?? this.markerStyle,
@@ -62,6 +89,11 @@ class PlotOptions {
       showPointList: showPointList ?? this.showPointList,
       includeLinework: includeLinework ?? this.includeLinework,
       template: template ?? this.template,
+      labelDrags: labelDrags ?? this.labelDrags,
+      annotationScale: annotationScale ?? this.annotationScale,
+      showObjectLabels: showObjectLabels ?? this.showObjectLabels,
+      symbolPaperInches: symbolPaperInches ?? this.symbolPaperInches,
+      autoSpreadLabels: autoSpreadLabels ?? this.autoSpreadLabels,
     );
   }
 }

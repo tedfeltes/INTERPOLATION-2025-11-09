@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'block_catalog.dart';
 import 'dxf_linework.dart';
+import 'label_placement.dart';
 import 'plot_options.dart';
 import 'plot_pdf.dart';
 import 'plot_symbols.dart';
@@ -13,7 +14,9 @@ import 'symbol_preview.dart';
 
 /// Live interactive plan preview — same framing as the exported PDF.
 ///
-/// Drag placed library objects to set survey N/E visually.
+/// - Drag **labels** (Civil 3D drag state) — point markers stay fixed
+/// - Drag **library objects** to set survey N/E
+/// - Point markers themselves cannot be moved
 class PlotPreview extends StatefulWidget {
   const PlotPreview({
     super.key,
@@ -23,8 +26,11 @@ class PlotPreview extends StatefulWidget {
     this.symbols = const [],
     this.blockCatalog,
     this.selectedSymbolId,
+    this.selectedLabelPointId,
     this.onSelectSymbol,
+    this.onSelectLabelPoint,
     this.onMoveSymbol,
+    this.onMoveLabel,
     this.height = 280,
   });
 
@@ -34,17 +40,45 @@ class PlotPreview extends StatefulWidget {
   final List<PlacedPlotSymbol> symbols;
   final BlockCatalog? blockCatalog;
   final String? selectedSymbolId;
+  final String? selectedLabelPointId;
   final ValueChanged<String?>? onSelectSymbol;
+  final ValueChanged<String?>? onSelectLabelPoint;
   final void Function(String id, double easting, double northing)? onMoveSymbol;
+  final void Function(String pointId, double offsetE, double offsetN)?
+      onMoveLabel;
   final double height;
 
   @override
   State<PlotPreview> createState() => _PlotPreviewState();
 }
 
+enum _DragKind { none, symbol, label }
+
 class _PlotPreviewState extends State<PlotPreview> {
+  _DragKind _dragKind = _DragKind.none;
   String? _draggingId;
   _PlanMap? _map;
+
+  Map<String, LabelDragState> get _drags {
+    if (!widget.options.autoSpreadLabels ||
+        widget.options.labelFormat == PointLabelFormat.none) {
+      return widget.options.labelDrags;
+    }
+    final scale = chooseEngineeringScale(
+      widget.points,
+      linework: widget.linework,
+      symbols: widget.symbols,
+      template: widget.options.template,
+      showPointList: widget.options.showPointList,
+    );
+    return autoSpreadLabels(
+      points: widget.points,
+      format: widget.options.labelFormat,
+      scaleFtPerInch: scale,
+      existing: widget.options.labelDrags,
+      annotationScale: widget.options.annotationScale,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +99,8 @@ class _PlotPreviewState extends State<PlotPreview> {
       );
     }
 
+    final drags = _drags;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -79,11 +115,14 @@ class _PlotPreviewState extends State<PlotPreview> {
               ),
             ),
             const Spacer(),
-            Text(
-              'Drag objects to place · tap to select',
-              style: TextStyle(
-                fontSize: 11,
-                color: cs.onSurface.withValues(alpha: 0.55),
+            Flexible(
+              child: Text(
+                'Drag labels (points stay fixed) · drag objects to place',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: cs.onSurface.withValues(alpha: 0.55),
+                ),
               ),
             ),
           ],
@@ -108,10 +147,13 @@ class _PlotPreviewState extends State<PlotPreview> {
                     border: Border.all(color: const Color(0xFF8A8478)),
                   ),
                   child: GestureDetector(
-                    onTapUp: (d) => _handleTap(d.localPosition),
-                    onPanStart: (d) => _handlePanStart(d.localPosition),
+                    onTapUp: (d) => _handleTap(d.localPosition, drags),
+                    onPanStart: (d) => _handlePanStart(d.localPosition, drags),
                     onPanUpdate: (d) => _handlePanUpdate(d.localPosition),
-                    onPanEnd: (_) => _draggingId = null,
+                    onPanEnd: (_) {
+                      _dragKind = _DragKind.none;
+                      _draggingId = null;
+                    },
                     child: CustomPaint(
                       size: size,
                       painter: _PlotPreviewPainter(
@@ -122,7 +164,10 @@ class _PlotPreviewState extends State<PlotPreview> {
                         options: widget.options,
                         blockCatalog: widget.blockCatalog,
                         selectedSymbolId: widget.selectedSymbolId,
+                        selectedLabelPointId: widget.selectedLabelPointId,
                         draggingId: _draggingId,
+                        dragKind: _dragKind,
+                        labelDrags: drags,
                       ),
                     ),
                   ),
@@ -135,39 +180,99 @@ class _PlotPreviewState extends State<PlotPreview> {
     );
   }
 
-  void _handleTap(Offset local) {
+  void _handleTap(Offset local, Map<String, LabelDragState> drags) {
     final map = _map;
     if (map == null) return;
-    final hit = _hitSymbol(local, map);
-    widget.onSelectSymbol?.call(hit?.id);
+    final labelHit = _hitLabel(local, map, drags);
+    if (labelHit != null) {
+      widget.onSelectLabelPoint?.call(labelHit);
+      widget.onSelectSymbol?.call(null);
+      return;
+    }
+    final sym = _hitSymbol(local, map);
+    widget.onSelectSymbol?.call(sym?.id);
+    if (sym != null) widget.onSelectLabelPoint?.call(null);
   }
 
-  void _handlePanStart(Offset local) {
+  void _handlePanStart(Offset local, Map<String, LabelDragState> drags) {
     final map = _map;
     if (map == null) return;
-    final hit = _hitSymbol(local, map);
-    _draggingId = hit?.id;
-    if (hit != null) {
-      widget.onSelectSymbol?.call(hit.id);
+    final labelHit = _hitLabel(local, map, drags);
+    if (labelHit != null) {
+      _dragKind = _DragKind.label;
+      _draggingId = labelHit;
+      widget.onSelectLabelPoint?.call(labelHit);
+      widget.onSelectSymbol?.call(null);
+      return;
     }
+    final sym = _hitSymbol(local, map);
+    if (sym != null) {
+      _dragKind = _DragKind.symbol;
+      _draggingId = sym.id;
+      widget.onSelectSymbol?.call(sym.id);
+      widget.onSelectLabelPoint?.call(null);
+      return;
+    }
+    _dragKind = _DragKind.none;
+    _draggingId = null;
   }
 
   void _handlePanUpdate(Offset local) {
     final map = _map;
     final id = _draggingId;
     if (map == null || id == null) return;
-    final en = map.toSurvey(local);
-    widget.onMoveSymbol?.call(id, en.$1, en.$2);
+    if (_dragKind == _DragKind.symbol) {
+      final en = map.toSurvey(local);
+      widget.onMoveSymbol?.call(id, en.$1, en.$2);
+      return;
+    }
+    if (_dragKind == _DragKind.label) {
+      SurveyPoint? pt;
+      for (final p in widget.points) {
+        if (p.id == id) {
+          pt = p;
+          break;
+        }
+      }
+      if (pt == null) return;
+      final en = map.toSurvey(local);
+      widget.onMoveLabel?.call(id, en.$1 - pt.easting, en.$2 - pt.northing);
+    }
+  }
+
+  String? _hitLabel(
+    Offset local,
+    _PlanMap map,
+    Map<String, LabelDragState> drags,
+  ) {
+    if (widget.options.labelFormat == PointLabelFormat.none) return null;
+    String? best;
+    var bestDist = 36.0;
+    for (final p in widget.points) {
+      final drag = drags[p.id];
+      final lines = resolvedLabelLines(p, widget.options.labelFormat, drag);
+      if (lines.isEmpty) continue;
+      final oE = drag?.offsetE ?? 14.0;
+      final oN = drag?.offsetN ?? 10.0;
+      final c = map.toPixel(p.easting + oE, p.northing + oN);
+      final d = (c - local).distance;
+      if (d < bestDist) {
+        bestDist = d;
+        best = p.id;
+      }
+    }
+    return best;
   }
 
   PlacedPlotSymbol? _hitSymbol(Offset local, _PlanMap map) {
     PlacedPlotSymbol? best;
-    var bestDist = 28.0; // px hit radius
+    var bestDist = 28.0;
+    final ann = widget.options.annotationScale.clamp(0.6, 3.0);
     for (final s in widget.symbols) {
       final c = map.toPixel(s.easting, s.northing);
       final d = (c - local).distance;
-      final half = math.max(12.0, map.feetToPixels(s.sizeFt) / 2);
-      if (d <= math.max(bestDist, half) && d < bestDist + half) {
+      final half = math.max(12.0, 22.0 * s.scale * ann);
+      if (d <= half + 8 && d < bestDist + half) {
         bestDist = d;
         best = s;
       }
@@ -214,7 +319,6 @@ class _PlanMap {
   }
 
   Offset toPixel(double e, double n) {
-    // Flutter Y grows downward; survey north is up.
     final x = size.width / 2 + (e - midE) / ftPerPx;
     final y = size.height / 2 - (n - midN) / ftPerPx;
     return Offset(x, y);
@@ -225,8 +329,6 @@ class _PlanMap {
     final n = midN - (p.dy - size.height / 2) * ftPerPx;
     return (e, n);
   }
-
-  double feetToPixels(double ft) => ft / ftPerPx;
 }
 
 class _PlotPreviewPainter extends CustomPainter {
@@ -238,7 +340,10 @@ class _PlotPreviewPainter extends CustomPainter {
     required this.options,
     required this.blockCatalog,
     required this.selectedSymbolId,
+    required this.selectedLabelPointId,
     required this.draggingId,
+    required this.dragKind,
+    required this.labelDrags,
   });
 
   final _PlanMap map;
@@ -248,14 +353,17 @@ class _PlotPreviewPainter extends CustomPainter {
   final PlotOptions options;
   final BlockCatalog? blockCatalog;
   final String? selectedSymbolId;
+  final String? selectedLabelPointId;
   final String? draggingId;
+  final _DragKind dragKind;
+  final Map<String, LabelDragState> labelDrags;
 
   @override
   void paint(Canvas canvas, Size size) {
     _paintGrid(canvas);
     _paintLinework(canvas);
     _paintSymbols(canvas);
-    _paintPoints(canvas);
+    _paintPointsAndLabels(canvas);
   }
 
   void _paintGrid(Canvas canvas) {
@@ -273,14 +381,18 @@ class _PlotPreviewPainter extends CustomPainter {
     final startN = (bounds.minN / gridFt).floor() * gridFt - gridFt;
     final endN = (bounds.maxN / gridFt).ceil() * gridFt + gridFt;
     for (var e = startE; e <= endE + 0.001; e += gridFt) {
-      final a = map.toPixel(e, startN);
-      final b = map.toPixel(e, endN);
-      canvas.drawLine(a, b, paint);
+      canvas.drawLine(
+        map.toPixel(e, startN),
+        map.toPixel(e, endN),
+        paint,
+      );
     }
     for (var n = startN; n <= endN + 0.001; n += gridFt) {
-      final a = map.toPixel(startE, n);
-      final b = map.toPixel(endE, n);
-      canvas.drawLine(a, b, paint);
+      canvas.drawLine(
+        map.toPixel(startE, n),
+        map.toPixel(endE, n),
+        paint,
+      );
     }
   }
 
@@ -295,11 +407,8 @@ class _PlotPreviewPainter extends CustomPainter {
           if (p[0].isFinite && p[1].isFinite) p,
       ];
       if (samples.length < 2) continue;
-      final path = Path()
-        ..moveTo(
-          map.toPixel(samples.first[0], samples.first[1]).dx,
-          map.toPixel(samples.first[0], samples.first[1]).dy,
-        );
+      final first = map.toPixel(samples.first[0], samples.first[1]);
+      final path = Path()..moveTo(first.dx, first.dy);
       for (var i = 1; i < samples.length; i++) {
         final o = map.toPixel(samples[i][0], samples[i][1]);
         path.lineTo(o.dx, o.dy);
@@ -309,36 +418,68 @@ class _PlotPreviewPainter extends CustomPainter {
     }
   }
 
-  void _paintPoints(Canvas canvas) {
+  void _paintPointsAndLabels(Canvas canvas) {
     final color = const Color(0xFFE10600);
     final fill = Paint()..color = color;
     final stroke = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
+      ..strokeWidth = 1.4 * options.annotationScale.clamp(0.6, 3.0);
+    final leader = Paint()
+      ..color = color
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    final ann = options.annotationScale.clamp(0.6, 3.0);
+    final fontSize = (10.0 * ann).clamp(8.0, 16.0);
+
     for (final p in points) {
       final c = map.toPixel(p.easting, p.northing);
-      _drawMarker(canvas, c, options.markerStyle, fill, stroke);
-      final lines = labelLinesFor(p, options.labelFormat);
+      _drawMarker(canvas, c, options.markerStyle, fill, stroke, ann);
+
+      final drag = labelDrags[p.id];
+      final lines = resolvedLabelLines(p, options.labelFormat, drag);
       if (lines.isEmpty) continue;
+      final oE = drag?.offsetE ?? 14.0;
+      final oN = drag?.offsetN ?? 10.0;
+      final labelPos = map.toPixel(p.easting + oE, p.northing + oN);
+      final dragged = (drag?.isDragged ?? false) ||
+          math.sqrt(oE * oE + oN * oN) > 8;
+      if (dragged) {
+        canvas.drawLine(c, labelPos, leader);
+      }
+
+      final selected = p.id == selectedLabelPointId ||
+          (dragKind == _DragKind.label && p.id == draggingId);
       final tp = TextPainter(
         text: TextSpan(
-          children: [
-            for (var i = 0; i < lines.length; i++)
-              TextSpan(
-                text: '${lines[i]}${i == lines.length - 1 ? '' : '\n'}',
-                style: const TextStyle(
-                  color: Color(0xFFE10600),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  height: 1.15,
-                ),
-              ),
-          ],
+          text: lines.join('\n'),
+          style: TextStyle(
+            color: color,
+            fontSize: fontSize,
+            fontWeight: FontWeight.w700,
+            height: 1.15,
+            backgroundColor: selected
+                ? const Color(0x66FFE082)
+                : const Color(0x88F7F4EE),
+          ),
         ),
         textDirection: ui.TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, Offset(c.dx + 6, c.dy - tp.height / 2));
+      tp.paint(canvas, Offset(labelPos.dx, labelPos.dy - tp.height / 2));
+      if (selected) {
+        canvas.drawRect(
+          Rect.fromLTWH(
+            labelPos.dx - 2,
+            labelPos.dy - tp.height / 2 - 2,
+            tp.width + 4,
+            tp.height + 4,
+          ),
+          Paint()
+            ..color = const Color(0xFFE4572E)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5,
+        );
+      }
     }
   }
 
@@ -348,14 +489,15 @@ class _PlotPreviewPainter extends CustomPainter {
     PointMarkerStyle style,
     Paint fill,
     Paint stroke,
+    double k,
   ) {
     switch (style) {
       case PointMarkerStyle.triangleFilled:
       case PointMarkerStyle.triangleOutline:
         final path = Path()
-          ..moveTo(c.dx, c.dy - 6)
-          ..lineTo(c.dx - 5, c.dy + 4)
-          ..lineTo(c.dx + 5, c.dy + 4)
+          ..moveTo(c.dx, c.dy - 6 * k)
+          ..lineTo(c.dx - 5 * k, c.dy + 4 * k)
+          ..lineTo(c.dx + 5 * k, c.dy + 4 * k)
           ..close();
         if (style == PointMarkerStyle.triangleFilled) {
           canvas.drawPath(path, fill);
@@ -363,28 +505,47 @@ class _PlotPreviewPainter extends CustomPainter {
         canvas.drawPath(path, stroke);
       case PointMarkerStyle.cross:
         canvas
-          ..drawLine(Offset(c.dx - 5, c.dy), Offset(c.dx + 5, c.dy), stroke)
-          ..drawLine(Offset(c.dx, c.dy - 5), Offset(c.dx, c.dy + 5), stroke);
+          ..drawLine(
+            Offset(c.dx - 5 * k, c.dy),
+            Offset(c.dx + 5 * k, c.dy),
+            stroke,
+          )
+          ..drawLine(
+            Offset(c.dx, c.dy - 5 * k),
+            Offset(c.dx, c.dy + 5 * k),
+            stroke,
+          );
       case PointMarkerStyle.x:
       case PointMarkerStyle.largeX:
-        final s = style == PointMarkerStyle.largeX ? 7.0 : 4.5;
+        final arm = (style == PointMarkerStyle.largeX ? 7.0 : 4.5) * k;
         canvas
-          ..drawLine(Offset(c.dx - s, c.dy - s), Offset(c.dx + s, c.dy + s), stroke)
-          ..drawLine(Offset(c.dx - s, c.dy + s), Offset(c.dx + s, c.dy - s), stroke);
+          ..drawLine(
+            Offset(c.dx - arm, c.dy - arm),
+            Offset(c.dx + arm, c.dy + arm),
+            stroke,
+          )
+          ..drawLine(
+            Offset(c.dx - arm, c.dy + arm),
+            Offset(c.dx + arm, c.dy - arm),
+            stroke,
+          );
       case PointMarkerStyle.circle:
-        canvas.drawCircle(c, 4.2, stroke);
+        canvas.drawCircle(c, 4.2 * k, stroke);
       case PointMarkerStyle.dot:
-        canvas.drawCircle(c, 2.2, fill);
+        canvas.drawCircle(c, 2.2 * k, fill);
       case PointMarkerStyle.largeDot:
-        canvas.drawCircle(c, 4.0, fill);
+        canvas.drawCircle(c, 4.0 * k, fill);
     }
   }
 
   void _paintSymbols(Canvas canvas) {
+    final ann = options.annotationScale.clamp(0.6, 3.0);
     for (final s in symbols) {
       final c = map.toPixel(s.easting, s.northing);
-      final half = math.max(8.0, map.feetToPixels(s.sizeFt) / 2);
-      final selected = s.id == selectedSymbolId || s.id == draggingId;
+      // Paper-based size on preview (not ground feet × scale).
+      final half = math.max(10.0, 22.0 * s.scale * ann);
+      final selected = s.id == selectedSymbolId ||
+          (dragKind == _DragKind.symbol && s.id == draggingId);
       final color = Color(s.colorArgb);
 
       canvas.save();
@@ -403,14 +564,14 @@ class _PlotPreviewPainter extends CustomPainter {
         } else {
           canvas.drawCircle(
             Offset(half, half),
-            half * 0.6,
+            half * 0.55,
             Paint()..color = color,
           );
         }
       } else {
         canvas.drawCircle(
           Offset(half, half),
-          half * 0.6,
+          half * 0.55,
           Paint()..color = color,
         );
       }
@@ -427,19 +588,20 @@ class _PlotPreviewPainter extends CustomPainter {
         );
       }
 
-      final label = s.libraryLabel;
-      final tp = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: TextStyle(
-            color: color,
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
+      if (options.showObjectLabels) {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: s.libraryLabel,
+            style: TextStyle(
+              color: color,
+              fontSize: 9 * ann,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-        textDirection: ui.TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(c.dx + half + 2, c.dy - 5));
+          textDirection: ui.TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(c.dx + half + 2, c.dy - 5));
+      }
     }
   }
 
@@ -450,7 +612,9 @@ class _PlotPreviewPainter extends CustomPainter {
         old.symbols != symbols ||
         old.options != options ||
         old.selectedSymbolId != selectedSymbolId ||
+        old.selectedLabelPointId != selectedLabelPointId ||
         old.draggingId != draggingId ||
-        old.map.ftPerPx != map.ftPerPx;
+        old.dragKind != dragKind ||
+        old.labelDrags != labelDrags;
   }
 }

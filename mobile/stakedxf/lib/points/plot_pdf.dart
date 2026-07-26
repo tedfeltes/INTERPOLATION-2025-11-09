@@ -6,6 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import 'block_catalog.dart';
 import 'dxf_linework.dart';
+import 'label_placement.dart';
 import 'plot_options.dart';
 import 'plot_symbols.dart';
 import 'plot_templates.dart';
@@ -352,28 +353,6 @@ double chooseEngineeringScale(
   return standards.last;
 }
 
-List<String> labelLinesFor(SurveyPoint p, PointLabelFormat format) {
-  switch (format) {
-    case PointLabelFormat.none:
-      return const [];
-    case PointLabelFormat.numberOnly:
-      return [p.id];
-    case PointLabelFormat.numberDescription:
-      return [
-        p.id,
-        if (p.description.trim().isNotEmpty) p.description.trim().toUpperCase(),
-      ];
-    case PointLabelFormat.numberElevation:
-      return [p.id, p.elevText];
-    case PointLabelFormat.numberDescriptionElevation:
-      return [
-        p.id,
-        if (p.description.trim().isNotEmpty) p.description.trim().toUpperCase(),
-        p.elevText,
-      ];
-  }
-}
-
 class _PlanPanel extends pw.StatelessWidget {
   _PlanPanel({
     required this.points,
@@ -522,7 +501,7 @@ void paintStakingPlan(
     canvas.strokePath();
   }
 
-  // Library objects (hydrant, signs, MH, DWG blocks, …) above linework
+  // Library objects — paper-sized; labels off unless requested.
   if (symbols.isNotEmpty) {
     drawPlacedSymbols(
       canvas,
@@ -531,87 +510,86 @@ void paintStakingPlan(
       symbols,
       labelFont,
       blocks: blockCatalog,
+      showLabels: options.showObjectLabels,
+      symbolPaperInches: options.symbolPaperInches,
+      annotationScale: options.annotationScale,
     );
   }
 
-  final occupied = <List<double>>[];
-  final markerHalf = _markerHalf(options.markerStyle);
+  final ann = options.annotationScale.clamp(0.6, 3.0);
+  final fontSize = (8.5 * ann).clamp(7.0, 14.0);
+  final lineH = fontSize * 1.15;
 
-  for (final p in points) {
-    if (!_finite2(p.easting, p.northing)) continue;
-    final c = toPage(p.easting, p.northing);
-    _drawMarker(canvas, c, options.markerStyle);
-    occupied.add([
-      c.x - markerHalf,
-      c.y - markerHalf,
-      c.x + markerHalf,
-      c.y + markerHalf,
-    ]);
+  // Resolve Civil-style label drag offsets (auto-spread undragged).
+  var drags = options.labelDrags;
+  if (options.autoSpreadLabels &&
+      options.labelFormat != PointLabelFormat.none) {
+    drags = autoSpreadLabels(
+      points: points,
+      format: options.labelFormat,
+      scaleFtPerInch: scaleFtPerInch,
+      existing: options.labelDrags,
+      annotationScale: ann,
+    );
   }
 
+  // Point markers (fixed locations — never moved by label drag).
   for (final p in points) {
     if (!_finite2(p.easting, p.northing)) continue;
-    final lines = labelLinesFor(p, options.labelFormat);
+    final c = toPage(p.easting, p.northing);
+    _drawMarker(canvas, c, options.markerStyle, sizeScale: ann);
+  }
+
+  // Labels with leaders when dragged away from the marker.
+  for (final p in points) {
+    if (!_finite2(p.easting, p.northing)) continue;
+    final drag = drags[p.id];
+    final lines = resolvedLabelLines(p, options.labelFormat, drag);
     if (lines.isEmpty) continue;
     final c = toPage(p.easting, p.northing);
-    final labelW = 62.0;
-    final labelH = 10.0 * lines.length;
-    final candidates = <PdfPoint>[
-      PdfPoint(c.x + markerHalf + 3, c.y - labelH / 2),
-      PdfPoint(c.x - markerHalf - 3 - labelW, c.y - labelH / 2),
-      PdfPoint(c.x - labelW / 2, c.y + markerHalf + 3),
-      PdfPoint(c.x - labelW / 2, c.y - markerHalf - 3 - labelH),
-    ];
-    PdfPoint chosen = candidates.first;
-    for (final cand in candidates) {
-      final box = [cand.x, cand.y, cand.x + labelW, cand.y + labelH];
-      if (box[0] < 4 ||
-          box[1] < 4 ||
-          box[2] > size.x - 4 ||
-          box[3] > size.y - 4) {
-        continue;
-      }
-      if (occupied.any((o) => _overlap(box, o))) continue;
-      chosen = cand;
-      occupied.add(box);
-      break;
+    final oE = drag?.offsetE ?? 14.0;
+    final oN = drag?.offsetN ?? 10.0;
+    final labelPt = toPage(p.easting + oE, p.northing + oN);
+    final labelH = lineH * lines.length;
+
+    final dragged = (drag?.isDragged ?? false) ||
+        math.sqrt(oE * oE + oN * oN) > 8;
+    if (dragged) {
+      canvas
+        ..setStrokeColor(_markerRed)
+        ..setLineWidth(0.7)
+        ..drawLine(c.x, c.y, labelPt.x, labelPt.y)
+        ..strokePath();
     }
 
     canvas.setFillColor(_markerRed);
-    var ty = chosen.y + labelH - 8;
+    var ty = labelPt.y + labelH / 2 - fontSize;
     for (final line in lines) {
-      canvas.drawString(labelFont, 8, line, chosen.x, ty);
-      ty -= 9.5;
+      canvas.drawString(labelFont, fontSize, line, labelPt.x, ty);
+      ty -= lineH;
     }
   }
 
   canvas.restoreContext();
 }
 
-double _markerHalf(PointMarkerStyle style) {
-  switch (style) {
-    case PointMarkerStyle.largeX:
-    case PointMarkerStyle.largeDot:
-      return 7.0;
-    case PointMarkerStyle.triangleFilled:
-    case PointMarkerStyle.triangleOutline:
-      return 5.0;
-    default:
-      return 4.5;
-  }
-}
-
-void _drawMarker(PdfGraphics canvas, PdfPoint c, PointMarkerStyle style) {
+void _drawMarker(
+  PdfGraphics canvas,
+  PdfPoint c,
+  PointMarkerStyle style, {
+  double sizeScale = 1.0,
+}) {
+  final k = sizeScale.clamp(0.6, 3.0);
   canvas
     ..setStrokeColor(_markerRed)
     ..setFillColor(_markerRed)
-    ..setLineWidth(0.9);
+    ..setLineWidth(0.9 * k);
 
   switch (style) {
     case PointMarkerStyle.triangleFilled:
     case PointMarkerStyle.triangleOutline:
-      const triW = 9.0;
-      const triH = 8.0;
+      final triW = 9.0 * k;
+      final triH = 8.0 * k;
       final apex = PdfPoint(c.x, c.y + triH * 2 / 3);
       final bl = PdfPoint(c.x - triW / 2, c.y - triH / 3);
       final br = PdfPoint(c.x + triW / 2, c.y - triH / 3);
@@ -627,49 +605,49 @@ void _drawMarker(PdfGraphics canvas, PdfPoint c, PointMarkerStyle style) {
           ..lineTo(bl.x, bl.y)
           ..lineTo(br.x, br.y)
           ..closePath()
-          ..setLineWidth(0.35)
+          ..setLineWidth(0.35 * k)
           ..strokePath();
       } else {
         canvas
-          ..setLineWidth(0.9)
+          ..setLineWidth(0.9 * k)
           ..strokePath();
       }
       break;
     case PointMarkerStyle.cross:
-      const s = 5.0;
+      final arm = 5.0 * k;
       canvas
-        ..drawLine(c.x - s, c.y, c.x + s, c.y)
-        ..drawLine(c.x, c.y - s, c.x, c.y + s)
+        ..drawLine(c.x - arm, c.y, c.x + arm, c.y)
+        ..drawLine(c.x, c.y - arm, c.x, c.y + arm)
         ..strokePath();
       break;
     case PointMarkerStyle.x:
-      const s = 4.5;
+      final arm = 4.5 * k;
       canvas
-        ..drawLine(c.x - s, c.y - s, c.x + s, c.y + s)
-        ..drawLine(c.x - s, c.y + s, c.x + s, c.y - s)
+        ..drawLine(c.x - arm, c.y - arm, c.x + arm, c.y + arm)
+        ..drawLine(c.x - arm, c.y + arm, c.x + arm, c.y - arm)
         ..strokePath();
       break;
     case PointMarkerStyle.largeX:
-      const s = 7.5;
+      final arm = 7.5 * k;
       canvas
-        ..setLineWidth(1.4)
-        ..drawLine(c.x - s, c.y - s, c.x + s, c.y + s)
-        ..drawLine(c.x - s, c.y + s, c.x + s, c.y - s)
+        ..setLineWidth(1.4 * k)
+        ..drawLine(c.x - arm, c.y - arm, c.x + arm, c.y + arm)
+        ..drawLine(c.x - arm, c.y + arm, c.x + arm, c.y - arm)
         ..strokePath();
       break;
     case PointMarkerStyle.circle:
       canvas
-        ..drawEllipse(c.x, c.y, 4.2, 4.2)
+        ..drawEllipse(c.x, c.y, 4.2 * k, 4.2 * k)
         ..strokePath();
       break;
     case PointMarkerStyle.dot:
       canvas
-        ..drawEllipse(c.x, c.y, 2.2, 2.2)
+        ..drawEllipse(c.x, c.y, 2.2 * k, 2.2 * k)
         ..fillPath();
       break;
     case PointMarkerStyle.largeDot:
       canvas
-        ..drawEllipse(c.x, c.y, 4.0, 4.0)
+        ..drawEllipse(c.x, c.y, 4.0 * k, 4.0 * k)
         ..fillPath();
       break;
   }

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stakedxf/points/csv_io.dart';
 import 'package:stakedxf/points/dxf_linework.dart';
+import 'package:stakedxf/points/label_placement.dart';
 import 'package:stakedxf/points/plot_options.dart';
 import 'package:stakedxf/points/plot_pdf.dart';
 import 'package:stakedxf/points/plot_templates.dart';
@@ -226,5 +227,84 @@ void main() {
     final out = File('test/fixtures/sample_staking_plot.pdf');
     await out.writeAsBytes(withTable);
     expect(withTable.length, greaterThan(1000));
+  });
+
+  test('auto-spread separates stacked labels; preserves dragged pins', () {
+    final pts = [
+      for (var i = 0; i < 6; i++)
+        SurveyPoint(
+          id: '${100 + i}',
+          northing: 1000 + i * 2.0,
+          easting: 2000 + i * 2.0,
+          elevation: 10,
+          description: 'STM',
+        ),
+    ];
+    final pinned = {
+      '100': const LabelDragState(offsetE: 40, offsetN: 40),
+    };
+    final spread = autoSpreadLabels(
+      points: pts,
+      format: PointLabelFormat.numberDescriptionElevation,
+      scaleFtPerInch: 30,
+      existing: pinned,
+      annotationScale: 1.2,
+    );
+    expect(spread['100']!.offsetE, 40);
+    expect(spread['100']!.offsetN, 40);
+    // Other labels get non-zero Civil-style offsets.
+    for (final p in pts.skip(1)) {
+      expect(spread[p.id]!.isDragged, isTrue);
+    }
+    // Distant site: auto-spread still returns placements.
+    final far = [
+      const SurveyPoint(
+        id: 'A',
+        northing: 0,
+        easting: 0,
+        elevation: 0,
+        description: 'IP',
+      ),
+      const SurveyPoint(
+        id: 'B',
+        northing: 2500,
+        easting: 2500,
+        elevation: 0,
+        description: 'IP',
+      ),
+    ];
+    final farSpread = autoSpreadLabels(
+      points: far,
+      format: PointLabelFormat.numberOnly,
+      scaleFtPerInch: 200,
+    );
+    expect(farSpread['A']!.isDragged, isTrue);
+    expect(farSpread['B']!.isDragged, isTrue);
+  });
+
+  test('custom label text and annotation options export', () async {
+    final pts = parsePointsCsv(
+      File('test/fixtures/sample_points.csv').readAsStringSync(),
+    );
+    final bytes = await buildStakingPlotPdf(
+      points: pts,
+      jobName: 'LABEL DRAG',
+      date: DateTime(2026, 7, 23),
+      options: PlotOptions(
+        labelFormat: PointLabelFormat.numberDescriptionElevation,
+        annotationScale: 1.5,
+        showObjectLabels: false,
+        autoSpreadLabels: true,
+        labelDrags: {
+          pts.first.id: const LabelDragState(
+            offsetE: 55,
+            offsetN: -30,
+            customText: '700\nCUSTOM',
+          ),
+        },
+      ),
+    );
+    expect(bytes.length, greaterThan(1000));
+    expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
   });
 }
