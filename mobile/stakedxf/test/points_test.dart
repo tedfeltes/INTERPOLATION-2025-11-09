@@ -87,9 +87,25 @@ void main() {
     final lw = parseDxfLinework(text);
     expect(lw.layers, containsAll(['CL', 'CURB', 'STRUCTURE']));
     expect(lw.entities.length, 4);
+    expect(lw.countForLayer('CURB'), 2);
+    expect(lw.layerCounts['CL'], 1);
     final curb = lw.forLayers({'CURB'});
     expect(curb.length, 2);
     expect(lw.boundsFor({'CL'}), isNotNull);
+  });
+
+  test('parse DXF from file path (large-file safe path)', () {
+    final lw = parseDxfLineworkFile('test/fixtures/sample_linework.dxf');
+    expect(lw.entities.length, 4);
+    expect(lw.layers, isNotEmpty);
+  });
+
+  test('plot linework cap keeps UI/PDF bounded', () {
+    final text = File('test/fixtures/sample_linework.dxf').readAsStringSync();
+    final lw = parseDxfLinework(text);
+    final capped = lw.forLayersCapped(lw.layers.toSet(), maxEntities: 2);
+    expect(capped.length, 2);
+    expect(lw.forLayersCapped(lw.layers.toSet(), maxEntities: 100).length, 4);
   });
 
   test('staking plot PDF with options and linework', () async {

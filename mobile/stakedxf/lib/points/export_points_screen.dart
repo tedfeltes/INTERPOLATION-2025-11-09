@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -63,7 +64,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   List<LineworkEntity> get _chosenLinework {
     final lw = _linework;
     if (lw == null || !_options.includeLinework) return const [];
-    return lw.forLayers(_selectedLayers);
+    return lw.forLayersCapped(_selectedLayers);
   }
 
   Future<void> _importCsv() async {
@@ -123,10 +124,13 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       _error = null;
       _status = null;
     });
+    // IMPORTANT: withData must stay false. Shipping a large converted DXF
+    // through the platform channel exceeds Android's ~1 MB binder limit and
+    // crashes the app. Read from the file path in a background isolate.
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.any,
       allowMultiple: false,
-      withData: true,
+      withData: false,
     );
     if (picked == null || picked.files.isEmpty) return;
     final file = picked.files.first;
@@ -135,36 +139,49 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       setState(() => _error = 'Pick a .dxf file to link as plot linework.');
       return;
     }
-
-    String? text =
-        file.bytes != null ? utf8.decode(file.bytes!, allowMalformed: true) : null;
-    if ((text == null || text.trim().isEmpty) && file.path != null) {
-      text = await File(file.path!).readAsString();
-    }
-    if (text == null || text.trim().isEmpty) {
-      setState(() => _error = 'Could not read that DXF.');
-      return;
-    }
-
-    final parsed = parseDxfLinework(text);
-    if (parsed.entities.isEmpty) {
+    final path = file.path;
+    if (path == null || path.isEmpty) {
       setState(
         () => _error =
-            'No LINE / LWPOLYLINE / ARC / CIRCLE linework found in that DXF.',
+            'Could not access that DXF path. Copy it into device storage '
+            'and pick it again.',
       );
       return;
     }
 
     setState(() {
-      _linework = parsed;
-      _dxfName = file.name;
-      _selectedLayers
-        ..clear()
-        ..addAll(parsed.layers);
-      _options = _options.copyWith(includeLinework: true);
-      _status =
-          'Linked ${parsed.entities.length} entities on ${parsed.layers.length} layers';
+      _busy = true;
+      _status = 'Reading DXF linework…';
     });
+    try {
+      final sizeMb = File(path).lengthSync() / (1024 * 1024);
+      final parsed = await compute(parseDxfLineworkFile, path);
+      if (parsed.entities.isEmpty) {
+        setState(
+          () => _error =
+              'No LINE / LWPOLYLINE / ARC / CIRCLE linework found in that DXF.',
+        );
+        return;
+      }
+
+      final capped = parsed.entities.length > kMaxPlotLineworkEntities;
+      setState(() {
+        _linework = parsed;
+        _dxfName = file.name;
+        _selectedLayers
+          ..clear()
+          ..addAll(parsed.layers);
+        _options = _options.copyWith(includeLinework: true);
+        _status =
+            'Linked ${parsed.entities.length} entities on ${parsed.layers.length} layers'
+            '${sizeMb >= 1 ? ' (${sizeMb.toStringAsFixed(1)} MB)' : ''}'
+            '${capped ? ' — plot will draw first $kMaxPlotLineworkEntities for stability' : ''}';
+      });
+    } catch (e) {
+      setState(() => _error = 'Could not link DXF: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   void _clearDxf() {
@@ -527,9 +544,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                           ],
                         ),
                         ...lw.layers.map((layer) {
-                          final count = lw.entities
-                              .where((e) => e.layer == layer)
-                              .length;
+                          final count = lw.countForLayer(layer);
                           return CheckboxListTile(
                             value: _selectedLayers.contains(layer),
                             dense: true,

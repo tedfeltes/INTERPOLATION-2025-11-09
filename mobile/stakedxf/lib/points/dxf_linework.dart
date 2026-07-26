@@ -1,4 +1,8 @@
+import 'dart:io';
 import 'dart:math' as math;
+
+/// Soft cap for plot drawing — full converted Civil DXFs can be 30k+ entities.
+const int kMaxPlotLineworkEntities = 12000;
 
 /// One plan-view polyline / segment / arc from a DXF ENTITIES section.
 class LineworkEntity {
@@ -58,14 +62,32 @@ class DxfLinework {
   const DxfLinework({
     required this.entities,
     required this.layers,
+    this.layerCounts = const {},
   });
 
   final List<LineworkEntity> entities;
   final List<String> layers;
 
+  /// Precomputed entity counts per layer (avoid O(layers×entities) in the UI).
+  final Map<String, int> layerCounts;
+
+  int countForLayer(String layer) => layerCounts[layer] ?? 0;
+
   List<LineworkEntity> forLayers(Set<String> selected) {
     if (selected.isEmpty) return const [];
     return entities.where((e) => selected.contains(e.layer)).toList();
+  }
+
+  /// Entities for selected layers, capped for safe on-device plot drawing.
+  List<LineworkEntity> forLayersCapped(
+    Set<String> selected, {
+    int maxEntities = kMaxPlotLineworkEntities,
+  }) {
+    final all = forLayers(selected);
+    if (all.length <= maxEntities) return all;
+    // Prefer keeping shorter entities / spread across layers: take in order
+    // but stop at the budget (stable, predictable).
+    return all.sublist(0, maxEntities);
   }
 
   /// Bounding box of selected layers as [minE, minN, maxE, maxN], or null.
@@ -91,11 +113,36 @@ class DxfLinework {
   }
 }
 
+/// Read an ASCII DXF from disk and parse linework (safe for large converted files).
+///
+/// Prefer this over loading bytes through a platform channel — Android's binder
+/// ~1 MB limit will crash the app when [withData] is used on big DXFs.
+DxfLinework parseDxfLineworkFile(String path) {
+  final file = File(path);
+  if (!file.existsSync()) {
+    throw FileSystemException('DXF not found', path);
+  }
+  // Reject obvious binary DXF early (header is ASCII "AutoCAD Binary DXF").
+  final raf = file.openSync();
+  try {
+    final head = raf.readSync(22);
+    final headStr = String.fromCharCodes(head);
+    if (headStr.startsWith('AutoCAD Binary DXF')) {
+      throw const FormatException(
+        'Binary DXF is not supported — re-export / convert to ASCII DXF.',
+      );
+    }
+  } finally {
+    raf.closeSync();
+  }
+  return parseDxfLinework(file.readAsStringSync());
+}
+
 /// Parse ASCII DXF stakeable linework (LINE / LWPOLYLINE / POLYLINE / ARC / CIRCLE).
 DxfLinework parseDxfLinework(String text) {
   final pairs = _dxfPairs(text);
   final entities = <LineworkEntity>[];
-  final layerSet = <String>{};
+  final layerCounts = <String, int>{};
 
   var i = 0;
   var inEntities = false;
@@ -124,7 +171,7 @@ DxfLinework parseDxfLinework(String text) {
       final x1 = _d(ent.map, '11');
       final y1 = _d(ent.map, '21');
       if (x0 == null || y0 == null || x1 == null || y1 == null) continue;
-      layerSet.add(layer);
+      layerCounts[layer] = (layerCounts[layer] ?? 0) + 1;
       entities.add(LineworkEntity(
         layer: layer,
         type: 'LINE',
@@ -137,7 +184,7 @@ DxfLinework parseDxfLinework(String text) {
       final ent = _readLwPolyline(pairs, i);
       i = ent.next;
       if (ent.vertices.length < 2) continue;
-      layerSet.add(ent.layer);
+      layerCounts[ent.layer] = (layerCounts[ent.layer] ?? 0) + 1;
       entities.add(LineworkEntity(
         layer: ent.layer,
         type: 'LWPOLYLINE',
@@ -148,7 +195,7 @@ DxfLinework parseDxfLinework(String text) {
       final ent = _readPolyline(pairs, i);
       i = ent.next;
       if (ent.vertices.length < 2) continue;
-      layerSet.add(ent.layer);
+      layerCounts[ent.layer] = (layerCounts[ent.layer] ?? 0) + 1;
       entities.add(LineworkEntity(
         layer: ent.layer,
         type: 'POLYLINE',
@@ -167,7 +214,7 @@ DxfLinework parseDxfLinework(String text) {
       if (cx == null || cy == null || r == null || a0 == null || a1 == null) {
         continue;
       }
-      layerSet.add(layer);
+      layerCounts[layer] = (layerCounts[layer] ?? 0) + 1;
       entities.add(LineworkEntity(
         layer: layer,
         type: 'ARC',
@@ -186,7 +233,7 @@ DxfLinework parseDxfLinework(String text) {
       final cy = _d(ent.map, '20');
       final r = _d(ent.map, '40');
       if (cx == null || cy == null || r == null) continue;
-      layerSet.add(layer);
+      layerCounts[layer] = (layerCounts[layer] ?? 0) + 1;
       entities.add(LineworkEntity(
         layer: layer,
         type: 'CIRCLE',
@@ -196,14 +243,18 @@ DxfLinework parseDxfLinework(String text) {
         radius: r,
       ));
     } else {
-      // Skip unknown entity body
+      // Skip unknown entity body (INSERT, POINT, TEXT, …)
       final ent = _readUntilNext0(pairs, i);
       i = ent.next;
     }
   }
 
-  final layers = layerSet.toList()..sort();
-  return DxfLinework(entities: entities, layers: layers);
+  final layers = layerCounts.keys.toList()..sort();
+  return DxfLinework(
+    entities: entities,
+    layers: layers,
+    layerCounts: Map<String, int>.unmodifiable(layerCounts),
+  );
 }
 
 List<List<String>> _dxfPairs(String text) {
@@ -267,10 +318,13 @@ _LwRead _readLwPolyline(List<List<String>> pairs, int start) {
     }
     if (code == '10') {
       pendingX = double.tryParse(value.trim());
-    } else if (code == '20' && pendingX != null) {
-      final y = double.tryParse(value.trim());
-      if (y != null) verts.add([pendingX!, y]);
-      pendingX = null;
+    } else if (code == '20') {
+      final x = pendingX;
+      if (x != null) {
+        final y = double.tryParse(value.trim());
+        if (y != null) verts.add([x, y]);
+        pendingX = null;
+      }
     }
     i++;
   }
