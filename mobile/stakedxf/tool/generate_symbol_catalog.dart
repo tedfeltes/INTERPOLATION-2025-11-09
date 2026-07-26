@@ -53,9 +53,9 @@ Future<void> main() async {
           headerSub:
               'Built-in plan-view symbols from Three Pillars civil details & signage '
               '(C7.00-C7.03, C6.11, C3.0).  ${kinds.length} built-in + ${blocks.length} DWG blocks.',
-          headerRight: 'v1.8  -  page 1  -  ${kinds.length} built-in',
+          headerRight: 'v1.9  -  page 1  -  ${kinds.length} built-in',
           footer:
-              'Page 1 of built-in symbols  |  following pages: every BLOCK from project DWG  |  '
+              'Page 1 of built-in symbols  |  following pages: DWG blocks + folder symbols  |  '
               'Export Points > Plot objects > Add from object library',
           child: pw.LayoutBuilder(
             builder: (context, constraints) {
@@ -97,12 +97,12 @@ Future<void> main() async {
           return _framedPage(
             headerTitle: 'STAKEDXF OBJECT LIBRARY - DWG BLOCKS',
             headerSub:
-                'Every named BLOCK with geometry extracted from the project DWG '
-                '(Google Drive).  ${blocks.length} blocks total.',
+                'Named BLOCKs from the project DWG plus individual symbol DWGs '
+                '(Drive folder 1BpM_…).  ${blocks.length} objects total.',
             headerRight:
-                'v1.8  -  page $pageNo  -  ${slice.length} of ${blocks.length}',
+                'v1.9  -  page $pageNo  -  ${slice.length} of ${blocks.length}',
             footer:
-                'DWG blocks page ${pageIndex + 1}/$pageCount  |  '
+                'DWG / symbol page ${pageIndex + 1}/$pageCount  |  '
                 'Filter/search in app under Plot objects > DWG blocks',
             child: pw.LayoutBuilder(
               builder: (context, constraints) {

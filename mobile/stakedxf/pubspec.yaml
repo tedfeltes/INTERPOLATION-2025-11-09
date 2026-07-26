@@ -1,7 +1,7 @@
 name: stakedxf
 description: On-device Civil 3D DWG to Trimble Access DXF converter for phone and TSC5
 publish_to: "none"
-version: 1.8.0+7
+version: 1.9.0+8
 
 environment:
   sdk: ^3.8.1

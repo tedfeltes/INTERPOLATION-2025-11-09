@@ -31,10 +31,14 @@ void main() {
     final catalog = BlockCatalog.loadFile(
       'assets/symbol_library/dwg_blocks.json',
     );
-    expect(catalog.blocks.length, greaterThanOrEqualTo(50));
+    expect(catalog.blocks.length, greaterThanOrEqualTo(200));
     expect(catalog['NORTH ARROW'], isNotNull);
     expect(catalog['EUWHYD'], isNotNull);
     expect(catalog['digger-symbol'], isNotNull);
+    // From Drive symbol folder 1BpM_hSs84FBru9tB-ATBgYA79fkG93NF
+    expect(catalog['DUMPSTER'], isNotNull);
+    expect(catalog['CAR-PLANVIEW'], isNotNull);
+    expect(catalog['ARROW-typ'], isNotNull);
     final hyd = catalog['EUWHYD']!;
     expect(hyd.paths, isNotEmpty);
     expect(hyd.paths.first.points.length, greaterThanOrEqualTo(2));
