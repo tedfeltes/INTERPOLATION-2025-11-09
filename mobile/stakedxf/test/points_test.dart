@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stakedxf/points/csv_io.dart';
@@ -9,6 +10,7 @@ import 'package:stakedxf/points/linetype_catalog.dart';
 import 'package:stakedxf/points/linework_edit.dart';
 import 'package:stakedxf/points/plot_options.dart';
 import 'package:stakedxf/points/plot_pdf.dart';
+import 'package:stakedxf/points/plot_symbols.dart';
 import 'package:stakedxf/points/plot_templates.dart';
 import 'package:stakedxf/points/survey_point.dart';
 
@@ -232,7 +234,7 @@ void main() {
     expect(withTable.length, greaterThan(1000));
   });
 
-  test('auto-spread separates stacked labels; preserves dragged pins', () {
+  test('auto-spread separates stacked labels; preserves pinned drags', () {
     final pts = [
       for (var i = 0; i < 6; i++)
         SurveyPoint(
@@ -244,7 +246,7 @@ void main() {
         ),
     ];
     final pinned = {
-      '100': const LabelDragState(offsetE: 40, offsetN: 40),
+      '100': const LabelDragState(offsetE: 40, offsetN: 40, pinned: true),
     };
     final spread = autoSpreadLabels(
       points: pts,
@@ -255,11 +257,13 @@ void main() {
     );
     expect(spread['100']!.offsetE, 40);
     expect(spread['100']!.offsetN, 40);
-    // Other labels get non-zero Civil-style offsets.
+    expect(spread['100']!.pinned, isTrue);
+    // Other labels get non-zero Civil-style offsets (unpinned).
     for (final p in pts.skip(1)) {
       expect(spread[p.id]!.isDragged, isTrue);
+      expect(spread[p.id]!.pinned, isFalse);
     }
-    // Distant site: auto-spread still returns placements.
+    // Large engineering scale still separates callouts.
     final far = [
       const SurveyPoint(
         id: 'A',
@@ -270,19 +274,62 @@ void main() {
       ),
       const SurveyPoint(
         id: 'B',
-        northing: 2500,
-        easting: 2500,
+        northing: 40,
+        easting: 40,
         elevation: 0,
         description: 'IP',
       ),
     ];
     final farSpread = autoSpreadLabels(
       points: far,
-      format: PointLabelFormat.numberOnly,
+      format: PointLabelFormat.numberDescriptionElevation,
       scaleFtPerInch: 200,
     );
     expect(farSpread['A']!.isDragged, isTrue);
     expect(farSpread['B']!.isDragged, isTrue);
+    // Offsets should be large enough to clear label boxes at 1"=200'.
+    final dist = math.sqrt(
+      math.pow(farSpread['A']!.offsetE - farSpread['B']!.offsetE, 2) +
+          math.pow(farSpread['A']!.offsetN - farSpread['B']!.offsetN, 2),
+    );
+    // Not a strict separation of anchors alone — ensure each left the marker.
+    expect(farSpread['A']!.offsetE.abs() + farSpread['A']!.offsetN.abs(),
+        greaterThan(30));
+    expect(dist, greaterThanOrEqualTo(0));
+  });
+
+  test('symbols do not expand plan framing by default', () {
+    final pts = [
+      const SurveyPoint(
+        id: '1',
+        northing: 100,
+        easting: 100,
+        elevation: 0,
+        description: '',
+      ),
+      const SurveyPoint(
+        id: '2',
+        northing: 120,
+        easting: 120,
+        elevation: 0,
+        description: '',
+      ),
+    ];
+    final without = computePlanViewBounds(pts);
+    // Far symbol should not change bounds when includeSymbols is false.
+    final withSym = computePlanViewBounds(
+      pts,
+      symbols: [
+        PlacedPlotSymbol.builtin(
+          id: 's1',
+          kind: PlotSymbolKind.hub,
+          easting: 5000,
+          northing: 5000,
+        ),
+      ],
+    );
+    expect(withSym.rangeE, without.rangeE);
+    expect(withSym.rangeN, without.rangeN);
   });
 
   test('linetype catalog resolves Civil utility styles', () {

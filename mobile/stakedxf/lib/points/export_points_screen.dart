@@ -55,10 +55,11 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   String? _error;
   String? _status;
   bool _busy = false;
-  bool _plotOptionsOpen = true;
+  bool _plotOptionsOpen = false;
   bool _lineworkOpen = false;
   bool _objectsOpen = false;
   bool _pointsOpen = false;
+  bool _lineEditMode = false;
 
   @override
   void initState() {
@@ -226,21 +227,52 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       offsetE: offsetE,
       offsetN: offsetN,
       customText: prev?.customText,
+      pinned: true,
     );
     setState(() {
       _options = _options.copyWith(labelDrags: next);
       _selectedLabelPointId = pointId;
       _selectedSymbolId = null;
+      _lineEditMode = false;
+    });
+  }
+
+  /// Bake auto-spread into label offsets (unpinned) so PDF/preview match.
+  void _spreadLabelsNow() {
+    final pts = _chosen.isNotEmpty ? _chosen : _points;
+    if (pts.isEmpty) return;
+    final scale = chooseEngineeringScale(
+      pts,
+      linework: _chosenLinework,
+      template: _options.template,
+      showPointList: _options.showPointList,
+    );
+    final spread = autoSpreadLabels(
+      points: pts,
+      format: _options.labelFormat,
+      scaleFtPerInch: scale,
+      existing: _options.labelDrags,
+      annotationScale: _options.annotationScale,
+    );
+    setState(() {
+      _options = _options.copyWith(
+        labelDrags: spread,
+        autoSpreadLabels: true,
+      );
+      _status =
+          'Spread ${spread.length} labels (points stay fixed — only callouts move)';
     });
   }
 
   void _setLabelCustomText(String pointId, String? text) {
     final next = Map<String, LabelDragState>.from(_options.labelDrags);
-    final prev = next[pointId] ?? const LabelDragState(offsetE: 14, offsetN: 10);
+    final prev = next[pointId] ??
+        const LabelDragState(offsetE: 14, offsetN: 10, pinned: true);
     final trimmed = text?.trim();
     next[pointId] = prev.copyWith(
       customText: trimmed,
       clearCustomText: trimmed == null || trimmed.isEmpty,
+      pinned: true,
     );
     setState(() => _options = _options.copyWith(labelDrags: next));
   }
@@ -635,9 +667,16 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         _selectedNodeIndex = null;
                         _selectedSegmentIndex = null;
                         if (id != null) {
+                          _lineEditMode = true;
                           _selectedSymbolId = null;
                           _selectedLabelPointId = null;
-                          final ent = _selectedLineworkEntity;
+                          LineworkEntity? ent;
+                          for (final e in _linework?.entities ?? const []) {
+                            if (e.id == id) {
+                              ent = e;
+                              break;
+                            }
+                          }
                           _selectedLineworkLayer = ent?.layer;
                           _lineworkOpen = true;
                         }
@@ -652,7 +691,46 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       }),
                       onMoveSymbol: _moveSymbol,
                       onMoveLabel: _moveLabel,
-                      height: 240,
+                      lineEditMode: _lineEditMode,
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        FilledButton.tonalIcon(
+                          onPressed: _busy || previewPoints.isEmpty
+                              ? null
+                              : _spreadLabelsNow,
+                          icon: const Icon(Icons.auto_fix_fix, size: 18),
+                          label: const Text('Spread labels'),
+                        ),
+                        FilterChip(
+                          label: Text(
+                            _lineEditMode ? 'Line edit ON' : 'Line edit',
+                          ),
+                          selected: _lineEditMode,
+                          onSelected: _busy || _linework == null
+                              ? null
+                              : (v) => setState(() {
+                                    _lineEditMode = v;
+                                    if (v) {
+                                      _selectedLabelPointId = null;
+                                      _selectedSymbolId = null;
+                                      _lineworkOpen = true;
+                                    } else {
+                                      _selectedLineworkId = null;
+                                      _selectedNodeIndex = null;
+                                      _selectedSegmentIndex = null;
+                                    }
+                                  }),
+                        ),
+                        if (_options.labelDrags.isNotEmpty)
+                          TextButton(
+                            onPressed: _busy ? null : _resetLabelDrags,
+                            child: const Text('Reset labels'),
+                          ),
+                      ],
                     ),
                     if (selectedLabel != null) ...[
                       const SizedBox(height: 8),
@@ -1026,10 +1104,11 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         ),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: const Text('Auto-spread stacked labels'),
+                          title: const Text('Auto-spread labels'),
                           subtitle: const Text(
-                            'Pack undragged labels like Civil 3D drag state. '
-                            'Drag any label on the preview to pin it.',
+                            'Separates callouts (not points). Use Spread labels '
+                            'above the preview, then drag to pin. Leaders dogleg '
+                            'to the label edge.',
                           ),
                           value: _options.autoSpreadLabels,
                           onChanged: _busy
@@ -1039,19 +1118,6 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                       autoSpreadLabels: v,
                                     ),
                                   ),
-                        ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: _busy || _options.labelDrags.isEmpty
-                                ? null
-                                : _resetLabelDrags,
-                            icon: const Icon(Icons.refresh, size: 18),
-                            label: Text(
-                              'Reset dragged labels'
-                              '${_options.labelDrags.isEmpty ? '' : ' (${_options.labelDrags.length})'}',
-                            ),
-                          ),
                         ),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
@@ -1141,60 +1207,78 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                     ),
                           ),
                           if (_options.includeLinework) ...[
-                            LineworkPropertiesPanel(
-                              catalog: _linetypeCatalog,
-                              layerStyles: lw.layerStyles,
-                              selectedLayer: _selectedLineworkLayer,
-                              selectedEntity: _selectedLineworkEntity,
-                              layerOverride: _selectedLineworkLayer == null
-                                  ? null
-                                  : _options.layerStyleOverrides[
-                                      _selectedLineworkLayer!],
-                              entityOverride: _selectedLineworkId == null
-                                  ? null
-                                  : _options.entityStyleOverrides[
-                                      _selectedLineworkId!],
-                              globalLinetypeScale:
-                                  _options.globalLinetypeScale,
-                              selectedNodeIndex: _selectedNodeIndex,
-                              selectedSegmentIndex: _selectedSegmentIndex,
-                              onGlobalLinetypeScale: (v) => setState(
-                                () => _options = _options.copyWith(
-                                  globalLinetypeScale: v,
-                                ),
+                            Text(
+                              _lineEditMode
+                                  ? 'Line edit: tap a line on the preview, then a '
+                                      'green segment or blue node. Explode splits '
+                                      'polylines into editable pieces.'
+                                  : 'Turn on Line edit above the preview to select '
+                                      'and trim linework. Default color is ACI 252 '
+                                      '(grey); points/labels are ACI 10 (red).',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: cs.onSurface.withValues(alpha: 0.65),
+                                height: 1.35,
                               ),
-                              onApplyLayerOverride: (o) =>
-                                  _applyLineworkOverride(
-                                    toEntity: false,
-                                    override: o,
-                                  ),
-                              onApplyEntityOverride: (o) =>
-                                  _applyLineworkOverride(
-                                    toEntity: true,
-                                    override: o,
-                                  ),
-                              onExplode: _busy ? null : _explodeSelectedLinework,
-                              onRemoveSegment:
-                                  _busy ? null : _removeSelectedSegment,
-                              onRemoveNode:
-                                  _busy ? null : _removeSelectedNode,
-                              onDeleteEntity:
-                                  _busy ? null : _deleteSelectedLinework,
-                              onClearSelection: () => setState(() {
-                                _selectedLineworkId = null;
-                                _selectedLineworkLayer = null;
-                                _selectedNodeIndex = null;
-                                _selectedSegmentIndex = null;
-                              }),
                             ),
+                            if (_lineEditMode ||
+                                _selectedLineworkId != null ||
+                                _selectedLineworkLayer != null) ...[
+                              const SizedBox(height: 8),
+                              LineworkPropertiesPanel(
+                                catalog: _linetypeCatalog,
+                                layerStyles: lw.layerStyles,
+                                selectedLayer: _selectedLineworkLayer,
+                                selectedEntity: _selectedLineworkEntity,
+                                layerOverride: _selectedLineworkLayer == null
+                                    ? null
+                                    : _options.layerStyleOverrides[
+                                        _selectedLineworkLayer!],
+                                entityOverride: _selectedLineworkId == null
+                                    ? null
+                                    : _options.entityStyleOverrides[
+                                        _selectedLineworkId!],
+                                globalLinetypeScale:
+                                    _options.globalLinetypeScale,
+                                selectedNodeIndex: _selectedNodeIndex,
+                                selectedSegmentIndex: _selectedSegmentIndex,
+                                onGlobalLinetypeScale: (v) => setState(
+                                  () => _options = _options.copyWith(
+                                    globalLinetypeScale: v,
+                                  ),
+                                ),
+                                onApplyLayerOverride: (o) =>
+                                    _applyLineworkOverride(
+                                      toEntity: false,
+                                      override: o,
+                                    ),
+                                onApplyEntityOverride: (o) =>
+                                    _applyLineworkOverride(
+                                      toEntity: true,
+                                      override: o,
+                                    ),
+                                onExplode:
+                                    _busy ? null : _explodeSelectedLinework,
+                                onRemoveSegment:
+                                    _busy ? null : _removeSelectedSegment,
+                                onRemoveNode:
+                                    _busy ? null : _removeSelectedNode,
+                                onDeleteEntity:
+                                    _busy ? null : _deleteSelectedLinework,
+                                onClearSelection: () => setState(() {
+                                  _selectedLineworkId = null;
+                                  _selectedLineworkLayer = null;
+                                  _selectedNodeIndex = null;
+                                  _selectedSegmentIndex = null;
+                                }),
+                              ),
+                            ],
                             const Divider(height: 20),
                             Row(
                               children: [
-                                Text(
-                                  'Layers · ${_linetypeCatalog.linetypes.length} linetypes loaded',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                const Text(
+                                  'Layers',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
                                 ),
                                 const Spacer(),
                                 TextButton(

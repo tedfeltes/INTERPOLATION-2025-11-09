@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'block_catalog.dart';
 import 'dxf_linework.dart';
 import 'label_placement.dart';
+import 'leader_geometry.dart';
 import 'linetype_catalog.dart';
 import 'linework_draw.dart';
 import 'plot_options.dart';
@@ -29,7 +30,8 @@ const _trioAddress =
     'Brookfield, WI 53005\n'
     '262.790.1480';
 
-const _markerRed = PdfColor.fromInt(0xFFE10600);
+/// ACI 10 — stake points and labels.
+const _markerRed = PdfColor.fromInt(0xFFFF0000);
 
 /// Build a staking plot PDF with user [options] (including sheet template).
 Future<Uint8List> buildStakingPlotPdf({
@@ -278,15 +280,15 @@ class PlanViewBounds {
   double get rangeN => math.max(maxN - minN, 1.0);
 }
 
-/// Frame the plan on stake points (+ symbols), admitting only nearby linework.
+/// Frame the plan on stake points, admitting only nearby linework.
 ///
-/// Distant DXF leftovers (or `forLayersCapped` taking far-first entities) must
-/// not expand the view — that pushes markers off-panel so the sheet looks like
-/// an empty bordered box.
+/// Library objects are ignored by default so dragging them does not zoom the
+/// sheet out. Distant DXF leftovers must not expand the view either.
 PlanViewBounds computePlanViewBounds(
   List<SurveyPoint> points, {
   List<LineworkEntity> linework = const [],
   List<PlacedPlotSymbol> symbols = const [],
+  bool includeSymbols = false,
 }) {
   if (points.isEmpty) {
     throw ArgumentError('Select at least one point');
@@ -303,13 +305,15 @@ PlanViewBounds computePlanViewBounds(
     minN = math.min(minN, p.northing);
     maxN = math.max(maxN, p.northing);
   }
-  for (final s in symbols) {
-    if (!_finite2(s.easting, s.northing)) continue;
-    final half = s.sizeFt / 2;
-    minE = math.min(minE, s.easting - half);
-    maxE = math.max(maxE, s.easting + half);
-    minN = math.min(minN, s.northing - half);
-    maxN = math.max(maxN, s.northing + half);
+  if (includeSymbols) {
+    for (final s in symbols) {
+      if (!_finite2(s.easting, s.northing)) continue;
+      final half = s.sizeFt / 2;
+      minE = math.min(minE, s.easting - half);
+      maxE = math.max(maxE, s.easting + half);
+      minN = math.min(minN, s.northing - half);
+      maxN = math.max(maxN, s.northing + half);
+    }
   }
 
   // Gate: linework only affects framing when it sits near the stake cluster.
@@ -354,6 +358,7 @@ double chooseEngineeringScale(
     points,
     linework: linework,
     symbols: symbols,
+    includeSymbols: false,
   );
   final usable = template.usablePlanInchesFor(showPointList: showPointList);
   final need = math.max(
@@ -556,7 +561,7 @@ void paintStakingPlan(
     _drawMarker(canvas, c, options.markerStyle, sizeScale: ann);
   }
 
-  // Labels with leaders when dragged away from the marker.
+  // Labels with Civil-style dogleg leaders (never through text).
   for (final p in points) {
     if (!_finite2(p.easting, p.northing)) continue;
     final drag = drags[p.id];
@@ -565,23 +570,37 @@ void paintStakingPlan(
     final c = toPage(p.easting, p.northing);
     final oE = drag?.offsetE ?? 14.0;
     final oN = drag?.offsetN ?? 10.0;
-    final labelPt = toPage(p.easting + oE, p.northing + oN);
+    final anchor = toPage(p.easting + oE, p.northing + oN);
+    final labelW = math.max(
+      28.0,
+      lines.fold<int>(0, (m, l) => math.max(m, l.length)) * fontSize * 0.52 + 4,
+    );
     final labelH = lineH * lines.length;
+    final g = buildLeaderPdf(
+      pointX: c.x,
+      pointY: c.y,
+      anchorX: anchor.x - labelW / 2,
+      anchorY: anchor.y,
+      labelWidth: labelW,
+      labelHeight: labelH,
+      landingLength: math.max(8.0, fontSize),
+    );
 
     final dragged = (drag?.isDragged ?? false) ||
         math.sqrt(oE * oE + oN * oN) > 8;
     if (dragged) {
       canvas
         ..setStrokeColor(_markerRed)
-        ..setLineWidth(0.7)
-        ..drawLine(c.x, c.y, labelPt.x, labelPt.y)
+        ..setLineWidth(0.65)
+        ..drawLine(g.ax, g.ay, g.ex, g.ey)
+        ..drawLine(g.ex, g.ey, g.lx, g.ly)
         ..strokePath();
     }
 
     canvas.setFillColor(_markerRed);
-    var ty = labelPt.y + labelH / 2 - fontSize;
+    var ty = g.oy + labelH - fontSize * 0.2;
     for (final line in lines) {
-      canvas.drawString(labelFont, fontSize, line, labelPt.x, ty);
+      canvas.drawString(labelFont, fontSize, line, g.ox, ty);
       ty -= lineH;
     }
   }

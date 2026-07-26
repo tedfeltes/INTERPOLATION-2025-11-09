@@ -12,6 +12,7 @@ class LabelDragState {
     this.offsetE = 0,
     this.offsetN = 0,
     this.customText,
+    this.pinned = false,
   });
 
   /// Easting offset of the label anchor from the point (feet).
@@ -22,6 +23,9 @@ class LabelDragState {
 
   /// When set, replaces the format-derived label lines (newline-separated).
   final String? customText;
+
+  /// When true, user dragged/edited this label — auto-spread will not move it.
+  final bool pinned;
 
   bool get isDragged => offsetE.abs() > 0.05 || offsetN.abs() > 0.05;
 
@@ -35,12 +39,14 @@ class LabelDragState {
     double? offsetE,
     double? offsetN,
     String? customText,
+    bool? pinned,
     bool clearCustomText = false,
   }) {
     return LabelDragState(
       offsetE: offsetE ?? this.offsetE,
       offsetN: offsetN ?? this.offsetN,
       customText: clearCustomText ? null : (customText ?? this.customText),
+      pinned: pinned ?? this.pinned,
     );
   }
 
@@ -49,11 +55,12 @@ class LabelDragState {
     return other is LabelDragState &&
         other.offsetE == offsetE &&
         other.offsetN == offsetN &&
-        other.customText == customText;
+        other.customText == customText &&
+        other.pinned == pinned;
   }
 
   @override
-  int get hashCode => Object.hash(offsetE, offsetN, customText);
+  int get hashCode => Object.hash(offsetE, offsetN, customText, pinned);
 }
 
 /// Text drawn next to each stake point (shared by PDF + preview).
@@ -90,10 +97,11 @@ List<String> resolvedLabelLines(
   return labelLinesFor(p, format);
 }
 
-/// Auto-spread undragged labels so dense clusters stay readable.
+/// Auto-spread unpinned labels so dense clusters stay readable.
 ///
-/// Collision is computed in absolute survey feet so labels on distant points
-/// do not falsely collide. Existing dragged labels in [existing] are preserved.
+/// Offsets are in survey feet. Distances scale with label size and engineering
+/// scale so 1"=200' sheets still separate callouts. Pinned (user-dragged)
+/// labels are preserved; previous auto placements may be recomputed.
 Map<String, LabelDragState> autoSpreadLabels({
   required List<SurveyPoint> points,
   required PointLabelFormat format,
@@ -105,45 +113,59 @@ Map<String, LabelDragState> autoSpreadLabels({
     return Map<String, LabelDragState>.from(existing);
   }
 
-  final ppt = 72.0 / math.max(scaleFtPerInch, 1.0); // paper points per foot
+  final ppt = 72.0 / math.max(scaleFtPerInch, 1.0);
   final fontPt = (8.5 * annotationScale).clamp(7.0, 14.0);
-  final result = <String, LabelDragState>{...existing};
+  final result = <String, LabelDragState>{};
   // Occupied boxes in absolute survey feet: [minE, minN, maxE, maxN]
   final occupied = <List<double>>[];
 
   List<double> boxAt(double e, double n, double wFt, double hFt) {
-    return [e, n - hFt / 2, e + wFt, n + hFt / 2];
+    final pad = math.max(4.0, scaleFtPerInch * 0.04);
+    return [e - pad, n - hFt / 2 - pad, e + wFt + pad, n + hFt / 2 + pad];
   }
 
-  // Seed occupied with already-dragged labels (absolute ground position).
+  // Reserve space around each fixed point marker.
+  final markerR = math.max(6.0, scaleFtPerInch * 0.06);
+  for (final p in points) {
+    occupied.add([
+      p.easting - markerR,
+      p.northing - markerR,
+      p.easting + markerR,
+      p.northing + markerR,
+    ]);
+  }
+
+  // Seed pinned labels.
   for (final p in points) {
     final drag = existing[p.id];
-    if (drag == null || !drag.isDragged) continue;
+    if (drag == null || !drag.pinned) continue;
     final lines = resolvedLabelLines(p, format, drag);
     if (lines.isEmpty) continue;
     final labelWFt = _labelWidthPt(lines, fontPt) / ppt;
-    final labelHFt = (fontPt * 1.2 * lines.length) / ppt;
+    final labelHFt = (fontPt * 1.25 * lines.length) / ppt;
     occupied.add(
       boxAt(p.easting + drag.offsetE, p.northing + drag.offsetN, labelWFt, labelHFt),
     );
+    result[p.id] = drag;
   }
 
-  // Spiral candidate offsets in feet (Civil-style drag distances).
+  // Candidate distances scale with typical label footprint at this sheet scale.
+  final base = math.max(scaleFtPerInch * 0.35, 20.0);
   final distances = <double>[
-    12, 18, 26, 36, 48, 64, 80, 100, 130, 160, 200, 260,
+    for (var i = 1; i <= 18; i++) base * (0.55 + i * 0.35),
   ];
   final angles = <double>[
-    30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 0,
-    45, 135, 225, 315,
+    25, 45, 65, 90, 115, 135, 155, 180, 205, 225, 245, 270, 295, 315, 335, 0,
+    15, 75, 105, 165, 195, 255, 285, 345,
   ];
 
   for (final p in points) {
     final prev = existing[p.id];
-    if (prev != null && prev.isDragged) continue;
+    if (prev != null && prev.pinned) continue;
     final lines = resolvedLabelLines(p, format, prev);
     if (lines.isEmpty) continue;
     final labelWFt = _labelWidthPt(lines, fontPt) / ppt;
-    final labelHFt = (fontPt * 1.2 * lines.length) / ppt;
+    final labelHFt = (fontPt * 1.25 * lines.length) / ppt;
 
     LabelDragState? chosen;
     for (final dist in distances) {
@@ -162,20 +184,22 @@ Map<String, LabelDragState> autoSpreadLabels({
           offsetE: oE,
           offsetN: oN,
           customText: prev?.customText,
+          pinned: false,
         );
         occupied.add(box);
         break;
       }
       if (chosen != null) break;
     }
-    result[p.id] = chosen ??
+    final fallback = chosen ??
         LabelDragState(
-          offsetE: 18,
-          offsetN: 12,
+          offsetE: base * 1.2,
+          offsetN: base * 0.8,
           customText: prev?.customText,
+          pinned: false,
         );
+    result[p.id] = fallback;
     if (chosen == null) {
-      final fallback = result[p.id]!;
       occupied.add(
         boxAt(
           p.easting + fallback.offsetE,

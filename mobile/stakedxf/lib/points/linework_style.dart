@@ -83,16 +83,23 @@ ResolvedLineworkStyle resolveLineworkStyle({
   Map<String, LineworkStyleOverride> entityOverrides = const {},
   double globalLinetypeScale = 1.0,
   double defaultStrokePt = 0.7,
-  int defaultColorArgb = 0xFF1A1A1A,
+  int defaultColorArgb = 0xFFA0A0A4, // ACI 252 grey
 }) {
   final layer = layerStyles[entity.layer];
   final layerOv = layerOverrides[entity.layer];
   final entOv = entityOverrides[entity.id];
 
+  // App default ACI 252 unless the user overrode or DXF gave an explicit color.
+  // Layer ACI 7 ("white") is treated as ByLayer-on-paper → default grey.
+  final layerAci = layer?.colorAci;
+  final layerColor = (layerAci == null || layerAci.abs() == 7)
+      ? null
+      : aciToArgb(layerAci);
+
   final color = entOv?.colorArgb ??
       (entity.colorAci != null ? aciToArgb(entity.colorAci!) : null) ??
       layerOv?.colorArgb ??
-      (layer != null ? aciToArgb(layer.colorAci) : null) ??
+      layerColor ??
       defaultColorArgb;
 
   final opacity = (entOv?.opacity ??

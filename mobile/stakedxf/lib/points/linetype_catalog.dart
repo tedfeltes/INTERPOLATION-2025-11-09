@@ -178,6 +178,9 @@ int aciToArgb(int aci) {
     7: 0xFF1A1A1A, // "white" on dark CAD → dark for paper plots
     8: 0xFF808080,
     9: 0xFFC0C0C0,
+    10: 0xFFFF0000, // ACI 10 — stake points / labels (red)
+    252: 0xFFA0A0A4, // ACI 252 — default linework grey
+
     30: 0xFFFF7F00,
     40: 0xFFFF7F7F,
     50: 0xFFFFFF99,
@@ -193,7 +196,6 @@ int aciToArgb(int aci) {
     235: 0xFF5A5A5A,
     250: 0xFF333333,
     251: 0xFF505050,
-    252: 0xFF696969,
     253: 0xFF828282,
     254: 0xFFBEBEBE,
     255: 0xFFE0E0E0,
