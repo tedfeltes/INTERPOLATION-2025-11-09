@@ -14,6 +14,7 @@ import 'dxf_linework.dart';
 import 'plot_options.dart';
 import 'plot_pdf.dart';
 import 'plot_symbols.dart';
+import 'plot_templates.dart';
 import 'survey_point.dart';
 import 'symbol_library_sheet.dart';
 import 'symbol_preview.dart';
@@ -284,6 +285,8 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         chosen,
         linework: linework,
         symbols: symbols,
+        template: _options.template,
+        showPointList: _options.showPointList,
       ).round();
       final docs = await getApplicationDocumentsDirectory();
       final stem = _jobCtrl.text.trim().isEmpty
@@ -291,16 +294,17 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
           : _jobCtrl.text.trim().replaceAll(RegExp(r'[^\w\-]+'), '_');
       final out = File(p.join(docs.path, '${stem}_staking_plot.pdf'));
       await out.writeAsBytes(bytes, flush: true);
+      final tpl = _options.template;
       await Share.shareXFiles(
         [XFile(out.path, mimeType: 'application/pdf')],
-        text: 'Staking plot 1"=$scale\'',
+        text: 'Staking plot ${tpl.sizeCallout} 1"=$scale\'',
       );
       final lwNote = linework.isEmpty ? '' : ', ${linework.length} linework';
       final symNote =
           symbols.isEmpty ? '' : ', ${symbols.length} library object(s)';
       setState(
         () => _status =
-            'Staking plot ready — ${chosen.length} points$lwNote$symNote @ 1"=$scale\'',
+            'Staking plot ready — ${tpl.name}, ${chosen.length} points$lwNote$symNote @ 1"=$scale\'',
       );
     } catch (e) {
       setState(() => _error = e.toString());
@@ -396,6 +400,45 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
+                    DropdownButtonFormField<PlotTemplate>(
+                      value: plotTemplateById(_options.template.id),
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Plot template (ANSI sheet)',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        for (final t in kPlotTemplates)
+                          DropdownMenuItem(
+                            value: t,
+                            child: Text(
+                              t.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: _busy
+                          ? null
+                          : (v) {
+                              if (v == null) return;
+                              setState(
+                                () => _options =
+                                    _options.copyWith(template: v),
+                              );
+                            },
+                    ),
+                    if (_options.template.blurb.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_options.template.subtitle}\n${_options.template.blurb}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
                     DropdownButtonFormField<PointMarkerStyle>(
                       value: _options.markerStyle,
                       decoration: const InputDecoration(
@@ -442,8 +485,11 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Include point list table'),
-                      subtitle: const Text(
-                        'Off by default — more space for the staking plot',
+                      subtitle: Text(
+                        _options.template.layout ==
+                                PlotTemplateLayout.sidePanel
+                            ? 'Control-note templates only — off by default for more plot space'
+                            : 'Applies to Control note templates (ignored on field-map sheets)',
                       ),
                       value: _options.showPointList,
                       onChanged: _busy

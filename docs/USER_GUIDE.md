@@ -52,11 +52,12 @@ Recover Civil 3D linework into a Trimble-stakeable DXF on the controller.
 2. **StakeDXF → Export Points**
 3. **Import points CSV / TXT**
 4. (Optional) **Link DXF linework** and select layers
-5. Choose **point marker** and **point label** format
-6. Leave **Include point list table** off unless you want the coordinate table
-7. (Optional) **Add from object library** — place, nudge, scale, rotate, recolor
-8. Select points for the sheet
-9. **Create staking plot PDF** (auto scale)  
+5. Choose a **plot template** (ANSI A/B/C/D · field map / titled field / control note)
+6. Choose **point marker** and **point label** format
+7. Leave **Include point list table** off unless you want the coordinate table (control-note templates)
+8. (Optional) **Add from object library** — place, nudge, scale, rotate, recolor
+9. Select points for the sheet
+10. **Create staking plot PDF** (auto scale for the selected sheet)  
    or **Export selected points CSV**
 
 ### Supported point formats
@@ -70,11 +71,12 @@ Draws `LINE`, `LWPOLYLINE`, `POLYLINE`, `ARC`, `CIRCLE` for checked layers.
 
 | Option | Choices |
 | --- | --- |
+| Plot template | 15 sheets: ANSI A–D × field map / titled field / control note (see `dist/plot_templates/`) |
 | Markers | Filled triangle, triangle outline, cross (+), X, large X, circle, dot, large dot |
 | Labels | Number · number+description · number+elevation · number+description+elevation · none |
-| Point list table | Off by default (more plot space); optional on |
+| Point list table | Control-note templates; off by default (more plot space) |
 | Linework | Optional linked DXF layers |
-| Scale | Auto engineering scale to fit ANSI B landscape sheet |
+| Scale | Auto engineering scale to fit the selected ANSI sheet |
 
 Examples: `dist/plot_examples/`  
 Regenerate: `cd mobile/stakedxf && dart run tool/generate_plot_examples.dart`

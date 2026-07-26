@@ -8,15 +8,12 @@ import 'block_catalog.dart';
 import 'dxf_linework.dart';
 import 'plot_options.dart';
 import 'plot_symbols.dart';
+import 'plot_templates.dart';
 import 'survey_point.dart';
 import 'symbol_draw.dart';
 
-/// ANSI B landscape (17" × 11") — same sheet size as the TRIO control note.
-final PdfPageFormat stakingSheet = const PdfPageFormat(
-  17 * PdfPageFormat.inch,
-  11 * PdfPageFormat.inch,
-  marginAll: 0,
-);
+/// Legacy alias — ANSI B landscape control-note sheet.
+final PdfPageFormat stakingSheet = kDefaultPlotTemplate.pageFormat;
 
 const _noteText =
     'NOTE: Points shown were established for construction staking. '
@@ -32,7 +29,7 @@ const _trioAddress =
 const _markerRed = PdfColor.fromInt(0xFFE10600);
 const _lineworkColor = PdfColor.fromInt(0xFF1A1A1A);
 
-/// Build a staking plot PDF with user [options].
+/// Build a staking plot PDF with user [options] (including sheet template).
 Future<Uint8List> buildStakingPlotPdf({
   required List<SurveyPoint> points,
   required String jobName,
@@ -47,6 +44,7 @@ Future<Uint8List> buildStakingPlotPdf({
     throw ArgumentError('Select at least one point');
   }
 
+  final template = options.template;
   final when = date ?? DateTime.now();
   final dateStr =
       '${when.month.toString().padLeft(2, '0')}/${when.day.toString().padLeft(2, '0')}/${(when.year % 100).toString().padLeft(2, '0')}';
@@ -54,63 +52,63 @@ Future<Uint8List> buildStakingPlotPdf({
     points,
     linework: linework,
     symbols: symbols,
+    template: template,
+    showPointList: options.showPointList,
   );
   final doc = pw.Document(
     title: '$title — ${jobName.isEmpty ? "FIELD" : jobName}',
     author: 'StakeDXF',
   );
 
-  final showTable = options.showPointList;
-  final plotFlex = showTable ? 58 : 78;
-  final sideFlex = showTable ? 42 : 22;
+  final drawnLinework = options.includeLinework ? linework : const <LineworkEntity>[];
 
   doc.addPage(
     pw.Page(
-      pageFormat: stakingSheet,
+      pageFormat: template.pageFormat,
       build: (context) {
-        return pw.Padding(
-          padding: const pw.EdgeInsets.all(28),
-          child: pw.Container(
-            decoration: pw.BoxDecoration(
-              border: pw.Border.all(width: 1.2, color: PdfColors.black),
-            ),
-            child: pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-              children: [
-                pw.Expanded(
-                  flex: plotFlex,
-                  child: pw.Padding(
-                    padding: const pw.EdgeInsets.all(10),
-                    child: _PlanPanel(
-                      points: points,
-                      scaleFtPerInch: scaleFtPerInch,
-                      options: options,
-                      linework: options.includeLinework ? linework : const [],
-                      symbols: symbols,
-                      blockCatalog: blockCatalog,
-                    ),
-                  ),
-                ),
-                pw.Container(width: 1.2, color: PdfColors.black),
-                pw.Expanded(
-                  flex: sideFlex,
-                  child: pw.Padding(
-                    padding: const pw.EdgeInsets.fromLTRB(12, 10, 12, 10),
-                    child: _SidePanel(
-                      title: title,
-                      jobName: jobName,
-                      points: points,
-                      scaleFtPerInch: scaleFtPerInch,
-                      dateStr: dateStr,
-                      showPointList: showTable,
-                      compact: !showTable,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+        switch (template.layout) {
+          case PlotTemplateLayout.sidePanel:
+            return _buildSidePanelPage(
+              template: template,
+              title: title,
+              jobName: jobName,
+              points: points,
+              scaleFtPerInch: scaleFtPerInch,
+              dateStr: dateStr,
+              options: options,
+              linework: drawnLinework,
+              symbols: symbols,
+              blockCatalog: blockCatalog,
+            );
+          case PlotTemplateLayout.fieldMap:
+            return _buildFieldMapPage(
+              template: template,
+              title: title,
+              jobName: jobName,
+              points: points,
+              scaleFtPerInch: scaleFtPerInch,
+              dateStr: dateStr,
+              options: options,
+              linework: drawnLinework,
+              symbols: symbols,
+              blockCatalog: blockCatalog,
+              showTitleHeader: false,
+            );
+          case PlotTemplateLayout.fieldHeader:
+            return _buildFieldMapPage(
+              template: template,
+              title: title,
+              jobName: jobName,
+              points: points,
+              scaleFtPerInch: scaleFtPerInch,
+              dateStr: dateStr,
+              options: options,
+              linework: drawnLinework,
+              symbols: symbols,
+              blockCatalog: blockCatalog,
+              showTitleHeader: true,
+            );
+        }
       },
     ),
   );
@@ -118,11 +116,131 @@ Future<Uint8List> buildStakingPlotPdf({
   return doc.save();
 }
 
+pw.Widget _buildSidePanelPage({
+  required PlotTemplate template,
+  required String title,
+  required String jobName,
+  required List<SurveyPoint> points,
+  required double scaleFtPerInch,
+  required String dateStr,
+  required PlotOptions options,
+  required List<LineworkEntity> linework,
+  required List<PlacedPlotSymbol> symbols,
+  required BlockCatalog? blockCatalog,
+}) {
+  final showTable = options.showPointList;
+  final plotFlex = showTable ? 58 : 78;
+  final sideFlex = showTable ? 42 : 22;
+  final pad = template.outerPaddingPt;
+  return pw.Padding(
+    padding: pw.EdgeInsets.all(pad),
+    child: pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(width: 1.2, color: PdfColors.black),
+      ),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Expanded(
+            flex: plotFlex,
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.all(10),
+              child: _PlanPanel(
+                points: points,
+                scaleFtPerInch: scaleFtPerInch,
+                options: options,
+                linework: linework,
+                symbols: symbols,
+                blockCatalog: blockCatalog,
+              ),
+            ),
+          ),
+          pw.Container(width: 1.2, color: PdfColors.black),
+          pw.Expanded(
+            flex: sideFlex,
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: _SidePanel(
+                title: title,
+                jobName: jobName,
+                points: points,
+                scaleFtPerInch: scaleFtPerInch,
+                dateStr: dateStr,
+                showPointList: showTable,
+                compact: !showTable,
+                sheetCallout: template.sizeCallout,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+pw.Widget _buildFieldMapPage({
+  required PlotTemplate template,
+  required String title,
+  required String jobName,
+  required List<SurveyPoint> points,
+  required double scaleFtPerInch,
+  required String dateStr,
+  required PlotOptions options,
+  required List<LineworkEntity> linework,
+  required List<PlacedPlotSymbol> symbols,
+  required BlockCatalog? blockCatalog,
+  required bool showTitleHeader,
+}) {
+  final pad = template.outerPaddingPt;
+  final footer = _FieldLegendStrip(
+    title: title,
+    jobName: jobName,
+    scaleFtPerInch: scaleFtPerInch,
+    dateStr: dateStr,
+    sheetCallout: template.sizeCallout,
+    pointCount: points.length,
+    showTitleHeader: showTitleHeader,
+    corner: template.legendCorner,
+  );
+
+  final plan = _PlanPanel(
+    points: points,
+    scaleFtPerInch: scaleFtPerInch,
+    options: options,
+    linework: linework,
+    symbols: symbols,
+    blockCatalog: blockCatalog,
+  );
+
+  // Title-header layout: legend strip on top; field map: strip on bottom.
+  final children = showTitleHeader
+      ? <pw.Widget>[
+          footer,
+          pw.SizedBox(height: 6),
+          pw.Expanded(child: plan),
+        ]
+      : <pw.Widget>[
+          pw.Expanded(child: plan),
+          pw.SizedBox(height: 6),
+          footer,
+        ];
+
+  return pw.Padding(
+    padding: pw.EdgeInsets.all(pad),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: children,
+    ),
+  );
+}
+
 /// Pick a standard engineering scale (feet per inch) that fits the content.
 double chooseEngineeringScale(
   List<SurveyPoint> points, {
   List<LineworkEntity> linework = const [],
   List<PlacedPlotSymbol> symbols = const [],
+  PlotTemplate template = kDefaultPlotTemplate,
+  bool showPointList = false,
 }) {
   var minE = points.first.easting;
   var maxE = points.first.easting;
@@ -150,12 +268,11 @@ double chooseEngineeringScale(
     maxN = math.max(maxN, s.northing + half);
   }
 
-  // Wider plot when the point table is omitted (~12" usable width).
-  const usableW = 11.5;
-  const usableH = 9.6;
+  final usable = template.usablePlanInchesFor(showPointList: showPointList);
   final rangeE = math.max(maxE - minE, 1.0);
   final rangeN = math.max(maxN - minN, 1.0);
-  final need = math.max(rangeE / usableW, rangeN / usableH) * 1.12;
+  final need =
+      math.max(rangeE / usable.widthIn, rangeN / usable.heightIn) * 1.12;
   const standards = <double>[
     10, 20, 30, 40, 50, 60, 80, 100, 200, 300, 400, 500, 600, 800, 1000,
     1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000,
@@ -479,6 +596,111 @@ bool _overlap(List<double> a, List<double> b) {
   return !(a[2] <= b[0] || b[2] <= a[0] || a[3] <= b[1] || b[3] <= a[1]);
 }
 
+class _FieldLegendStrip extends pw.StatelessWidget {
+  _FieldLegendStrip({
+    required this.title,
+    required this.jobName,
+    required this.scaleFtPerInch,
+    required this.dateStr,
+    required this.sheetCallout,
+    required this.pointCount,
+    required this.showTitleHeader,
+    required this.corner,
+  });
+
+  final String title;
+  final String jobName;
+  final double scaleFtPerInch;
+  final String dateStr;
+  final String sheetCallout;
+  final int pointCount;
+  final bool showTitleHeader;
+  final FieldLegendCorner corner;
+
+  @override
+  pw.Widget build(pw.Context context) {
+    final scaleInt = scaleFtPerInch.round();
+    final scaleLine = 'SCALE: 1" = $scaleInt\'  ($sheetCallout)';
+    final titleBlock = pw.Column(
+      crossAxisAlignment: showTitleHeader
+          ? pw.CrossAxisAlignment.start
+          : pw.CrossAxisAlignment.start,
+      children: [
+        if (showTitleHeader || jobName.trim().isNotEmpty) ...[
+          pw.Text(
+            (jobName.trim().isEmpty ? title : jobName).toUpperCase(),
+            style: pw.TextStyle(
+              fontSize: showTitleHeader ? 13 : 10,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          if (showTitleHeader &&
+              jobName.trim().isNotEmpty &&
+              title.trim().isNotEmpty) ...[
+            pw.SizedBox(height: 2),
+            pw.Text(
+              title.toUpperCase(),
+              style: const pw.TextStyle(fontSize: 9),
+            ),
+          ],
+          pw.SizedBox(height: 4),
+        ],
+        pw.Text(
+          'DATE: $dateStr   ·   $pointCount pt${pointCount == 1 ? "" : "s"}',
+          style: const pw.TextStyle(fontSize: 8),
+        ),
+      ],
+    );
+
+    final legend = pw.Row(
+      mainAxisSize: pw.MainAxisSize.min,
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        pw.SizedBox(width: 44, height: 48, child: _NorthArrow()),
+        pw.SizedBox(width: 8),
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.SizedBox(
+              width: 160,
+              height: 28,
+              child: _GraphicScale(scaleFtPerInch: scaleFtPerInch),
+            ),
+            pw.Text(
+              scaleLine,
+              style: pw.TextStyle(
+                fontSize: 9,
+                fontWeight: pw.FontWeight.bold,
+                font: pw.Font.timesBold(),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    final alignStart = corner == FieldLegendCorner.bottomLeft ||
+        corner == FieldLegendCorner.topLeft;
+
+    if (showTitleHeader) {
+      return pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Expanded(child: titleBlock),
+          legend,
+        ],
+      );
+    }
+
+    return pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.end,
+      children: alignStart
+          ? [legend, pw.Spacer(), titleBlock]
+          : [titleBlock, pw.Spacer(), legend],
+    );
+  }
+}
+
 class _SidePanel extends pw.StatelessWidget {
   _SidePanel({
     required this.title,
@@ -488,6 +710,7 @@ class _SidePanel extends pw.StatelessWidget {
     required this.dateStr,
     required this.showPointList,
     required this.compact,
+    this.sheetCallout = '17"×11"',
   });
 
   final String title;
@@ -497,6 +720,7 @@ class _SidePanel extends pw.StatelessWidget {
   final String dateStr;
   final bool showPointList;
   final bool compact;
+  final String sheetCallout;
 
   @override
   pw.Widget build(pw.Context context) {
@@ -549,6 +773,12 @@ class _SidePanel extends pw.StatelessWidget {
                       fontWeight: pw.FontWeight.bold,
                       font: pw.Font.timesBold(),
                     ),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    '($sheetCallout)',
+                    textAlign: pw.TextAlign.center,
+                    style: pw.TextStyle(fontSize: compact ? 7 : 8),
                   ),
                 ],
               ),
