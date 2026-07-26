@@ -5,6 +5,7 @@ import 'package:stakedxf/points/csv_io.dart';
 import 'package:stakedxf/points/dxf_linework.dart';
 import 'package:stakedxf/points/plot_options.dart';
 import 'package:stakedxf/points/plot_pdf.dart';
+import 'package:stakedxf/points/plot_templates.dart';
 import 'package:stakedxf/points/survey_point.dart';
 
 void main() {
@@ -106,6 +107,53 @@ void main() {
     final capped = lw.forLayersCapped(lw.layers.toSet(), maxEntities: 2);
     expect(capped.length, 2);
     expect(lw.forLayersCapped(lw.layers.toSet(), maxEntities: 100).length, 4);
+  });
+
+  test('plan framing ignores distant linework so stakes stay on-sheet', () async {
+    final pts = parsePointsCsv(
+      File('test/fixtures/sample_points.csv').readAsStringSync(),
+    );
+    final near = parseDxfLinework(
+      File('test/fixtures/sample_linework.dxf').readAsStringSync(),
+    ).entities;
+    // Origin junk + site linework — classic empty-plot trigger when bounds
+    // included every sample (scale → 10000', markers painted off-panel).
+    final mixed = <LineworkEntity>[
+      const LineworkEntity(
+        layer: 'JUNK',
+        type: 'LINE',
+        vertices: [
+          [0, 0],
+          [100, 100],
+        ],
+      ),
+      ...near,
+    ];
+
+    final scaleNear = chooseEngineeringScale(pts, linework: near);
+    final scaleMixed = chooseEngineeringScale(pts, linework: mixed);
+    expect(scaleMixed, scaleNear);
+    expect(scaleMixed, lessThan(1000));
+
+    final bounds = computePlanViewBounds(pts, linework: mixed);
+    expect(bounds.minE, greaterThan(2495800));
+    expect(bounds.maxE, lessThan(2496100));
+
+    final field = plotTemplateById('field_b_landscape');
+    final bytes = await buildStakingPlotPdf(
+      points: pts,
+      jobName: 'FAR LINEWORK',
+      date: DateTime(2026, 7, 15),
+      options: PlotOptions(
+        template: field,
+        markerStyle: PointMarkerStyle.largeX,
+        labelFormat: PointLabelFormat.numberOnly,
+        includeLinework: true,
+      ),
+      linework: mixed,
+    );
+    expect(bytes.length, greaterThan(1000));
+    expect(chooseEngineeringScale(pts, linework: mixed, template: field), scaleNear);
   });
 
   test('staking plot PDF with options and linework', () async {

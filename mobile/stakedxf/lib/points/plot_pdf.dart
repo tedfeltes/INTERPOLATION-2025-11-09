@@ -234,6 +234,90 @@ pw.Widget _buildFieldMapPage({
   );
 }
 
+/// Axis-aligned plan bounds used for auto-scale and `_paintPlan` framing.
+class PlanViewBounds {
+  const PlanViewBounds({
+    required this.minE,
+    required this.maxE,
+    required this.minN,
+    required this.maxN,
+  });
+
+  final double minE;
+  final double maxE;
+  final double minN;
+  final double maxN;
+
+  double get midE => (minE + maxE) / 2;
+  double get midN => (minN + maxN) / 2;
+  double get rangeE => math.max(maxE - minE, 1.0);
+  double get rangeN => math.max(maxN - minN, 1.0);
+}
+
+/// Frame the plan on stake points (+ symbols), admitting only nearby linework.
+///
+/// Distant DXF leftovers (or `forLayersCapped` taking far-first entities) must
+/// not expand the view — that pushes markers off-panel so the sheet looks like
+/// an empty bordered box.
+PlanViewBounds computePlanViewBounds(
+  List<SurveyPoint> points, {
+  List<LineworkEntity> linework = const [],
+  List<PlacedPlotSymbol> symbols = const [],
+}) {
+  if (points.isEmpty) {
+    throw ArgumentError('Select at least one point');
+  }
+
+  var minE = points.first.easting;
+  var maxE = points.first.easting;
+  var minN = points.first.northing;
+  var maxN = points.first.northing;
+  for (final p in points) {
+    if (!_finite2(p.easting, p.northing)) continue;
+    minE = math.min(minE, p.easting);
+    maxE = math.max(maxE, p.easting);
+    minN = math.min(minN, p.northing);
+    maxN = math.max(maxN, p.northing);
+  }
+  for (final s in symbols) {
+    if (!_finite2(s.easting, s.northing)) continue;
+    final half = s.sizeFt / 2;
+    minE = math.min(minE, s.easting - half);
+    maxE = math.max(maxE, s.easting + half);
+    minN = math.min(minN, s.northing - half);
+    maxN = math.max(maxN, s.northing + half);
+  }
+
+  // Gate: linework only affects framing when it sits near the stake cluster.
+  final seedRangeE = math.max(maxE - minE, 1.0);
+  final seedRangeN = math.max(maxN - minN, 1.0);
+  final padE = math.max(200.0, seedRangeE * 0.75);
+  final padN = math.max(200.0, seedRangeN * 0.75);
+  final gateMinE = minE - padE;
+  final gateMaxE = maxE + padE;
+  final gateMinN = minN - padN;
+  final gateMaxN = maxN + padN;
+
+  for (final e in linework) {
+    for (final p in e.samplePoints) {
+      final x = p[0];
+      final y = p[1];
+      if (!_finite2(x, y)) continue;
+      if (x < gateMinE || x > gateMaxE || y < gateMinN || y > gateMaxN) {
+        continue;
+      }
+      minE = math.min(minE, x);
+      maxE = math.max(maxE, x);
+      minN = math.min(minN, y);
+      maxN = math.max(maxN, y);
+    }
+  }
+
+  return PlanViewBounds(minE: minE, maxE: maxE, minN: minN, maxN: maxN);
+}
+
+bool _finite2(double a, double b) => a.isFinite && b.isFinite;
+
 /// Pick a standard engineering scale (feet per inch) that fits the content.
 double chooseEngineeringScale(
   List<SurveyPoint> points, {
@@ -242,37 +326,17 @@ double chooseEngineeringScale(
   PlotTemplate template = kDefaultPlotTemplate,
   bool showPointList = false,
 }) {
-  var minE = points.first.easting;
-  var maxE = points.first.easting;
-  var minN = points.first.northing;
-  var maxN = points.first.northing;
-  for (final p in points) {
-    minE = math.min(minE, p.easting);
-    maxE = math.max(maxE, p.easting);
-    minN = math.min(minN, p.northing);
-    maxN = math.max(maxN, p.northing);
-  }
-  for (final e in linework) {
-    for (final p in e.samplePoints) {
-      minE = math.min(minE, p[0]);
-      maxE = math.max(maxE, p[0]);
-      minN = math.min(minN, p[1]);
-      maxN = math.max(maxN, p[1]);
-    }
-  }
-  for (final s in symbols) {
-    final half = s.sizeFt / 2;
-    minE = math.min(minE, s.easting - half);
-    maxE = math.max(maxE, s.easting + half);
-    minN = math.min(minN, s.northing - half);
-    maxN = math.max(maxN, s.northing + half);
-  }
-
+  final bounds = computePlanViewBounds(
+    points,
+    linework: linework,
+    symbols: symbols,
+  );
   final usable = template.usablePlanInchesFor(showPointList: showPointList);
-  final rangeE = math.max(maxE - minE, 1.0);
-  final rangeN = math.max(maxN - minN, 1.0);
-  final need =
-      math.max(rangeE / usable.widthIn, rangeN / usable.heightIn) * 1.12;
+  final need = math.max(
+        bounds.rangeE / usable.widthIn,
+        bounds.rangeN / usable.heightIn,
+      ) *
+      1.12;
   const standards = <double>[
     10, 20, 30, 40, 50, 60, 80, 100, 200, 300, 400, 500, 600, 800, 1000,
     1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000,
@@ -327,8 +391,18 @@ class _PlanPanel extends pw.StatelessWidget {
     final labelFont = pw.Font.helveticaBoldOblique().getFont(context);
     return pw.LayoutBuilder(
       builder: (context, constraints) {
-        final w = constraints?.maxWidth ?? 500;
-        final h = constraints?.maxHeight ?? 600;
+        // pdf LayoutBuilder can hand infinity/0 when flex constraints are loose;
+        // never size CustomPaint to a non-drawable area (border-only sheets).
+        final maxW = constraints?.maxWidth ?? 0;
+        final maxH = constraints?.maxHeight ?? 0;
+        final minW = constraints?.minWidth ?? 0;
+        final minH = constraints?.minHeight ?? 0;
+        final w = (maxW.isFinite && maxW >= 8)
+            ? maxW
+            : (minW.isFinite && minW >= 8 ? minW : 500.0);
+        final h = (maxH.isFinite && maxH >= 8)
+            ? maxH
+            : (minH.isFinite && minH >= 8 ? minH : 600.0);
         return pw.Container(
           width: w,
           height: h,
@@ -338,7 +412,7 @@ class _PlanPanel extends pw.StatelessWidget {
           ),
           child: pw.CustomPaint(
             size: PdfPoint(w, h),
-            painter: (canvas, size) => _paintPlan(
+            painter: (canvas, size) => paintStakingPlan(
               canvas,
               size,
               points,
@@ -356,7 +430,11 @@ class _PlanPanel extends pw.StatelessWidget {
   }
 }
 
-void _paintPlan(
+/// Paint stake points / linework / symbols into a plan viewport.
+///
+/// Shared by PDF export and (optionally) in-app preview so both use the same
+/// framing, scale, and draw order.
+void paintStakingPlan(
   PdfGraphics canvas,
   PdfPoint size,
   List<SurveyPoint> points,
@@ -367,34 +445,21 @@ void _paintPlan(
   List<PlacedPlotSymbol> symbols,
   BlockCatalog? blockCatalog,
 ) {
-  var minE = points.first.easting;
-  var maxE = points.first.easting;
-  var minN = points.first.northing;
-  var maxN = points.first.northing;
-  for (final p in points) {
-    minE = math.min(minE, p.easting);
-    maxE = math.max(maxE, p.easting);
-    minN = math.min(minN, p.northing);
-    maxN = math.max(maxN, p.northing);
-  }
-  for (final e in linework) {
-    for (final p in e.samplePoints) {
-      minE = math.min(minE, p[0]);
-      maxE = math.max(maxE, p[0]);
-      minN = math.min(minN, p[1]);
-      maxN = math.max(maxN, p[1]);
-    }
-  }
-  for (final s in symbols) {
-    final half = s.sizeFt / 2;
-    minE = math.min(minE, s.easting - half);
-    maxE = math.max(maxE, s.easting + half);
-    minN = math.min(minN, s.northing - half);
-    maxN = math.max(maxN, s.northing + half);
+  if (size.x < 8 || size.y < 8 || !size.x.isFinite || !size.y.isFinite) {
+    return;
   }
 
-  final midE = (minE + maxE) / 2;
-  final midN = (minN + maxN) / 2;
+  final bounds = computePlanViewBounds(
+    points,
+    linework: linework,
+    symbols: symbols,
+  );
+  final midE = bounds.midE;
+  final midN = bounds.midN;
+  final minE = bounds.minE;
+  final maxE = bounds.maxE;
+  final minN = bounds.minN;
+  final maxN = bounds.maxN;
   final ppt = 72.0 / scaleFtPerInch;
 
   PdfPoint toPage(double e, double n) {
@@ -402,6 +467,12 @@ void _paintPlan(
     final y = size.y / 2 + (n - midN) * ppt;
     return PdfPoint(x, y);
   }
+
+  // Clip so distant capped linework cannot paint outside the cream panel.
+  canvas
+    ..saveContext()
+    ..drawRect(0, 0, size.x, size.y)
+    ..clipPath();
 
   final gridFt = scaleFtPerInch;
   final startE = (minE / gridFt).floor() * gridFt - gridFt;
@@ -429,7 +500,10 @@ void _paintPlan(
     ..setStrokeColor(_lineworkColor)
     ..setLineWidth(0.7);
   for (final ent in linework) {
-    final samples = ent.samplePoints.toList();
+    final samples = <List<double>>[
+      for (final p in ent.samplePoints)
+        if (_finite2(p[0], p[1])) p,
+    ];
     if (samples.length < 2) continue;
     final first = toPage(samples.first[0], samples.first[1]);
     canvas.moveTo(first.x, first.y);
@@ -459,6 +533,7 @@ void _paintPlan(
   final markerHalf = _markerHalf(options.markerStyle);
 
   for (final p in points) {
+    if (!_finite2(p.easting, p.northing)) continue;
     final c = toPage(p.easting, p.northing);
     _drawMarker(canvas, c, options.markerStyle);
     occupied.add([
@@ -470,6 +545,7 @@ void _paintPlan(
   }
 
   for (final p in points) {
+    if (!_finite2(p.easting, p.northing)) continue;
     final lines = labelLinesFor(p, options.labelFormat);
     if (lines.isEmpty) continue;
     final c = toPage(p.easting, p.northing);
@@ -503,6 +579,8 @@ void _paintPlan(
       ty -= 9.5;
     }
   }
+
+  canvas.restoreContext();
 }
 
 double _markerHalf(PointMarkerStyle style) {

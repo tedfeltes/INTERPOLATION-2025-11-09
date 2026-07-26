@@ -78,4 +78,12 @@ void main() {
     // Larger sheet → smaller (finer) engineering scale number.
     expect(small, lessThanOrEqualTo(large));
   });
+
+  test('field map templates keep a positive usable plan area', () {
+    for (final t in kPlotTemplates) {
+      final u = t.usablePlanInchesFor(showPointList: false);
+      expect(u.widthIn, greaterThan(4), reason: t.id);
+      expect(u.heightIn, greaterThan(4), reason: t.id);
+    }
+  });
 }
