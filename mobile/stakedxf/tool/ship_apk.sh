@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build release APK and copy to dist/ as "Staking Plot vX.Y.Z.apk".
+# Build release APK and copy to dist/ as "StakeDXF vX.Y.Z.apk".
 set -euo pipefail
 APP="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="$(cd "$APP/../.." && pwd)"
@@ -14,7 +14,7 @@ PY
 )"
 cd "$APP"
 flutter build apk --release
-NAME="Staking Plot v${VERSION}.apk"
+NAME="StakeDXF v${VERSION}.apk"
 mkdir -p "$DIST"
 cp -f build/app/outputs/flutter-apk/app-release.apk "$DIST/$NAME"
 # Keep legacy filename as a copy for older install docs during transition.

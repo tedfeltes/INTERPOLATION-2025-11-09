@@ -29,7 +29,7 @@ flutter pub get
 APK output:
 
 ```text
-dist/Staking Plot vX.Y.Z.apk
+dist/StakeDXF vX.Y.Z.apk
 ```
 
 (`tool/ship_apk.sh` names the file from `pubspec.yaml` version.)
