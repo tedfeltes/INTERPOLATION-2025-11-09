@@ -530,7 +530,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            TextFormField<String>(
+                            TextFormField(
                               key: ValueKey(
                                 'label-text-${selectedLabel.id}-'
                                 '${_options.labelFormat.name}',
