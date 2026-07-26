@@ -1,0 +1,1018 @@
+{
+  "source": "Pheasant Farm Civil 3D DXF + standard Autodesk patterns",
+  "linetypes": [
+    {
+      "id": "CENTER",
+      "name": "CENTER",
+      "aliases": [
+        "RES_SURVEY$0$CENTER"
+      ],
+      "description": "Center ____ _ ____ _ ____ _ ____ _ ____ _ ____",
+      "patternLength": 2.0,
+      "elements": [
+        {
+          "length": 1.25
+        },
+        {
+          "length": -0.25
+        },
+        {
+          "length": 0.25
+        },
+        {
+          "length": -0.25
+        }
+      ]
+    },
+    {
+      "id": "CENTER2",
+      "name": "CENTER2",
+      "aliases": [
+        "41SITO$0$CENTER2"
+      ],
+      "description": "Center (.5x) ___ _ ___ _ ___ _ ___ _ ___ _ ___",
+      "patternLength": 1.125,
+      "elements": [
+        {
+          "length": 0.75
+        },
+        {
+          "length": -0.125
+        },
+        {
+          "length": 0.125
+        },
+        {
+          "length": -0.125
+        }
+      ]
+    },
+    {
+      "id": "CONTINUOUS",
+      "name": "Continuous",
+      "aliases": [],
+      "description": "",
+      "patternLength": 0.0,
+      "elements": []
+    },
+    {
+      "id": "DASHED",
+      "name": "DASHED",
+      "aliases": [
+        "RES_SURVEY$0$DASHED"
+      ],
+      "description": "Dashed __ __ __ __ __ __ __ __ __ __ __ __ __ _",
+      "patternLength": 0.75,
+      "elements": [
+        {
+          "length": 0.5
+        },
+        {
+          "length": -0.25
+        }
+      ]
+    },
+    {
+      "id": "DASHED2",
+      "name": "DASHED2",
+      "aliases": [
+        "RES_SURVEY$0$DASHED2"
+      ],
+      "description": "Dashed (.5x) _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _",
+      "patternLength": 0.375,
+      "elements": [
+        {
+          "length": 0.25
+        },
+        {
+          "length": -0.125
+        }
+      ]
+    },
+    {
+      "id": "DIVIDE2",
+      "name": "DIVIDE2",
+      "aliases": [
+        "RES_SURVEY$0$DIVIDE2",
+        "41SITO$0$DIVIDE2"
+      ],
+      "description": "Divide (.5x) __..__..__..__..__..__..__..__.._",
+      "patternLength": 0.625,
+      "elements": [
+        {
+          "length": 0.25
+        },
+        {
+          "length": -0.125
+        },
+        {
+          "length": 0.0
+        },
+        {
+          "length": -0.125
+        },
+        {
+          "length": 0.0
+        },
+        {
+          "length": -0.125
+        }
+      ]
+    },
+    {
+      "id": "EDGE_OF_WATER",
+      "name": "EDGE OF WATER",
+      "aliases": [
+        "41SITO$0$EDGE OF WATER"
+      ],
+      "description": "",
+      "patternLength": 0.9600000000000001,
+      "elements": [
+        {
+          "length": 0.5
+        },
+        {
+          "length": -0.1
+        },
+        {
+          "length": 0.02
+        },
+        {
+          "length": -0.1
+        },
+        {
+          "length": 0.02
+        },
+        {
+          "length": -0.1
+        },
+        {
+          "length": 0.02
+        },
+        {
+          "length": -0.1
+        }
+      ]
+    },
+    {
+      "id": "HIDDEN",
+      "name": "HIDDEN",
+      "aliases": [
+        "RES_SURVEY$0$HIDDEN",
+        "41SITO$0$HIDDEN"
+      ],
+      "description": "Hidden __ __ __ __ __ __ __ __ __ __ __ __ __ _",
+      "patternLength": 0.375,
+      "elements": [
+        {
+          "length": 0.25
+        },
+        {
+          "length": -0.125
+        }
+      ]
+    },
+    {
+      "id": "HIDDEN2",
+      "name": "HIDDEN2",
+      "aliases": [
+        "41SITO$0$HIDDEN2",
+        "RES_SURVEY$0$HIDDEN2"
+      ],
+      "description": "Hidden (.5x) _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _",
+      "patternLength": 0.1875,
+      "elements": [
+        {
+          "length": 0.125
+        },
+        {
+          "length": -0.0625
+        }
+      ]
+    },
+    {
+      "id": "LANELINE",
+      "name": "LANELINE",
+      "aliases": [
+        "41SITO$0$LANELINE"
+      ],
+      "description": "LANELINE",
+      "patternLength": 6.0,
+      "elements": [
+        {
+          "length": 1.0
+        },
+        {
+          "length": -2.0
+        },
+        {
+          "length": 1.0
+        },
+        {
+          "length": -2.0
+        }
+      ]
+    },
+    {
+      "id": "LEDG_CABLE",
+      "name": "LEDG_CABLE",
+      "aliases": [
+        "41SITO$0$LEDG_CABLE"
+      ],
+      "description": "Cable ---- C ---- C ---- C ---- C ---- C ---- C",
+      "patternLength": 2.5,
+      "elements": [
+        {
+          "length": 2.1,
+          "text": "C",
+          "scale": 0.175
+        },
+        {
+          "length": -0.4
+        }
+      ]
+    },
+    {
+      "id": "LEDG_FIBEROPTIC",
+      "name": "LEDG_FIBEROPTIC",
+      "aliases": [
+        "41SITO$0$LEDG_FIBEROPTIC"
+      ],
+      "description": "Fiber Optic ---- FO ---- FO ---- FO ---- FO ---",
+      "patternLength": 2.625,
+      "elements": [
+        {
+          "length": 2.1,
+          "text": "FO",
+          "scale": 0.175
+        },
+        {
+          "length": -0.525
+        }
+      ]
+    },
+    {
+      "id": "LEDG_FLOODPLAIN",
+      "name": "LEDG_FLOODPLAIN",
+      "aliases": [
+        "41SITO$0$LEDG_FLOODPLAIN"
+      ],
+      "description": "FLOODPLAIN",
+      "patternLength": 1.65,
+      "elements": [
+        {
+          "length": 1.5
+        },
+        {
+          "length": -0.15
+        }
+      ]
+    },
+    {
+      "id": "LEDG_GAS",
+      "name": "LEDG_GAS",
+      "aliases": [
+        "41SITO$0$LEDG_GAS"
+      ],
+      "description": "Gas ---- G ---- G ---- G ---- G ---- G ---- G -",
+      "patternLength": 2.5,
+      "elements": [
+        {
+          "length": 2.1,
+          "text": "G",
+          "scale": 0.175
+        },
+        {
+          "length": -0.4
+        }
+      ]
+    },
+    {
+      "id": "LEDG_OVERHEADWIRE",
+      "name": "LEDG_OVERHEADWIRE",
+      "aliases": [
+        "41SITO$0$LEDG_OVERHEADWIRE"
+      ],
+      "description": "Overhead Wire ---- OW ---- OW ---- OW ---- OW -",
+      "patternLength": 2.625,
+      "elements": [
+        {
+          "length": 2.1,
+          "text": "OW",
+          "scale": 0.175
+        },
+        {
+          "length": -0.525
+        }
+      ]
+    },
+    {
+      "id": "LEDG_ROW",
+      "name": "LEDG_ROW",
+      "aliases": [
+        "RES_SURVEY$0$LEDG_ROW"
+      ],
+      "description": "ROW",
+      "patternLength": 1.65,
+      "elements": [
+        {
+          "length": 1.5
+        },
+        {
+          "length": -0.15
+        }
+      ]
+    },
+    {
+      "id": "LEDG_SANITARY",
+      "name": "LEDG_SANITARY",
+      "aliases": [
+        "41SITO$0$LEDG_SANITARY"
+      ],
+      "description": "Sanitary Sewer ---- SAN ---- SAN ---- SAN ---- ",
+      "patternLength": 2.8,
+      "elements": [
+        {
+          "length": 2.1,
+          "text": "SAN",
+          "scale": 0.175
+        },
+        {
+          "length": -0.7
+        }
+      ]
+    },
+    {
+      "id": "LEDG_SEWRPC",
+      "name": "LEDG_SEWRPC",
+      "aliases": [
+        "RES_SURVEY$0$LEDG_SEWRPC"
+      ],
+      "description": "SEWERPC",
+      "patternLength": 3.75,
+      "elements": [
+        {
+          "length": 3.0
+        },
+        {
+          "length": -0.15
+        },
+        {
+          "length": 0.15
+        },
+        {
+          "length": -0.15
+        },
+        {
+          "length": 0.15
+        },
+        {
+          "length": -0.15
+        }
+      ]
+    },
+    {
+      "id": "LEDG_STORM",
+      "name": "LEDG_STORM",
+      "aliases": [
+        "41SITO$0$LEDG_STORM"
+      ],
+      "description": "Storm Sewer ---- ST ---- ST ---- ST ---- ST ---",
+      "patternLength": 2.625,
+      "elements": [
+        {
+          "length": 2.1,
+          "text": "ST",
+          "scale": 0.175
+        },
+        {
+          "length": -0.525
+        }
+      ]
+    },
+    {
+      "id": "LEDG_TELEPHONE",
+      "name": "LEDG_TELEPHONE",
+      "aliases": [
+        "41SITO$0$LEDG_TELEPHONE"
+      ],
+      "description": "Telephone ---- T ---- T ---- T ---- T ---- T --",
+      "patternLength": 2.5,
+      "elements": [
+        {
+          "length": 2.1,
+          "text": "T",
+          "scale": 0.175
+        },
+        {
+          "length": -0.4
+        }
+      ]
+    },
+    {
+      "id": "LEDG_WATER",
+      "name": "LEDG_WATER",
+      "aliases": [
+        "41SITO$0$LEDG_WATER"
+      ],
+      "description": "Water ---- W ---- W ---- W ---- W ---- W ---- W",
+      "patternLength": 2.5,
+      "elements": [
+        {
+          "length": 2.1,
+          "text": "W",
+          "scale": 0.175
+        },
+        {
+          "length": -0.4
+        }
+      ]
+    },
+    {
+      "id": "LEDG_WETLAND",
+      "name": "LEDG_WETLAND",
+      "aliases": [
+        "41SITO$0$LEDG_WETLAND"
+      ],
+      "description": "",
+      "patternLength": 0.12,
+      "elements": [
+        {
+          "length": 0.02
+        },
+        {
+          "length": -0.1
+        }
+      ]
+    },
+    {
+      "id": "PHANTOM2",
+      "name": "PHANTOM2",
+      "aliases": [
+        "41SITO$0$PHANTOM2",
+        "RES_SURVEY$0$PHANTOM2"
+      ],
+      "description": "Phantom (.5x) ___ _ _ ___ _ _ ___ _ _ ___ _ _",
+      "patternLength": 1.25,
+      "elements": [
+        {
+          "length": 0.625
+        },
+        {
+          "length": -0.125
+        },
+        {
+          "length": 0.125
+        },
+        {
+          "length": -0.125
+        },
+        {
+          "length": 0.125
+        },
+        {
+          "length": -0.125
+        }
+      ]
+    },
+    {
+      "id": "SANITARY",
+      "name": "SANITARY",
+      "aliases": [],
+      "description": "",
+      "patternLength": 1.7,
+      "elements": [
+        {
+          "length": 1.5
+        },
+        {
+          "length": -0.2
+        }
+      ]
+    },
+    {
+      "id": "STORM",
+      "name": "STORM",
+      "aliases": [],
+      "description": "",
+      "patternLength": 0.6,
+      "elements": [
+        {
+          "length": 0.5
+        },
+        {
+          "length": -0.1
+        }
+      ]
+    }
+  ],
+  "layerDefaults": [
+    {
+      "layer": "41SITO$0$E-ASPH",
+      "colorAci": 251,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-ASPH-CL",
+      "colorAci": 252,
+      "linetype": "CENTER2",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-BLDG",
+      "colorAci": 251,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-CONC",
+      "colorAci": 251,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-CONC-CENTERLINE",
+      "colorAci": 252,
+      "linetype": "CENTER2",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-CONC-FLANGE",
+      "colorAci": 252,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-CONC-FLOWLINE",
+      "colorAci": 252,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-CONC-GIS",
+      "colorAci": 252,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-CONC-TBOC",
+      "colorAci": 252,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-DITCH",
+      "colorAci": 251,
+      "linetype": "EDGE OF WATER",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-FP-100 YR",
+      "colorAci": 235,
+      "linetype": "LEDG_FLOODPLAIN",
+      "lineweight": 40
+    },
+    {
+      "layer": "41SITO$0$E-FP-CROSS SECTION",
+      "colorAci": 251,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-FP-FLOODWAY",
+      "colorAci": 1,
+      "linetype": "LEDG_FLOODPLAIN",
+      "lineweight": 90
+    },
+    {
+      "layer": "41SITO$0$E-GRAV",
+      "colorAci": 251,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-PLANTER",
+      "colorAci": 251,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-PVMT-CURBCUT",
+      "colorAci": 251,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-PVMT-MRK",
+      "colorAci": 252,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-PVMT-MRK (DEMO)",
+      "colorAci": 252,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-PVMT-STONE",
+      "colorAci": 251,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-RIP-RAP",
+      "colorAci": 153,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-SW",
+      "colorAci": 251,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-TREE",
+      "colorAci": 251,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-U-CATV",
+      "colorAci": 210,
+      "linetype": "LEDG_CABLE",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-U-FIBEROPTIC",
+      "colorAci": 210,
+      "linetype": "LEDG_FIBEROPTIC",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-U-GAS",
+      "colorAci": 210,
+      "linetype": "LEDG_GAS",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-U-OHL",
+      "colorAci": 251,
+      "linetype": "LEDG_OVERHEADWIRE",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-U-PHONE",
+      "colorAci": 210,
+      "linetype": "LEDG_TELEPHONE",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-U-SAN",
+      "colorAci": 251,
+      "linetype": "LEDG_SANITARY",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-U-STM",
+      "colorAci": 251,
+      "linetype": "LEDG_STORM",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-U-STM-CMP",
+      "colorAci": 251,
+      "linetype": "LEDG_STORM",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-U-STM-RCP",
+      "colorAci": 251,
+      "linetype": "LEDG_STORM",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-U-WAT",
+      "colorAci": 251,
+      "linetype": "LEDG_WATER",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-UTIL",
+      "colorAci": 210,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-WETLAND-HEARTLAND MAY 2025",
+      "colorAci": 5,
+      "linetype": "LEDG_WETLAND",
+      "lineweight": -3
+    },
+    {
+      "layer": "41SITO$0$E-WETLAND-HEARTLAND MAY 2025-DITCH",
+      "colorAci": 5,
+      "linetype": "LEDG_WETLAND",
+      "lineweight": -3
+    },
+    {
+      "layer": "C3D-P-CONT",
+      "colorAci": 3,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "E-ASPH",
+      "colorAci": 1,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "E-ASPH-CL",
+      "colorAci": 8,
+      "linetype": "CENTER2",
+      "lineweight": -3
+    },
+    {
+      "layer": "E-CONT",
+      "colorAci": 252,
+      "linetype": "HIDDEN2",
+      "lineweight": -3
+    },
+    {
+      "layer": "E-CURB",
+      "colorAci": 1,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "E-PVMT",
+      "colorAci": 1,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "E-SW",
+      "colorAci": 6,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "E-U-SAN",
+      "colorAci": 6,
+      "linetype": "LEDG_SANITARY",
+      "lineweight": -3
+    },
+    {
+      "layer": "E-U-STM-RCP",
+      "colorAci": 4,
+      "linetype": "LEDG_STORM",
+      "lineweight": -3
+    },
+    {
+      "layer": "E-U-WAT",
+      "colorAci": 7,
+      "linetype": "LEDG_WATER",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-(FUTURE)-U-STM",
+      "colorAci": 253,
+      "linetype": "STORM",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-ALIGNMENT",
+      "colorAci": 7,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-AMENITY-POOL",
+      "colorAci": 4,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-AMENITY-ROOF",
+      "colorAci": 2,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-CONT",
+      "colorAci": 3,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-CULVERT-RIPRAP",
+      "colorAci": 253,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-CURB",
+      "colorAci": 2,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-DA-STORM",
+      "colorAci": 30,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-FP",
+      "colorAci": 2,
+      "linetype": "LEDG_FLOODPLAIN",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-POND",
+      "colorAci": 4,
+      "linetype": "LEDG_ROW",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-POND-T",
+      "colorAci": 2,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-PVMT",
+      "colorAci": 1,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-SPOT",
+      "colorAci": 2,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-SW",
+      "colorAci": 241,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-U-SAN",
+      "colorAci": 6,
+      "linetype": "SANITARY",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-U-STM",
+      "colorAci": 4,
+      "linetype": "STORM",
+      "lineweight": -3
+    },
+    {
+      "layer": "P-U-WAT",
+      "colorAci": 7,
+      "linetype": "HIDDEN2",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$E-CL",
+      "colorAci": 1,
+      "linetype": "CENTER",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$E-CL-STONERIDGE",
+      "colorAci": 252,
+      "linetype": "CENTER",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$E-ESMT",
+      "colorAci": 7,
+      "linetype": "HIDDEN",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$E-ESMT-DR",
+      "colorAci": 7,
+      "linetype": "HIDDEN",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$E-ESMT-STORMWATER-DRAINAGE",
+      "colorAci": 7,
+      "linetype": "HIDDEN",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$E-EXTERIOR",
+      "colorAci": 204,
+      "linetype": "Continuous",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$E-LOTLINE",
+      "colorAci": 1,
+      "linetype": "DASHED",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$E-LOTLINE-INT",
+      "colorAci": 252,
+      "linetype": "HIDDEN2",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$E-ROW",
+      "colorAci": 7,
+      "linetype": "LEDG_ROW",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$E-SEWRPC",
+      "colorAci": 4,
+      "linetype": "LEDG_SEWRPC",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$E-SEWRPC-16",
+      "colorAci": 252,
+      "linetype": "LEDG_SEWRPC",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$P-CL",
+      "colorAci": 0,
+      "linetype": "CENTER",
+      "lineweight": 50
+    },
+    {
+      "layer": "RES_SURVEY$0$P-ESMT",
+      "colorAci": 7,
+      "linetype": "HIDDEN",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$P-ESMT-ACCESS",
+      "colorAci": 7,
+      "linetype": "HIDDEN",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$P-ESMT-DRAINAGE",
+      "colorAci": 7,
+      "linetype": "HIDDEN",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$P-ESMT-FUTURE",
+      "colorAci": 253,
+      "linetype": "HIDDEN",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$P-ESMT-FUTURE-SAN",
+      "colorAci": 253,
+      "linetype": "HIDDEN",
+      "lineweight": -3
+    },
+    {
+      "layer": "RES_SURVEY$0$P-ESMT-FUTURE-SIDEWALK",
+      "colorAci": 253,
+      "linetype": "HIDDEN2",
+      "lineweight": -3
+    }
+  ],
+  "aciPalette": {
+    "1": "#FF0000",
+    "2": "#FFFF00",
+    "3": "#00FF00",
+    "4": "#00FFFF",
+    "5": "#0000FF",
+    "6": "#FF00FF",
+    "7": "#FFFFFF",
+    "8": "#808080",
+    "9": "#C0C0C0",
+    "30": "#FF7F00",
+    "40": "#FF7F7F",
+    "50": "#FFFF99",
+    "60": "#99FF99",
+    "70": "#99FFFF",
+    "80": "#7F7FFF",
+    "90": "#FF7FFF",
+    "92": "#A0A0A4",
+    "94": "#808080",
+    "96": "#A0A0A0",
+    "250": "#333333",
+    "251": "#505050",
+    "252": "#696969",
+    "253": "#828282",
+    "254": "#BEBEBE",
+    "255": "#FFFFFF"
+  }
+}

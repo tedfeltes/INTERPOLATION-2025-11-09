@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#10160f" />
+  <title>StakeDXF — OneDrive DWG to TSC5</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/static/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand-mark">
+      <span class="brand-glyph" aria-hidden="true"></span>
+      <span class="brand-name">StakeDXF</span>
+    </div>
+    <span class="device-pill">iPhone · TSC5 · OneDrive</span>
+  </header>
+
+  <main>
+    <section class="hero" id="convert">
+      <p class="eyebrow">Field kit</p>
+      <h1 class="brand-hero">StakeDXF</h1>
+      <p class="lede">
+        Pull a Civil&nbsp;3D DWG from OneDrive on your phone, convert in the cloud,
+        drop the DXF onto your Trimble TSC5. No laptop.
+      </p>
+
+      <ol class="field-steps" aria-label="Field workflow">
+        <li><strong>OneDrive</strong> DWG from office</li>
+        <li><strong>Convert</strong> here on iPhone or TSC5</li>
+        <li><strong>Copy DXF</strong> into Trimble Data/Projects</li>
+      </ol>
+
+      <form id="convert-form" class="convert-panel">
+        <label class="dropzone phone-drop" id="dropzone" for="file-input">
+          <input
+            id="file-input"
+            name="file"
+            type="file"
+            accept=".dwg,.dxf,application/acad,image/vnd.dwg,application/octet-stream"
+            required
+          />
+          <span class="drop-title">Choose DWG from OneDrive</span>
+          <span class="drop-sub">Safari/Files → Browse → OneDrive location</span>
+          <span class="file-chip" id="file-chip" hidden></span>
+        </label>
+
+        <details class="advanced">
+          <summary>Advanced options</summary>
+          <div class="options-grid">
+            <label class="field">
+              <span>DXF version</span>
+              <select name="dxf_version" id="dxf_version">
+                <option value="R2010" selected>R2010 (recommended)</option>
+                <option value="R2000">R2000</option>
+                <option value="R2007">R2007</option>
+                <option value="R2013">R2013</option>
+                <option value="R2018">R2018</option>
+              </select>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="explode_proxies" checked />
+              <span>Explode Civil 3D proxies</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="explode_blocks" checked />
+              <span>Explode blocks</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="convert_splines" checked />
+              <span>Splines → polylines</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="flatten_z" />
+              <span>Flatten Z to 0</span>
+            </label>
+            <label class="field span-2">
+              <span>Include layers only</span>
+              <input type="text" id="include_layers" placeholder="CL, EOP, CURB" />
+            </label>
+            <label class="field span-2">
+              <span>Exclude layers</span>
+              <input type="text" id="exclude_layers" placeholder="DEFPOINTS, HATCH" />
+            </label>
+          </div>
+        </details>
+
+        <div class="actions">
+          <button type="submit" class="btn primary btn-block" id="convert-btn">
+            Convert for TSC5
+          </button>
+          <p class="status" id="status" role="status" aria-live="polite"></p>
+        </div>
+      </form>
+
+      <aside class="result" id="result" hidden>
+        <div class="result-head">
+          <h2>DXF ready</h2>
+          <a class="btn primary btn-block" id="download-link" href="#">Save DXF to Files / OneDrive</a>
+        </div>
+        <p class="next-hint" id="next-hint">
+          Next on TSC5: OneDrive → copy into <code>Trimble Data/Projects/&lt;job&gt;/</code>
+          → Map files → selectable → Stakeout.
+        </p>
+        <dl class="stats" id="stats"></dl>
+        <div class="layers" id="layers"></div>
+        <ul class="messages" id="messages"></ul>
+      </aside>
+    </section>
+
+    <section class="guide" id="guide">
+      <h2>How you use this with only a phone + TSC5</h2>
+
+      <article class="guide-card">
+        <h3>A. Convert on iPhone (manual)</h3>
+        <ol id="iphone-steps">
+          <li>Open this page in Safari. Optional: Share → Add to Home Screen.</li>
+          <li>Tap Choose DWG → Browse → your OneDrive project folder.</li>
+          <li>Tap Convert for TSC5.</li>
+          <li>Tap Save DXF → Save to Files → OneDrive.</li>
+        </ol>
+      </article>
+
+      <article class="guide-card">
+        <h3>B. Get the DXF onto the TSC5</h3>
+        <ol id="tsc5-steps">
+          <li>On the TSC5, open the OneDrive app and download the DXF.</li>
+          <li>Trimble Access → Job data → File Explorer.</li>
+          <li>Copy DXF into <code>Trimble Data/Projects/&lt;your project&gt;/</code>.</li>
+          <li>Map → Layer manager → Map files → tap DXF twice → Stakeout.</li>
+        </ol>
+      </article>
+
+      <article class="guide-card highlight">
+        <h3>C. Best: auto-convert in OneDrive (no phone convert)</h3>
+        <p>
+          Set up Power Automate once in the office: when a <code>.dwg</code> lands in
+          the project folder, call StakeDXF and save <code>*_trimble_access.dxf</code>
+          next to it. In the field you only copy the DXF to the TSC5.
+        </p>
+        <p class="entity-note">
+          Details: <a href="/static/power-automate-onedrive.md">Power Automate + OneDrive setup</a>
+        </p>
+      </article>
+    </section>
+
+    <section class="about" id="about">
+      <h2>Why this works without a laptop</h2>
+      <p>
+        The converter runs in the cloud. Your iPhone or TSC5 only uploads the DWG
+        and downloads the DXF. Civil&nbsp;3D AECC objects are recovered from proxy
+        graphics already stored in the office DWG.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <span>StakeDXF field kit</span>
+    <span>Host this URL for cellular access</span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
