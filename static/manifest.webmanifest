@@ -1,0 +1,24 @@
+{
+  "name": "StakeDXF Field Kit",
+  "short_name": "StakeDXF",
+  "description": "Convert Civil 3D DWG from OneDrive to Trimble Access DXF on phone or TSC5",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#10160f",
+  "theme_color": "#10160f",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
