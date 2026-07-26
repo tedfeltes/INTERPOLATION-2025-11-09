@@ -10,6 +10,7 @@ import 'label_placement.dart';
 import 'leader_geometry.dart';
 import 'linetype_catalog.dart';
 import 'linework_draw.dart';
+import 'plot_annotations.dart';
 import 'plot_options.dart';
 import 'plot_pdf.dart';
 import 'plot_symbols.dart';
@@ -37,9 +38,11 @@ class PlotPreview extends StatefulWidget {
     this.selectedSymbolId,
     this.selectedLabelPointId,
     this.selectedLineworkId,
+    this.selectedLineworkLayer,
     this.selectedNodeIndex,
     this.selectedSegmentIndex,
     this.lineEditMode = false,
+    this.textObjects = const [],
     this.onSelectSymbol,
     this.onSelectLabelPoint,
     this.onSelectLinework,
@@ -47,6 +50,7 @@ class PlotPreview extends StatefulWidget {
     this.onSelectSegment,
     this.onMoveSymbol,
     this.onMoveLabel,
+    this.onMoveText,
     this.height,
   });
 
@@ -61,9 +65,11 @@ class PlotPreview extends StatefulWidget {
   final String? selectedSymbolId;
   final String? selectedLabelPointId;
   final String? selectedLineworkId;
+  final String? selectedLineworkLayer;
   final int? selectedNodeIndex;
   final int? selectedSegmentIndex;
   final bool lineEditMode;
+  final List<PlotTextObject> textObjects;
   final ValueChanged<String?>? onSelectSymbol;
   final ValueChanged<String?>? onSelectLabelPoint;
   final ValueChanged<String?>? onSelectLinework;
@@ -72,6 +78,7 @@ class PlotPreview extends StatefulWidget {
   final void Function(String id, double easting, double northing)? onMoveSymbol;
   final void Function(String pointId, double offsetE, double offsetN)?
       onMoveLabel;
+  final void Function(String id, double easting, double northing)? onMoveText;
   /// When null, height follows the selected sheet aspect ratio.
   final double? height;
 
@@ -244,12 +251,15 @@ class _PlotPreviewState extends State<PlotPreview> {
                               selectedLabelPointId:
                                   widget.selectedLabelPointId,
                               selectedLineworkId: widget.selectedLineworkId,
+                              selectedLineworkLayer:
+                                  widget.selectedLineworkLayer,
                               selectedNodeIndex: widget.selectedNodeIndex,
                               selectedSegmentIndex:
                                   widget.selectedSegmentIndex,
                               draggingId: _draggingId,
                               dragKind: _dragKind,
                               labelDrags: drags,
+                              textObjects: widget.textObjects,
                               sheetLabel:
                                   '${tpl.name} · ${tpl.sizeCallout}',
                               lineEditMode: widget.lineEditMode,
@@ -311,6 +321,7 @@ class _PlotPreviewState extends State<PlotPreview> {
     final map = _map;
     if (map == null) return;
 
+    // Geometry trim mode (advanced): nodes / segments.
     if (widget.lineEditMode) {
       final selId = widget.selectedLineworkId;
       if (selId != null) {
@@ -336,25 +347,18 @@ class _PlotPreviewState extends State<PlotPreview> {
           }
         }
       }
-      final lw = hitTestLinework(
-        local,
-        widget.linework,
-        map.toPixel,
-        threshold: 18,
-      );
-      widget.onSelectLinework?.call(lw);
-      widget.onSelectSymbol?.call(null);
-      widget.onSelectLabelPoint?.call(null);
-      if (lw == null) {
-        widget.onSelectNode?.call(null);
-        widget.onSelectSegment?.call(null);
-      }
-      return;
     }
 
     final labelHit = _hitLabel(local, map, drags);
     if (labelHit != null) {
       widget.onSelectLabelPoint?.call(labelHit);
+      widget.onSelectSymbol?.call(null);
+      widget.onSelectLinework?.call(null);
+      return;
+    }
+    final pointHit = _hitPoint(local, map);
+    if (pointHit != null) {
+      widget.onSelectLabelPoint?.call(pointHit);
       widget.onSelectSymbol?.call(null);
       widget.onSelectLinework?.call(null);
       return;
@@ -366,9 +370,41 @@ class _PlotPreviewState extends State<PlotPreview> {
       widget.onSelectLinework?.call(null);
       return;
     }
+    // Tap linework → select layer (Civil 3D layer properties workflow).
+    final lw = hitTestLinework(
+      local,
+      widget.linework,
+      map.toPixel,
+      threshold: 18,
+    );
+    widget.onSelectLinework?.call(lw);
+    if (lw != null) {
+      widget.onSelectSymbol?.call(null);
+      widget.onSelectLabelPoint?.call(null);
+      return;
+    }
     widget.onSelectLabelPoint?.call(null);
     widget.onSelectSymbol?.call(null);
     widget.onSelectLinework?.call(null);
+    widget.onSelectNode?.call(null);
+    widget.onSelectSegment?.call(null);
+  }
+
+  String? _hitPoint(Offset local, _PlanMap map) {
+    const r = 16.0;
+    String? best;
+    var bestD = r * r;
+    for (final p in widget.points) {
+      final c = map.toPixel(p.easting, p.northing);
+      final dx = local.dx - c.dx;
+      final dy = local.dy - c.dy;
+      final d = dx * dx + dy * dy;
+      if (d <= bestD) {
+        bestD = d;
+        best = p.id;
+      }
+    }
+    return best;
   }
 
   void _handlePanStart(Offset local, Map<String, LabelDragState> drags) {
@@ -445,14 +481,16 @@ class _PlotPreviewState extends State<PlotPreview> {
     _PlanMap map,
     Map<String, LabelDragState> drags,
   ) {
-    if (widget.options.labelFormat == PointLabelFormat.none) return null;
     String? best;
     var bestDist = 40.0;
     final ann = widget.options.annotationScale.clamp(0.6, 3.0);
     final fontSize = (10.0 * ann).clamp(8.0, 16.0);
     for (final p in widget.points) {
       final drag = drags[p.id];
-      final lines = resolvedLabelLines(p, widget.options.labelFormat, drag);
+      final format = widget.options.pointStyleOverrides[p.id]?.labelFormat ??
+          widget.options.labelFormat;
+      if (format == PointLabelFormat.none) continue;
+      final lines = resolvedLabelLines(p, format, drag);
       if (lines.isEmpty) continue;
       final oE = drag?.offsetE ?? 14.0;
       final oN = drag?.offsetN ?? 10.0;
@@ -477,11 +515,11 @@ class _PlotPreviewState extends State<PlotPreview> {
   PlacedPlotSymbol? _hitSymbol(Offset local, _PlanMap map) {
     PlacedPlotSymbol? best;
     var bestDist = 32.0;
-    final ann = widget.options.annotationScale.clamp(0.6, 3.0);
+    final paperPx = math.max(14.0, widget.options.symbolPaperInches * 72.0);
     for (final s in widget.symbols) {
       final c = map.toPixel(s.easting, s.northing);
       final d = (c - local).distance;
-      final half = math.max(14.0, 24.0 * s.scale * ann);
+      final half = math.max(8.0, paperPx * 0.5 * s.scale);
       if (d <= half + 10 && d < bestDist + half) {
         bestDist = d;
         best = s;
@@ -586,11 +624,13 @@ class _PlotPreviewPainter extends CustomPainter {
     required this.selectedSymbolId,
     required this.selectedLabelPointId,
     required this.selectedLineworkId,
+    required this.selectedLineworkLayer,
     required this.selectedNodeIndex,
     required this.selectedSegmentIndex,
     required this.draggingId,
     required this.dragKind,
     required this.labelDrags,
+    required this.textObjects,
     required this.sheetLabel,
     required this.lineEditMode,
   });
@@ -607,11 +647,13 @@ class _PlotPreviewPainter extends CustomPainter {
   final String? selectedSymbolId;
   final String? selectedLabelPointId;
   final String? selectedLineworkId;
+  final String? selectedLineworkLayer;
   final int? selectedNodeIndex;
   final int? selectedSegmentIndex;
   final String? draggingId;
   final _DragKind dragKind;
   final Map<String, LabelDragState> labelDrags;
+  final List<PlotTextObject> textObjects;
   final String sheetLabel;
   final bool lineEditMode;
 
@@ -706,6 +748,7 @@ class _PlotPreviewPainter extends CustomPainter {
       globalLinetypeScale: options.globalLinetypeScale,
       ctb: ctbPlotStyle,
       selectedId: lineEditMode ? selectedLineworkId : null,
+      selectedLayer: selectedLineworkLayer,
       selectedSegmentIndex: lineEditMode ? selectedSegmentIndex : null,
       selectedNodeIndex: lineEditMode ? selectedNodeIndex : null,
       showNodesForSelected: lineEditMode,
@@ -713,26 +756,38 @@ class _PlotPreviewPainter extends CustomPainter {
   }
 
   void _paintPointsAndLabels(Canvas canvas) {
-    final color = Color(ctbPlotStyle.resolve(kCtbPointLabelAci).colorArgb);
-    final fill = Paint()..color = color;
-    final stroke = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4 * options.annotationScale.clamp(0.6, 3.0);
-    final leader = Paint()
-      ..color = color
-      ..strokeWidth = 1.1
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final defaultArgb = options.defaultPointColorArgb ??
+        ctbPlotStyle.resolve(kCtbPointLabelAci).colorArgb;
     final ann = options.annotationScale.clamp(0.6, 3.0);
     final fontSize = (10.0 * ann).clamp(8.0, 16.0);
 
     for (final p in points) {
+      final ov = options.pointStyleOverrides[p.id];
+      final color = Color(ov?.colorArgb ?? defaultArgb);
+      final fill = Paint()..color = color;
+      final stroke = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4 * ann;
+      final leader = Paint()
+        ..color = color
+        ..strokeWidth = 1.1
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+
       final c = map.toPixel(p.easting, p.northing);
-      _drawMarker(canvas, c, options.markerStyle, fill, stroke, ann);
+      _drawMarker(
+        canvas,
+        c,
+        ov?.markerStyle ?? options.markerStyle,
+        fill,
+        stroke,
+        ann,
+      );
 
       final drag = labelDrags[p.id];
-      final lines = resolvedLabelLines(p, options.labelFormat, drag);
+      final format = ov?.labelFormat ?? options.labelFormat;
+      final lines = resolvedLabelLines(p, format, drag);
       if (lines.isEmpty) continue;
       final oE = drag?.offsetE ?? 14.0;
       final oN = drag?.offsetN ?? 10.0;
@@ -843,10 +898,11 @@ class _PlotPreviewPainter extends CustomPainter {
   }
 
   void _paintSymbols(Canvas canvas) {
-    final ann = options.annotationScale.clamp(0.6, 3.0);
+    // Object size uses object scale only (not annotation scale).
+    final paperPx = math.max(14.0, options.symbolPaperInches * 72.0);
     for (final s in symbols) {
       final c = map.toPixel(s.easting, s.northing);
-      final half = math.max(10.0, 22.0 * s.scale * ann);
+      final half = math.max(8.0, paperPx * 0.5 * s.scale);
       final selected = s.id == selectedSymbolId ||
           (dragKind == _DragKind.symbol && s.id == draggingId);
       final color = Color(s.colorArgb);
@@ -880,6 +936,22 @@ class _PlotPreviewPainter extends CustomPainter {
       }
       canvas.restore();
 
+      if (options.showObjectLabels) {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: s.libraryLabel,
+            style: TextStyle(
+              color: color,
+              fontSize: (9.0 * s.scale).clamp(8.0, 14.0),
+              fontWeight: FontWeight.w700,
+              backgroundColor: const Color(0xCCF7F4EE),
+            ),
+          ),
+          textDirection: ui.TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(c.dx + half + 2, c.dy - tp.height / 2));
+      }
+
       if (selected) {
         canvas.drawCircle(
           c,
@@ -891,6 +963,24 @@ class _PlotPreviewPainter extends CustomPainter {
         );
       }
     }
+
+    for (final t in textObjects) {
+      if (t.text.trim().isEmpty) continue;
+      final c = map.toPixel(t.easting, t.northing);
+      final tp = TextPainter(
+        text: TextSpan(
+          text: t.text,
+          style: TextStyle(
+            color: Color(t.colorArgb),
+            fontSize: t.effectiveFontSizePt,
+            fontWeight: FontWeight.w700,
+            backgroundColor: const Color(0xAAF7F4EE),
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(c.dx, c.dy - tp.height));
+    }
   }
 
   @override
@@ -898,10 +988,12 @@ class _PlotPreviewPainter extends CustomPainter {
     return old.points != points ||
         old.linework != linework ||
         old.symbols != symbols ||
+        old.textObjects != textObjects ||
         old.options != options ||
         old.selectedSymbolId != selectedSymbolId ||
         old.selectedLabelPointId != selectedLabelPointId ||
         old.selectedLineworkId != selectedLineworkId ||
+        old.selectedLineworkLayer != selectedLineworkLayer ||
         old.selectedNodeIndex != selectedNodeIndex ||
         old.selectedSegmentIndex != selectedSegmentIndex ||
         old.draggingId != draggingId ||

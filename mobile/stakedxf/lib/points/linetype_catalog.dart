@@ -75,6 +75,9 @@ class LinetypeCatalog {
   final List<LinetypeDef> linetypes;
   final Map<String, LinetypeDef> byName;
 
+  /// Display names for pickers (Layer Properties Manager, etc.).
+  List<String> get names => [for (final l in linetypes) l.name];
+
   static LinetypeCatalog? _cached;
 
   static Future<LinetypeCatalog> load() async {

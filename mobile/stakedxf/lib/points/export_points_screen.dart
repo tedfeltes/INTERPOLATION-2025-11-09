@@ -14,15 +14,18 @@ import 'csv_io.dart';
 import 'dxf_linework.dart';
 import 'ctb_plot_style.dart';
 import 'label_placement.dart';
+import 'layer_properties_manager.dart';
 import 'linetype_catalog.dart';
 import 'linework_edit.dart';
-import 'linework_properties_panel.dart';
 import 'linework_style.dart';
+import 'plot_annotations.dart';
 import 'plot_options.dart';
 import 'plot_pdf.dart';
 import 'plot_preview.dart';
+import 'point_properties_panel.dart';
 import 'plot_symbols.dart';
 import 'plot_templates.dart';
+import 'sticky_section.dart';
 import 'survey_point.dart';
 import 'symbol_library_sheet.dart';
 import 'symbol_preview.dart';
@@ -57,11 +60,14 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   String? _error;
   String? _status;
   bool _busy = false;
-  bool _plotOptionsOpen = false;
-  bool _lineworkOpen = false;
+  bool _plotOptionsOpen = true;
+  bool _lineworkOpen = true;
   bool _objectsOpen = false;
+  bool _annotationsOpen = false;
   bool _pointsOpen = false;
   bool _lineEditMode = false;
+  final List<PlotTextObject> _textObjects = [];
+  String? _selectedTextId;
 
   @override
   void initState() {
@@ -112,28 +118,44 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     return null;
   }
 
-  void _applyLineworkOverride({
-    required bool toEntity,
-    required LineworkStyleOverride override,
-  }) {
+  void _applyLayerOverride(String layer, LineworkStyleOverride override) {
     setState(() {
-      if (toEntity) {
-        final id = _selectedLineworkId;
-        if (id == null) return;
-        final map = Map<String, LineworkStyleOverride>.from(
-          _options.entityStyleOverrides,
-        );
-        map[id] = override;
-        _options = _options.copyWith(entityStyleOverrides: map);
+      final map = Map<String, LineworkStyleOverride>.from(
+        _options.layerStyleOverrides,
+      );
+      if (override.isEmpty) {
+        map.remove(layer);
       } else {
-        final layer = _selectedLineworkLayer ?? _selectedLineworkEntity?.layer;
-        if (layer == null) return;
-        final map = Map<String, LineworkStyleOverride>.from(
-          _options.layerStyleOverrides,
-        );
         map[layer] = override;
-        _options = _options.copyWith(layerStyleOverrides: map);
-        _selectedLineworkLayer = layer;
+      }
+      _options = _options.copyWith(layerStyleOverrides: map);
+      _selectedLineworkLayer = layer;
+      _lineworkOpen = true;
+    });
+  }
+
+  void _selectLineworkEntity(String? id) {
+    setState(() {
+      _selectedLineworkId = id;
+      _selectedNodeIndex = null;
+      _selectedSegmentIndex = null;
+      if (id != null) {
+        LineworkEntity? ent;
+        for (final e in _linework?.entities ?? const []) {
+          if (e.id == id) {
+            ent = e;
+            break;
+          }
+        }
+        // Layer-first workflow: selecting a line selects its layer.
+        _selectedLineworkLayer = ent?.layer;
+        _selectedSymbolId = null;
+        _selectedLabelPointId = null;
+        _selectedTextId = null;
+        _lineworkOpen = true;
+        if (!_lineEditMode) {
+          _selectedLineworkId = null; // style by layer, not segment
+        }
       }
     });
   }
@@ -268,19 +290,6 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       _status =
           'Spread ${spread.length} labels (points stay fixed — only callouts move)';
     });
-  }
-
-  void _setLabelCustomText(String pointId, String? text) {
-    final next = Map<String, LabelDragState>.from(_options.labelDrags);
-    final prev = next[pointId] ??
-        const LabelDragState(offsetE: 14, offsetN: 10, pinned: true);
-    final trimmed = text?.trim();
-    next[pointId] = prev.copyWith(
-      customText: trimmed,
-      clearCustomText: trimmed == null || trimmed.isEmpty,
-      pinned: true,
-    );
-    setState(() => _options = _options.copyWith(labelDrags: next));
   }
 
   void _resetLabelDrags() {
@@ -568,9 +577,15 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       final bytes = await buildStakingPlotPdf(
         points: chosen,
         jobName: _jobCtrl.text.trim(),
+        title: _options.titleBlock.enabled
+            ? (_options.titleBlock.title.trim().isEmpty
+                ? 'STAKING PLOT'
+                : _options.titleBlock.title.trim())
+            : 'STAKING PLOT',
         options: _options,
         linework: linework,
         symbols: symbols,
+        textObjects: List<PlotTextObject>.from(_textObjects),
         blockCatalog: _blockCatalog,
         layerStyles: _linework?.layerStyles ?? const {},
         linetypeCatalog: _linetypeCatalog,
@@ -643,6 +658,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       options: _options,
                       linework: _chosenLinework,
                       symbols: _symbols,
+                      textObjects: _textObjects,
                       blockCatalog: _blockCatalog,
                       linetypeCatalog: _linetypeCatalog,
                       ctbPlotStyle: _ctbPlotStyle,
@@ -650,6 +666,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       selectedSymbolId: _selectedSymbolId,
                       selectedLabelPointId: _selectedLabelPointId,
                       selectedLineworkId: _selectedLineworkId,
+                      selectedLineworkLayer: _selectedLineworkLayer,
                       selectedNodeIndex: _selectedNodeIndex,
                       selectedSegmentIndex: _selectedSegmentIndex,
                       onSelectSymbol: (id) => setState(() {
@@ -657,8 +674,11 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         if (id != null) {
                           _selectedLabelPointId = null;
                           _selectedLineworkId = null;
+                          _selectedLineworkLayer = null;
+                          _selectedTextId = null;
                           _selectedNodeIndex = null;
                           _selectedSegmentIndex = null;
+                          _objectsOpen = true;
                         }
                       }),
                       onSelectLabelPoint: (id) => setState(() {
@@ -666,29 +686,12 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         if (id != null) {
                           _selectedSymbolId = null;
                           _selectedLineworkId = null;
+                          _selectedTextId = null;
                           _selectedNodeIndex = null;
                           _selectedSegmentIndex = null;
                         }
                       }),
-                      onSelectLinework: (id) => setState(() {
-                        _selectedLineworkId = id;
-                        _selectedNodeIndex = null;
-                        _selectedSegmentIndex = null;
-                        if (id != null) {
-                          _lineEditMode = true;
-                          _selectedSymbolId = null;
-                          _selectedLabelPointId = null;
-                          LineworkEntity? ent;
-                          for (final e in _linework?.entities ?? const []) {
-                            if (e.id == id) {
-                              ent = e;
-                              break;
-                            }
-                          }
-                          _selectedLineworkLayer = ent?.layer;
-                          _lineworkOpen = true;
-                        }
-                      }),
+                      onSelectLinework: _selectLineworkEntity,
                       onSelectNode: (i) => setState(() {
                         _selectedNodeIndex = i;
                         if (i != null) _selectedSegmentIndex = null;
@@ -703,21 +706,26 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                     ),
                     const SizedBox(height: 6),
                     Wrap(
-                      spacing: 8,
+                      spacing: 6,
                       runSpacing: 4,
                       children: [
                         FilledButton.tonalIcon(
                           onPressed: _busy || previewPoints.isEmpty
                               ? null
                               : _spreadLabelsNow,
-                          icon: const Icon(Icons.scatter_plot_outlined, size: 18),
-                          label: const Text('Spread labels'),
+                          icon: const Icon(Icons.scatter_plot_outlined, size: 16),
+                          label: const Text('Spread', style: TextStyle(fontSize: 12)),
+                          style: FilledButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
                         ),
                         FilterChip(
                           label: Text(
-                            _lineEditMode ? 'Line edit ON' : 'Line edit',
+                            _lineEditMode ? 'Trim ON' : 'Trim',
+                            style: const TextStyle(fontSize: 12),
                           ),
                           selected: _lineEditMode,
+                          visualDensity: VisualDensity.compact,
                           onSelected: _busy || _linework == null
                               ? null
                               : (v) => setState(() {
@@ -742,75 +750,12 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                     ),
                     if (selectedLabel != null) ...[
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1B281C),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0x59E4572E)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Label · point ${selectedLabel.id}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    final next =
-                                        Map<String, LabelDragState>.from(
-                                      _options.labelDrags,
-                                    )..remove(selectedLabel.id);
-                                    setState(() {
-                                      _options =
-                                          _options.copyWith(labelDrags: next);
-                                      _selectedLabelPointId = null;
-                                    });
-                                  },
-                                  child: const Text('Reset'),
-                                ),
-                              ],
-                            ),
-                            Text(
-                              'Point marker stays fixed. Drag the label on the '
-                              'preview (Civil 3D drag state). Edit text below '
-                              'to customize this callout.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: cs.onSurface.withValues(alpha: 0.65),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            TextFormField(
-                              key: ValueKey(
-                                'label-text-${selectedLabel.id}-'
-                                '${_options.labelFormat.name}',
-                              ),
-                              initialValue: _options
-                                      .labelDrags[selectedLabel.id]
-                                      ?.customText ??
-                                  labelLinesFor(
-                                    selectedLabel,
-                                    _options.labelFormat,
-                                  ).join('\n'),
-                              maxLines: 3,
-                              decoration: const InputDecoration(
-                                labelText: 'Label text',
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                              onChanged: (v) =>
-                                  _setLabelCustomText(selectedLabel.id, v),
-                            ),
-                          ],
-                        ),
+                      PointPropertiesPanel(
+                        point: selectedLabel,
+                        options: _options,
+                        onOptions: (o) => setState(() => _options = o),
+                        onClose: () =>
+                            setState(() => _selectedLabelPointId = null),
                       ),
                     ],
                     if (selectedSym != null) ...[
@@ -917,74 +862,103 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                 ),
               ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                children: [
-                  Text(
-                    'Import points, link DXF linework, place objects on the '
-                    'live preview, then export the staking plot PDF.',
-                    style: TextStyle(
-                      color: cs.onSurface.withValues(alpha: 0.75),
-                      height: 1.35,
+              child: CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                    sliver: SliverList.list(
+                      children: [
+                        TextField(
+                          controller: _jobCtrl,
+                          textCapitalization: TextCapitalization.characters,
+                          style: const TextStyle(fontSize: 14),
+                          decoration: const InputDecoration(
+                            labelText: 'Job name',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 10,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _busy ? null : _importCsv,
+                                icon: const Icon(Icons.upload_file, size: 16),
+                                label: Text(
+                                  _sourceName == null
+                                      ? 'Import CSV'
+                                      : 'CSV',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _busy ? null : _linkDxf,
+                                icon: const Icon(Icons.polyline, size: 16),
+                                label: Text(
+                                  _dxfName == null ? 'Link DXF' : 'DXF',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (_dxfName != null)
+                              IconButton(
+                                tooltip: 'Clear DXF',
+                                onPressed: _busy ? null : _clearDxf,
+                                icon: const Icon(Icons.close, size: 18),
+                              ),
+                          ],
+                        ),
+                        if (_error != null) ...[
+                          const SizedBox(height: 8),
+                          Text(_error!, style: TextStyle(color: cs.error, fontSize: 12)),
+                        ],
+                        if (_status != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            _status!,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _jobCtrl,
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      labelText: 'Job name',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _importCsv,
-                    icon: const Icon(Icons.upload_file),
-                    label: Text(
-                      _sourceName == null
-                          ? 'Import points CSV / TXT'
-                          : 'Reload: $_sourceName',
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _linkDxf,
-                    icon: const Icon(Icons.polyline),
-                    label: Text(
-                      _dxfName == null
-                          ? 'Link DXF linework (optional)'
-                          : 'Reload DXF: $_dxfName',
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                    ),
-                  ),
-                  if (_dxfName != null)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: _busy ? null : _clearDxf,
-                        child: const Text('Clear DXF'),
-                      ),
-                    ),
                   if (_points.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    _CollapsibleSection(
-                      title: 'Plot options',
+                    StickySectionSliver(
+                      title: 'PLOT OPTIONS',
                       expanded: _plotOptionsOpen,
-                      onExpansionChanged: (v) =>
-                          setState(() => _plotOptionsOpen = v),
+                      onToggle: () => setState(
+                        () => _plotOptionsOpen = !_plotOptionsOpen,
+                      ),
                       children: [
                         DropdownButtonFormField<PlotTemplate>(
                           value: plotTemplateById(_options.template.id),
                           isExpanded: true,
                           decoration: const InputDecoration(
-                            labelText: 'Plot template (ANSI sheet)',
+                            labelText: 'Sheet template',
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -995,6 +969,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                 child: Text(
                                   t.name,
                                   overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
                               ),
                           ],
@@ -1008,21 +983,11 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                   );
                                 },
                         ),
-                        if (_options.template.blurb.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            '${_options.template.subtitle}\n${_options.template.blurb}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
                         DropdownButtonFormField<PointMarkerStyle>(
                           value: _options.markerStyle,
                           decoration: const InputDecoration(
-                            labelText: 'Point marker',
+                            labelText: 'Marker',
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -1043,47 +1008,50 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                   );
                                 },
                         ),
-                        const SizedBox(height: 10),
-                        DropdownButtonFormField<PointLabelFormat>(
-                          value: _options.labelFormat,
-                          decoration: const InputDecoration(
-                            labelText: 'Point label',
-                            border: OutlineInputBorder(),
-                            isDense: true,
+                        const SizedBox(height: 8),
+                        Text(
+                          'DEFAULT LABEL',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: cs.onSurface.withValues(alpha: 0.55),
                           ),
-                          items: [
+                        ),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
                             for (final f in PointLabelFormat.values)
-                              DropdownMenuItem(
-                                value: f,
-                                child: Text(f.label),
+                              ChoiceChip(
+                                label: Text(
+                                  f.label,
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                                selected: _options.labelFormat == f,
+                                visualDensity: VisualDensity.compact,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                onSelected: _busy
+                                    ? null
+                                    : (_) => setState(
+                                          () => _options = _options.copyWith(
+                                            labelFormat: f,
+                                          ),
+                                        ),
                               ),
                           ],
-                          onChanged: _busy
-                              ? null
-                              : (v) {
-                                  if (v == null) return;
-                                  setState(
-                                    () => _options =
-                                        _options.copyWith(labelFormat: v),
-                                  );
-                                },
                         ),
-                        const SizedBox(height: 8),
                         Row(
                           children: [
-                            const Text(
-                              'Annotation scale',
-                              style: TextStyle(fontSize: 13),
-                            ),
+                            const Text('Annot.', style: TextStyle(fontSize: 12)),
                             Expanded(
                               child: Slider(
-                                value:
-                                    _options.annotationScale.clamp(0.6, 3.0),
+                                value: _options.annotationScale.clamp(0.6, 3.0),
                                 min: 0.6,
                                 max: 3.0,
                                 divisions: 24,
-                                label: _options.annotationScale
-                                    .toStringAsFixed(1),
                                 onChanged: _busy
                                     ? null
                                     : (v) => setState(
@@ -1093,31 +1061,25 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                         ),
                               ),
                             ),
-                            SizedBox(
-                              width: 40,
-                              child: Text(
-                                '${_options.annotationScale.toStringAsFixed(1)}×',
-                                style: const TextStyle(fontSize: 12),
-                              ),
+                            Text(
+                              '${_options.annotationScale.toStringAsFixed(1)}×',
+                              style: const TextStyle(fontSize: 11),
                             ),
                           ],
                         ),
                         Text(
-                          'Keeps labels, markers, and library objects readable '
-                          'when points are hundreds or thousands of feet apart.',
+                          'Annotation scale affects point labels/markers only. '
+                          'Objects and text use their own scale.',
                           style: TextStyle(
                             fontSize: 11,
-                            color: cs.onSurface.withValues(alpha: 0.6),
+                            color: cs.onSurface.withValues(alpha: 0.55),
                           ),
                         ),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: const Text('Auto-spread labels'),
-                          subtitle: const Text(
-                            'Separates callouts (not points). Use Spread labels '
-                            'above the preview, then drag to pin. Leaders dogleg '
-                            'to the label edge.',
-                          ),
+                          dense: true,
+                          title: const Text('Auto-spread labels',
+                              style: TextStyle(fontSize: 13)),
                           value: _options.autoSpreadLabels,
                           onChanged: _busy
                               ? null
@@ -1129,13 +1091,9 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         ),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: const Text('Include point list table'),
-                          subtitle: Text(
-                            _options.template.layout ==
-                                    PlotTemplateLayout.sidePanel
-                                ? 'Control-note templates only — off by default for more plot space'
-                                : 'Applies to Control note templates (ignored on field-map sheets)',
-                          ),
+                          dense: true,
+                          title: const Text('Point list table',
+                              style: TextStyle(fontSize: 13)),
                           value: _options.showPointList,
                           onChanged: _busy
                               ? null
@@ -1146,10 +1104,9 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         ),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: const Text('Show library object names'),
-                          subtitle: const Text(
-                            'Off by default — objects draw without text labels',
-                          ),
+                          dense: true,
+                          title: const Text('Object labels',
+                              style: TextStyle(fontSize: 13)),
                           value: _options.showObjectLabels,
                           onChanged: _busy
                               ? null
@@ -1159,52 +1116,22 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                     ),
                                   ),
                         ),
-                        Row(
-                          children: [
-                            const Text(
-                              'Object paper size',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                            Expanded(
-                              child: Slider(
-                                value: _options.symbolPaperInches
-                                    .clamp(0.12, 0.8),
-                                min: 0.12,
-                                max: 0.8,
-                                divisions: 17,
-                                label:
-                                    '${_options.symbolPaperInches.toStringAsFixed(2)}"',
-                                onChanged: _busy
-                                    ? null
-                                    : (v) => setState(
-                                          () => _options = _options.copyWith(
-                                            symbolPaperInches: v,
-                                          ),
-                                        ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 44,
-                              child: Text(
-                                '${_options.symbolPaperInches.toStringAsFixed(2)}"',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                     if (lw != null)
-                      _CollapsibleSection(
+                      StickySectionSliver(
                         title:
-                            'DXF linework (${_selectedLayers.length}/${lw.layers.length})',
+                            'LAYERS  (${_selectedLayers.length}/${lw.layers.length})',
                         expanded: _lineworkOpen,
-                        onExpansionChanged: (v) =>
-                            setState(() => _lineworkOpen = v),
+                        onToggle: () => setState(
+                          () => _lineworkOpen = !_lineworkOpen,
+                        ),
                         children: [
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text('Draw linked DXF linework'),
+                            dense: true,
+                            title: const Text('Draw DXF linework',
+                                style: TextStyle(fontSize: 13)),
                             value: _options.includeLinework,
                             onChanged: _busy
                                 ? null
@@ -1214,132 +1141,94 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                       ),
                                     ),
                           ),
-                          if (_options.includeLinework) ...[
+                          if (_options.includeLinework)
+                            LayerPropertiesManager(
+                              layers: lw.layers,
+                              layerStyles: lw.layerStyles,
+                              selectedLayers: _selectedLayers,
+                              layerOverrides: _options.layerStyleOverrides,
+                              catalog: _linetypeCatalog,
+                              ctb: _ctbPlotStyle,
+                              globalLinetypeScale: _options.globalLinetypeScale,
+                              selectedLayer: _selectedLineworkLayer,
+                              entityCounts: {
+                                for (final layer in lw.layers)
+                                  layer: lw.countForLayer(layer),
+                              },
+                              onToggleLayer: (layer) => setState(() {
+                                if (_selectedLayers.contains(layer)) {
+                                  _selectedLayers.remove(layer);
+                                } else {
+                                  _selectedLayers.add(layer);
+                                }
+                                _selectedLineworkLayer = layer;
+                                _selectedLineworkId = null;
+                              }),
+                              onSelectLayer: (layer) => setState(() {
+                                _selectedLineworkLayer = layer;
+                                _selectedLineworkId = null;
+                                _selectedNodeIndex = null;
+                                _selectedSegmentIndex = null;
+                                _selectedLabelPointId = null;
+                                _selectedSymbolId = null;
+                              }),
+                              onApplyLayerOverride: _applyLayerOverride,
+                              onGlobalLinetypeScale: (v) => setState(
+                                () => _options = _options.copyWith(
+                                  globalLinetypeScale: v,
+                                ),
+                              ),
+                              onSelectAll: () => _selectAllLayers(!allLayers),
+                            ),
+                          if (_lineEditMode &&
+                              _selectedLineworkEntity != null) ...[
+                            const SizedBox(height: 8),
                             Text(
-                              _lineEditMode
-                                  ? 'Line edit: tap a line on the preview, then a '
-                                      'green segment or blue node. Explode splits '
-                                      'polylines into editable pieces.'
-                                  : 'Turn on Line edit above the preview to select '
-                                      'and trim linework. Colors/weights follow the '
-                                      'project CTB (ACI 252 linework, ACI 10 points).',
-                              style: TextStyle(
+                              'TRIM: ${_selectedLineworkEntity!.layer} · '
+                              '${_selectedLineworkEntity!.type}',
+                              style: const TextStyle(
                                 fontSize: 12,
-                                color: cs.onSurface.withValues(alpha: 0.65),
-                                height: 1.35,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            if (_lineEditMode ||
-                                _selectedLineworkId != null ||
-                                _selectedLineworkLayer != null) ...[
-                              const SizedBox(height: 8),
-                              LineworkPropertiesPanel(
-                                catalog: _linetypeCatalog,
-                                layerStyles: lw.layerStyles,
-                                selectedLayer: _selectedLineworkLayer,
-                                selectedEntity: _selectedLineworkEntity,
-                                layerOverride: _selectedLineworkLayer == null
-                                    ? null
-                                    : _options.layerStyleOverrides[
-                                        _selectedLineworkLayer!],
-                                entityOverride: _selectedLineworkId == null
-                                    ? null
-                                    : _options.entityStyleOverrides[
-                                        _selectedLineworkId!],
-                                globalLinetypeScale:
-                                    _options.globalLinetypeScale,
-                                ctbPlotStyle: _ctbPlotStyle,
-                                selectedNodeIndex: _selectedNodeIndex,
-                                selectedSegmentIndex: _selectedSegmentIndex,
-                                onGlobalLinetypeScale: (v) => setState(
-                                  () => _options = _options.copyWith(
-                                    globalLinetypeScale: v,
-                                  ),
-                                ),
-                                onApplyLayerOverride: (o) =>
-                                    _applyLineworkOverride(
-                                      toEntity: false,
-                                      override: o,
-                                    ),
-                                onApplyEntityOverride: (o) =>
-                                    _applyLineworkOverride(
-                                      toEntity: true,
-                                      override: o,
-                                    ),
-                                onExplode:
-                                    _busy ? null : _explodeSelectedLinework,
-                                onRemoveSegment:
-                                    _busy ? null : _removeSelectedSegment,
-                                onRemoveNode:
-                                    _busy ? null : _removeSelectedNode,
-                                onDeleteEntity:
-                                    _busy ? null : _deleteSelectedLinework,
-                                onClearSelection: () => setState(() {
-                                  _selectedLineworkId = null;
-                                  _selectedLineworkLayer = null;
-                                  _selectedNodeIndex = null;
-                                  _selectedSegmentIndex = null;
-                                }),
-                              ),
-                            ],
-                            const Divider(height: 20),
-                            Row(
+                            Wrap(
+                              spacing: 6,
                               children: [
-                                const Text(
-                                  'Layers',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                                const Spacer(),
                                 TextButton(
-                                  onPressed: () =>
-                                      _selectAllLayers(!allLayers),
-                                  child: Text(allLayers ? 'Clear' : 'All'),
+                                  onPressed: _busy
+                                      ? null
+                                      : _explodeSelectedLinework,
+                                  child: const Text('Explode'),
+                                ),
+                                TextButton(
+                                  onPressed: _busy ||
+                                          _selectedSegmentIndex == null
+                                      ? null
+                                      : _removeSelectedSegment,
+                                  child: const Text('Del seg'),
+                                ),
+                                TextButton(
+                                  onPressed: _busy ||
+                                          _selectedNodeIndex == null
+                                      ? null
+                                      : _removeSelectedNode,
+                                  child: const Text('Del node'),
+                                ),
+                                TextButton(
+                                  onPressed:
+                                      _busy ? null : _deleteSelectedLinework,
+                                  child: const Text('Delete'),
                                 ),
                               ],
                             ),
-                            ...lw.layers.map((layer) {
-                              final count = lw.countForLayer(layer);
-                              final style = lw.layerStyles[layer];
-                              final selected =
-                                  layer == _selectedLineworkLayer &&
-                                      _selectedLineworkId == null;
-                              return CheckboxListTile(
-                                value: _selectedLayers.contains(layer),
-                                dense: true,
-                                selected: selected,
-                                contentPadding: EdgeInsets.zero,
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                title: Text(layer),
-                                subtitle: Text(
-                                  '$count entit${count == 1 ? "y" : "ies"}'
-                                  '${style == null ? '' : ' · ${style.linetypeName} · ACI ${style.colorAci}'}',
-                                ),
-                                onChanged: _busy
-                                    ? null
-                                    : (v) {
-                                        setState(() {
-                                          if (v == true) {
-                                            _selectedLayers.add(layer);
-                                          } else {
-                                            _selectedLayers.remove(layer);
-                                          }
-                                          _selectedLineworkLayer = layer;
-                                          _selectedLineworkId = null;
-                                          _selectedNodeIndex = null;
-                                          _selectedSegmentIndex = null;
-                                        });
-                                      },
-                              );
-                            }),
                           ],
                         ],
                       ),
-                    _CollapsibleSection(
-                      title: 'Plot objects (${_symbols.length})',
+                    StickySectionSliver(
+                      title: 'OBJECTS  (${_symbols.length})',
                       expanded: _objectsOpen,
-                      onExpansionChanged: (v) =>
-                          setState(() => _objectsOpen = v),
+                      onToggle: () =>
+                          setState(() => _objectsOpen = !_objectsOpen),
                       trailing: _symbols.isEmpty
                           ? null
                           : TextButton(
@@ -1349,35 +1238,59 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                         _symbols.clear();
                                         _selectedSymbolId = null;
                                       }),
-                              child: const Text('Clear'),
+                              child: const Text('Clear',
+                                  style: TextStyle(fontSize: 12)),
                             ),
                       children: [
                         Text(
-                          'Add objects from the library. Drag on the live '
-                          'preview to place. Scale uses paper size × object '
-                          'scale × annotation scale (point markers stay fixed).'
-                          '${_blockCatalog == null ? '' : '  ${_blockCatalog!.blocks.length} DWG blocks loaded.'}',
+                          'Objects scale independently (object scale × paper size). '
+                          'Annotation scale does not affect them.',
                           style: TextStyle(
-                            color: cs.onSurface.withValues(alpha: 0.65),
-                            fontSize: 12,
-                            height: 1.35,
+                            fontSize: 11,
+                            color: cs.onSurface.withValues(alpha: 0.6),
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Text('Paper', style: TextStyle(fontSize: 12)),
+                            Expanded(
+                              child: Slider(
+                                value: _options.symbolPaperInches
+                                    .clamp(0.12, 0.8),
+                                min: 0.12,
+                                max: 0.8,
+                                divisions: 17,
+                                onChanged: _busy
+                                    ? null
+                                    : (v) => setState(
+                                          () => _options = _options.copyWith(
+                                            symbolPaperInches: v,
+                                          ),
+                                        ),
+                              ),
+                            ),
+                            Text(
+                              '${_options.symbolPaperInches.toStringAsFixed(2)}"',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ],
+                        ),
                         OutlinedButton.icon(
                           onPressed: _busy ? null : _addSymbol,
-                          icon: const Icon(Icons.add_box_outlined),
-                          label: const Text('Add from object library'),
+                          icon: const Icon(Icons.add_box_outlined, size: 16),
+                          label: const Text('Add object'),
                           style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(44),
+                            visualDensity: VisualDensity.compact,
+                            minimumSize: const Size.fromHeight(40),
                           ),
                         ),
                         ..._symbols.asMap().entries.map((entry) {
                           final i = entry.key;
                           final sym = entry.value;
-                          final caption = sym.libraryLabel;
                           final selected = sym.id == _selectedSymbolId;
                           return ListTile(
+                            dense: true,
                             contentPadding: EdgeInsets.zero,
                             selected: selected,
                             onTap: () => setState(() {
@@ -1385,63 +1298,43 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                               _selectedLabelPointId = null;
                             }),
                             leading: SizedBox(
-                              width: 36,
-                              height: 36,
+                              width: 28,
+                              height: 28,
                               child: CustomPaint(
                                 painter: sym.kind != null
                                     ? SymbolPreviewPainter(
                                         sym.kind!,
                                         color: Color(sym.colorArgb),
                                       )
-                                    : (_blockCatalog != null &&
-                                            sym.blockId != null &&
-                                            _blockCatalog![sym.blockId!] !=
-                                                null)
-                                        ? BlockPreviewPainter(
-                                            _blockCatalog![sym.blockId!]!,
-                                            color: Color(sym.colorArgb),
-                                          )
-                                        : SymbolPreviewPainter(
-                                            PlotSymbolKind.hub,
-                                            color: Color(sym.colorArgb),
-                                          ),
+                                    : SymbolPreviewPainter(
+                                        PlotSymbolKind.hub,
+                                        color: Color(sym.colorArgb),
+                                      ),
                               ),
                             ),
                             title: Text(
-                              caption,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600),
+                              sym.libraryLabel,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
                             ),
                             subtitle: Text(
-                              'N ${sym.northing.toStringAsFixed(2)}  '
-                              'E ${sym.easting.toStringAsFixed(2)}  ·  '
-                              '${sym.scale.toStringAsFixed(2)}×  ·  '
-                              '${sym.rotationDeg.toStringAsFixed(0)}°',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: cs.onSurface.withValues(alpha: 0.65),
-                              ),
+                              '${sym.scale.toStringAsFixed(2)}×',
+                              style: const TextStyle(fontSize: 11),
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  tooltip: 'Edit',
                                   onPressed:
                                       _busy ? null : () => _editSymbol(i),
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    size: 20,
-                                  ),
+                                  icon: const Icon(Icons.edit_outlined, size: 18),
                                 ),
                                 IconButton(
-                                  tooltip: 'Remove',
                                   onPressed:
                                       _busy ? null : () => _removeSymbol(i),
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    size: 20,
-                                  ),
+                                  icon: const Icon(Icons.delete_outline, size: 18),
                                 ),
                               ],
                             ),
@@ -1449,15 +1342,282 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         }),
                       ],
                     ),
-                    _CollapsibleSection(
+                    StickySectionSliver(
                       title:
-                          'Points (${_selected.length}/${_points.length})',
+                          'TITLE / TEXT  (${_textObjects.length})',
+                      expanded: _annotationsOpen,
+                      onToggle: () => setState(
+                        () => _annotationsOpen = !_annotationsOpen,
+                      ),
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          title: const Text('Title block',
+                              style: TextStyle(fontSize: 13)),
+                          value: _options.titleBlock.enabled,
+                          onChanged: _busy
+                              ? null
+                              : (v) => setState(
+                                    () => _options = _options.copyWith(
+                                      titleBlock:
+                                          _options.titleBlock.copyWith(
+                                        enabled: v,
+                                      ),
+                                    ),
+                                  ),
+                        ),
+                        if (_options.titleBlock.enabled) ...[
+                          TextFormField(
+                            initialValue: _options.titleBlock.title,
+                            decoration: const InputDecoration(
+                              labelText: 'Title',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                            onChanged: (v) => setState(
+                              () => _options = _options.copyWith(
+                                titleBlock:
+                                    _options.titleBlock.copyWith(title: v),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            initialValue: _options.titleBlock.project,
+                            decoration: const InputDecoration(
+                              labelText: 'Project',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                            onChanged: (v) => setState(
+                              () => _options = _options.copyWith(
+                                titleBlock:
+                                    _options.titleBlock.copyWith(project: v),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: _options.titleBlock.drawnBy,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Drawn by',
+                                    isDense: true,
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  onChanged: (v) => setState(
+                                    () => _options = _options.copyWith(
+                                      titleBlock: _options.titleBlock
+                                          .copyWith(drawnBy: v),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: _options.titleBlock.checkedBy,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Checked by',
+                                    isDense: true,
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  onChanged: (v) => setState(
+                                    () => _options = _options.copyWith(
+                                      titleBlock: _options.titleBlock
+                                          .copyWith(checkedBy: v),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: _options.titleBlock.sheet,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Sheet',
+                                    isDense: true,
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  onChanged: (v) => setState(
+                                    () => _options = _options.copyWith(
+                                      titleBlock: _options.titleBlock
+                                          .copyWith(sheet: v),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: _options.titleBlock.revision,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Rev',
+                                    isDense: true,
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  onChanged: (v) => setState(
+                                    () => _options = _options.copyWith(
+                                      titleBlock: _options.titleBlock
+                                          .copyWith(revision: v),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            initialValue: _options.titleBlock.notes,
+                            maxLines: 2,
+                            decoration: const InputDecoration(
+                              labelText: 'Notes',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                            onChanged: (v) => setState(
+                              () => _options = _options.copyWith(
+                                titleBlock:
+                                    _options.titleBlock.copyWith(notes: v),
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: _busy || previewPoints.isEmpty
+                              ? null
+                              : () {
+                                  final pts = previewPoints;
+                                  final e = pts
+                                          .map((p) => p.easting)
+                                          .reduce((a, b) => a + b) /
+                                      pts.length;
+                                  final n = pts
+                                          .map((p) => p.northing)
+                                          .reduce((a, b) => a + b) /
+                                      pts.length;
+                                  final id =
+                                      'txt_${DateTime.now().millisecondsSinceEpoch}';
+                                  setState(() {
+                                    _textObjects.add(
+                                      PlotTextObject(
+                                        id: id,
+                                        text: 'TEXT',
+                                        easting: e,
+                                        northing: n,
+                                      ),
+                                    );
+                                    _selectedTextId = id;
+                                    _annotationsOpen = true;
+                                  });
+                                },
+                          icon: const Icon(Icons.text_fields, size: 16),
+                          label: const Text('Add text object'),
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            minimumSize: const Size.fromHeight(40),
+                          ),
+                        ),
+                        ..._textObjects.map((t) {
+                          final selected = t.id == _selectedTextId;
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            selected: selected,
+                            onTap: () =>
+                                setState(() => _selectedTextId = t.id),
+                            title: Text(
+                              t.text,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            subtitle: Text(
+                              '${t.scale.toStringAsFixed(2)}× · ${t.effectiveFontSizePt.toStringAsFixed(0)}pt',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 18),
+                              onPressed: () => setState(() {
+                                _textObjects.removeWhere((x) => x.id == t.id);
+                                if (_selectedTextId == t.id) {
+                                  _selectedTextId = null;
+                                }
+                              }),
+                            ),
+                          );
+                        }),
+                        if (_selectedTextId != null) ...[
+                          Builder(
+                            builder: (context) {
+                              final i = _textObjects
+                                  .indexWhere((t) => t.id == _selectedTextId);
+                              if (i < 0) return const SizedBox.shrink();
+                              final t = _textObjects[i];
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  TextFormField(
+                                    key: ValueKey('txt-${t.id}'),
+                                    initialValue: t.text,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Text',
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    onChanged: (v) => setState(() {
+                                      _textObjects[i] = t.copyWith(text: v);
+                                    }),
+                                  ),
+                                  Row(
+                                    children: [
+                                      const Text('Scale',
+                                          style: TextStyle(fontSize: 12)),
+                                      Expanded(
+                                        child: Slider(
+                                          value: t.scale.clamp(0.25, 5.0),
+                                          min: 0.25,
+                                          max: 5.0,
+                                          divisions: 19,
+                                          onChanged: (v) => setState(() {
+                                            _textObjects[i] =
+                                                t.copyWith(scale: v);
+                                          }),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${t.scale.toStringAsFixed(2)}×',
+                                        style: const TextStyle(fontSize: 11),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                    StickySectionSliver(
+                      title:
+                          'POINTS  (${_selected.length}/${_points.length})',
                       expanded: _pointsOpen,
-                      onExpansionChanged: (v) =>
-                          setState(() => _pointsOpen = v),
+                      onToggle: () =>
+                          setState(() => _pointsOpen = !_pointsOpen),
                       trailing: TextButton(
                         onPressed: () => _selectAll(!allSelected),
-                        child: Text(allSelected ? 'Clear' : 'Select all'),
+                        child: Text(
+                          allSelected ? 'Clear' : 'All',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ),
                       children: [
                         ..._points.map((pt) {
@@ -1469,13 +1629,15 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                             controlAffinity: ListTileControlAffinity.leading,
                             title: Text(
                               '${pt.id}  ${pt.description}',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
                             ),
                             subtitle: Text(
-                              'N ${pt.northingText}   E ${pt.eastingText}   Z ${pt.elevText}',
+                              'N ${pt.northingText}  E ${pt.eastingText}  Z ${pt.elevText}',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 11,
                                 color: cs.onSurface.withValues(alpha: 0.65),
                               ),
                             ),
@@ -1495,17 +1657,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       ],
                     ),
                   ],
-                  if (_error != null) ...[
-                    const SizedBox(height: 12),
-                    Text(_error!, style: TextStyle(color: cs.error)),
-                  ],
-                  if (_status != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _status!,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 12)),
                 ],
               ),
             ),
@@ -1523,9 +1675,9 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.picture_as_pdf),
-                    label: const Text('Create staking plot PDF'),
+                    label: const Text('Create PDF'),
                     style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
+                      minimumSize: const Size.fromHeight(46),
                       backgroundColor: cs.primary,
                       foregroundColor: Colors.black,
                     ),
@@ -1537,7 +1689,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                     icon: const Icon(Icons.table_rows),
                     label: const Text('Export selected points CSV'),
                     style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
+                      minimumSize: const Size.fromHeight(42),
                     ),
                   ),
                 ],
@@ -1550,54 +1702,3 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   }
 }
 
-/// Compact collapsible menu used throughout Export Points.
-class _CollapsibleSection extends StatelessWidget {
-  const _CollapsibleSection({
-    required this.title,
-    required this.expanded,
-    required this.onExpansionChanged,
-    required this.children,
-    this.trailing,
-  });
-
-  final String title;
-  final bool expanded;
-  final ValueChanged<bool> onExpansionChanged;
-  final List<Widget> children;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
-      elevation: 0,
-      child: ExpansionTile(
-        initiallyExpanded: expanded,
-        maintainState: true,
-        onExpansionChanged: onExpansionChanged,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 15,
-            color: cs.primary,
-          ),
-        ),
-        trailing: trailing == null
-            ? null
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  trailing!,
-                  Icon(expanded ? Icons.expand_less : Icons.expand_more),
-                ],
-              ),
-        children: children,
-      ),
-    );
-  }
-}

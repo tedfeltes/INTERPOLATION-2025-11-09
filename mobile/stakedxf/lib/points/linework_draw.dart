@@ -18,6 +18,7 @@ void paintLineworkFlutter({
   double globalLinetypeScale = 1.0,
   CtbPlotStyleTable? ctb,
   String? selectedId,
+  String? selectedLayer,
   int? selectedSegmentIndex,
   int? selectedNodeIndex,
   bool showNodesForSelected = true,
@@ -39,9 +40,12 @@ void paintLineworkFlutter({
     ];
     if (samples.length < 2) continue;
 
+    final layerSelected =
+        selectedLayer != null && ent.layer == selectedLayer;
     final paint = Paint()
       ..color = Color(style.colorWithOpacity)
-      ..strokeWidth = style.strokeWidthPt
+      ..strokeWidth =
+          style.strokeWidthPt * (layerSelected ? 1.35 : 1.0)
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
@@ -58,10 +62,10 @@ void paintLineworkFlutter({
       _strokeDashed(canvas, samples, dash, paint, closed: ent.closed);
     }
 
-    if (ent.id == selectedId) {
+    if (layerSelected || ent.id == selectedId) {
       final hi = Paint()
         ..color = const Color(0xFFE4572E)
-        ..strokeWidth = style.strokeWidthPt + 1.5
+        ..strokeWidth = style.strokeWidthPt + (layerSelected ? 1.0 : 1.5)
         ..style = PaintingStyle.stroke;
       final path = Path()..moveTo(samples.first.dx, samples.first.dy);
       for (var i = 1; i < samples.length; i++) {

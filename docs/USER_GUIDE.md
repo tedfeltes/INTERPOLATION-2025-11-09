@@ -8,10 +8,10 @@ Companion PDFs:
 
 ## 1. Installation (Trimble TSC5)
 
-**File:** `dist/StakeDXF v1.16.0.apk` (~65 MB)  
+**File:** `dist/StakeDXF v1.17.0.apk` (~65 MB)  
 **Package:** `com.stakedxf.stakedxf`
 
-1. Copy `StakeDXF v1.16.0.apk` onto the TSC5 (USB File Transfer or your usual file share).
+1. Copy `StakeDXF v1.17.0.apk` onto the TSC5 (USB File Transfer or your usual file share).
 2. Open **Files / Downloads** and tap the APK.
 3. If blocked, enable **Allow from this source** for the app that opened the APK.
 4. Tap **Install**, then open **StakeDXF**.
@@ -73,8 +73,26 @@ Recover Civil 3D linework into a Trimble-stakeable DXF on the controller.
 
 Staking plots use the project color-dependent plot style table
 (`assets/plot_styles/staking_plot.ctb`). Linework defaults to ACI 252 (grey);
-points and labels use ACI 10 (plots black on paper). Lineweights follow the CTB
-table unless you override them in **Line edit**.
+points and labels use ACI 10 (reddish). Layer overrides win over CTB.
+
+### Layer properties (Civil 3D style)
+
+The **LAYERS** section is a Layer Properties Manager: each row shows On · Color ·
+LT · LW · LTS · Name. Tap a cell to edit that attribute for the **whole layer**.
+Tap a line on the preview to select its layer. Use **Trim** only for explode /
+delete-segment geometry edits.
+
+### Point labels
+
+Tap a point or label on the preview to edit color, label type
+(`PT NO`, `PT NO DESC`, `PT NO DESC ELV`, …), dragged text, and reset drag state.
+Annotation scale affects point labels/markers only.
+
+### Objects & text
+
+Library objects and free text objects scale independently of annotation scale.
+Enable **Object labels** to show names. **TITLE / TEXT** adds a sheet title block
+and plan-space text.
 
 ### Linked DXF linework
 Draws `LINE`, `LWPOLYLINE`, `POLYLINE`, `ARC`, `CIRCLE` for checked layers.

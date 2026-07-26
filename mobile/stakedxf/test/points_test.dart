@@ -89,6 +89,9 @@ void main() {
       ['7', 'IP', '3.25'],
     );
     expect(labelLinesFor(p, PointLabelFormat.none), isEmpty);
+    expect(labelLinesFor(p, PointLabelFormat.descriptionElevation),
+        ['IP', '3.25']);
+    expect(PointLabelFormat.numberDescriptionElevation.label, 'PT NO DESC ELV');
   });
 
   test('parse DXF linework by layer', () {
@@ -339,9 +342,9 @@ void main() {
       File('assets/plot_styles/staking_plot_ctb.json').readAsStringSync(),
     ) as Map<String, dynamic>;
     final ctb = CtbPlotStyleTable.fromJson(json);
-    // ACI 10 is white in CTB → black on paper; 0.254 mm.
+    // ACI 10 uses object color (reddish); 0.254 mm.
     final p10 = ctb.resolve(10);
-    expect(p10.colorArgb & 0x00FFFFFF, 0x000000);
+    expect((p10.colorArgb >> 16) & 0xFF, greaterThan(200));
     expect(p10.strokeWidthPt, closeTo(0.254 * 72 / 25.4, 0.01));
     // ACI 252 forced grey.
     final p252 = ctb.resolve(252);

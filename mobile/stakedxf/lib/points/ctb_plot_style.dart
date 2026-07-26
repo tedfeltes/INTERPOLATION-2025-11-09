@@ -151,8 +151,8 @@ const _kBuiltinCtb = {
       'screening': 100,
     },
     '10': {
-      'useObjectColor': false,
-      'rgb': [0, 0, 0],
+      'useObjectColor': true,
+      'rgb': null,
       'lineweightMm': 0.254,
       'screening': 100,
     },

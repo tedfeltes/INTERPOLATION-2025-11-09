@@ -11,6 +11,7 @@ import 'label_placement.dart';
 import 'leader_geometry.dart';
 import 'linetype_catalog.dart';
 import 'linework_draw.dart';
+import 'plot_annotations.dart';
 import 'plot_options.dart';
 import 'plot_symbols.dart';
 import 'plot_templates.dart';
@@ -31,8 +32,9 @@ const _trioAddress =
     'Brookfield, WI 53005\n'
     '262.790.1480';
 
-/// Fallback when CTB is unavailable — CTB ACI 10 plots black on paper.
-PdfColor _pointLabelColor(CtbPlotStyleTable? ctb) {
+/// Default point/label color from CTB ACI 10 (reddish object color).
+PdfColor _pointLabelColor(CtbPlotStyleTable? ctb, {int? overrideArgb}) {
+  if (overrideArgb != null) return PdfColor.fromInt(overrideArgb);
   final argb = (ctb ?? CtbPlotStyleTable.builtin())
       .resolve(kCtbPointLabelAci)
       .colorArgb;
@@ -48,6 +50,7 @@ Future<Uint8List> buildStakingPlotPdf({
   PlotOptions options = const PlotOptions(),
   List<LineworkEntity> linework = const [],
   List<PlacedPlotSymbol> symbols = const [],
+  List<PlotTextObject> textObjects = const [],
   BlockCatalog? blockCatalog,
   Map<String, DxfLayerStyle> layerStyles = const {},
   LinetypeCatalog? linetypeCatalog,
@@ -97,6 +100,7 @@ Future<Uint8List> buildStakingPlotPdf({
               layerStyles: layerStyles,
               linetypeCatalog: catalog,
               ctbPlotStyle: ctb,
+              textObjects: textObjects,
             );
           case PlotTemplateLayout.fieldMap:
             return _buildFieldMapPage(
@@ -114,6 +118,7 @@ Future<Uint8List> buildStakingPlotPdf({
               layerStyles: layerStyles,
               linetypeCatalog: catalog,
               ctbPlotStyle: ctb,
+              textObjects: textObjects,
             );
           case PlotTemplateLayout.fieldHeader:
             return _buildFieldMapPage(
@@ -131,6 +136,7 @@ Future<Uint8List> buildStakingPlotPdf({
               layerStyles: layerStyles,
               linetypeCatalog: catalog,
               ctbPlotStyle: ctb,
+              textObjects: textObjects,
             );
         }
       },
@@ -154,11 +160,16 @@ pw.Widget _buildSidePanelPage({
   Map<String, DxfLayerStyle> layerStyles = const {},
   LinetypeCatalog? linetypeCatalog,
   CtbPlotStyleTable? ctbPlotStyle,
+  List<PlotTextObject> textObjects = const [],
 }) {
   final showTable = options.showPointList;
   final plotFlex = showTable ? 58 : 78;
   final sideFlex = showTable ? 42 : 22;
   final pad = template.outerPaddingPt;
+  final sheetTitle =
+      options.titleBlock.enabled && options.titleBlock.title.trim().isNotEmpty
+          ? options.titleBlock.title.trim()
+          : title;
   return pw.Padding(
     padding: pw.EdgeInsets.all(pad),
     child: pw.Container(
@@ -182,6 +193,7 @@ pw.Widget _buildSidePanelPage({
                 layerStyles: layerStyles,
                 linetypeCatalog: linetypeCatalog,
                 ctbPlotStyle: ctbPlotStyle,
+                textObjects: textObjects,
               ),
             ),
           ),
@@ -191,7 +203,7 @@ pw.Widget _buildSidePanelPage({
             child: pw.Padding(
               padding: const pw.EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: _SidePanel(
-                title: title,
+                title: sheetTitle,
                 jobName: jobName,
                 points: points,
                 scaleFtPerInch: scaleFtPerInch,
@@ -199,6 +211,7 @@ pw.Widget _buildSidePanelPage({
                 showPointList: showTable,
                 compact: !showTable,
                 sheetCallout: template.sizeCallout,
+                titleBlock: options.titleBlock,
               ),
             ),
           ),
@@ -223,10 +236,15 @@ pw.Widget _buildFieldMapPage({
   Map<String, DxfLayerStyle> layerStyles = const {},
   LinetypeCatalog? linetypeCatalog,
   CtbPlotStyleTable? ctbPlotStyle,
+  List<PlotTextObject> textObjects = const [],
 }) {
   final pad = template.outerPaddingPt;
+  final sheetTitle =
+      options.titleBlock.enabled && options.titleBlock.title.trim().isNotEmpty
+          ? options.titleBlock.title.trim()
+          : title;
   final footer = _FieldLegendStrip(
-    title: title,
+    title: sheetTitle,
     jobName: jobName,
     scaleFtPerInch: scaleFtPerInch,
     dateStr: dateStr,
@@ -234,6 +252,7 @@ pw.Widget _buildFieldMapPage({
     pointCount: points.length,
     showTitleHeader: showTitleHeader,
     corner: template.legendCorner,
+    titleBlock: options.titleBlock,
   );
 
   final plan = _PlanPanel(
@@ -246,6 +265,7 @@ pw.Widget _buildFieldMapPage({
     layerStyles: layerStyles,
     linetypeCatalog: linetypeCatalog,
     ctbPlotStyle: ctbPlotStyle,
+    textObjects: textObjects,
   );
 
   // Explicit plan height — pdf Expanded can collapse to 0 on some sheets,
@@ -402,6 +422,7 @@ class _PlanPanel extends pw.StatelessWidget {
     this.layerStyles = const {},
     this.linetypeCatalog,
     this.ctbPlotStyle,
+    this.textObjects = const [],
   });
 
   final List<SurveyPoint> points;
@@ -413,6 +434,7 @@ class _PlanPanel extends pw.StatelessWidget {
   final Map<String, DxfLayerStyle> layerStyles;
   final LinetypeCatalog? linetypeCatalog;
   final CtbPlotStyleTable? ctbPlotStyle;
+  final List<PlotTextObject> textObjects;
 
   @override
   pw.Widget build(pw.Context context) {
@@ -453,6 +475,7 @@ class _PlanPanel extends pw.StatelessWidget {
               layerStyles: layerStyles,
               linetypeCatalog: linetypeCatalog,
               ctbPlotStyle: ctbPlotStyle,
+              textObjects: textObjects,
             ),
           ),
         );
@@ -478,12 +501,12 @@ void paintStakingPlan(
   Map<String, DxfLayerStyle> layerStyles = const {},
   LinetypeCatalog? linetypeCatalog,
   CtbPlotStyleTable? ctbPlotStyle,
+  List<PlotTextObject> textObjects = const [],
 }) {
   if (size.x < 8 || size.y < 8 || !size.x.isFinite || !size.y.isFinite) {
     return;
   }
   final ctb = ctbPlotStyle ?? CtbPlotStyleTable.builtin();
-  final pointColor = _pointLabelColor(ctb);
 
   final bounds = computePlanViewBounds(
     points,
@@ -544,7 +567,7 @@ void paintStakingPlan(
     ctb: ctb,
   );
 
-  // Library objects — paper-sized; labels off unless requested.
+  // Library objects — paper-sized; independent of annotation scale.
   if (symbols.isNotEmpty) {
     drawPlacedSymbols(
       canvas,
@@ -555,8 +578,17 @@ void paintStakingPlan(
       blocks: blockCatalog,
       showLabels: options.showObjectLabels,
       symbolPaperInches: options.symbolPaperInches,
-      annotationScale: options.annotationScale,
     );
+  }
+
+  // Free text objects — independently scaled.
+  for (final t in textObjects) {
+    if (!_finite2(t.easting, t.northing) || t.text.trim().isEmpty) continue;
+    final c = toPage(t.easting, t.northing);
+    final fs = t.effectiveFontSizePt;
+    canvas
+      ..setFillColor(PdfColor.fromInt(t.colorArgb))
+      ..drawString(labelFont, fs, t.text, c.x, c.y);
   }
 
   final ann = options.annotationScale.clamp(0.6, 3.0);
@@ -579,22 +611,33 @@ void paintStakingPlan(
   // Point markers (fixed locations — never moved by label drag).
   for (final p in points) {
     if (!_finite2(p.easting, p.northing)) continue;
+    final ov = options.pointStyleOverrides[p.id];
     final c = toPage(p.easting, p.northing);
+    final color = _pointLabelColor(
+      ctb,
+      overrideArgb: ov?.colorArgb ?? options.defaultPointColorArgb,
+    );
     _drawMarker(
       canvas,
       c,
-      options.markerStyle,
+      ov?.markerStyle ?? options.markerStyle,
       sizeScale: ann,
-      color: pointColor,
+      color: color,
     );
   }
 
   // Labels with Civil-style dogleg leaders (never through text).
   for (final p in points) {
     if (!_finite2(p.easting, p.northing)) continue;
+    final ov = options.pointStyleOverrides[p.id];
+    final format = ov?.labelFormat ?? options.labelFormat;
     final drag = drags[p.id];
-    final lines = resolvedLabelLines(p, options.labelFormat, drag);
+    final lines = resolvedLabelLines(p, format, drag);
     if (lines.isEmpty) continue;
+    final pointColor = _pointLabelColor(
+      ctb,
+      overrideArgb: ov?.colorArgb ?? options.defaultPointColorArgb,
+    );
     final c = toPage(p.easting, p.northing);
     final oE = drag?.offsetE ?? 14.0;
     final oN = drag?.offsetN ?? 10.0;
@@ -727,6 +770,7 @@ class _FieldLegendStrip extends pw.StatelessWidget {
     required this.pointCount,
     required this.showTitleHeader,
     required this.corner,
+    this.titleBlock = const TitleBlockData(),
   });
 
   final String title;
@@ -737,12 +781,14 @@ class _FieldLegendStrip extends pw.StatelessWidget {
   final int pointCount;
   final bool showTitleHeader;
   final FieldLegendCorner corner;
+  final TitleBlockData titleBlock;
 
   @override
   pw.Widget build(pw.Context context) {
     final scaleInt = scaleFtPerInch.round();
     final scaleLine = 'SCALE: 1" = $scaleInt\'  ($sheetCallout)';
-    final titleBlock = pw.Column(
+    final tb = titleBlock;
+    final titleColumn = pw.Column(
       crossAxisAlignment: showTitleHeader
           ? pw.CrossAxisAlignment.start
           : pw.CrossAxisAlignment.start,
@@ -770,6 +816,31 @@ class _FieldLegendStrip extends pw.StatelessWidget {
           'DATE: $dateStr   ·   $pointCount pt${pointCount == 1 ? "" : "s"}',
           style: const pw.TextStyle(fontSize: 8),
         ),
+        if (tb.enabled) ...[
+          if (tb.project.trim().isNotEmpty)
+            pw.Text(
+              'PROJECT: ${tb.project.trim().toUpperCase()}',
+              style: const pw.TextStyle(fontSize: 8),
+            ),
+          if (tb.drawnBy.trim().isNotEmpty || tb.checkedBy.trim().isNotEmpty)
+            pw.Text(
+              [
+                if (tb.drawnBy.trim().isNotEmpty)
+                  'DRWN: ${tb.drawnBy.trim()}',
+                if (tb.checkedBy.trim().isNotEmpty)
+                  'CHK: ${tb.checkedBy.trim()}',
+              ].join('   '),
+              style: const pw.TextStyle(fontSize: 8),
+            ),
+          if (tb.sheet.trim().isNotEmpty || tb.revision.trim().isNotEmpty)
+            pw.Text(
+              [
+                if (tb.sheet.trim().isNotEmpty) 'SHT: ${tb.sheet.trim()}',
+                if (tb.revision.trim().isNotEmpty) 'REV: ${tb.revision.trim()}',
+              ].join('   '),
+              style: const pw.TextStyle(fontSize: 8),
+            ),
+        ],
       ],
     );
 
@@ -807,7 +878,7 @@ class _FieldLegendStrip extends pw.StatelessWidget {
       return pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Expanded(child: titleBlock),
+          pw.Expanded(child: titleColumn),
           legend,
         ],
       );
@@ -816,8 +887,8 @@ class _FieldLegendStrip extends pw.StatelessWidget {
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.end,
       children: alignStart
-          ? [legend, pw.Spacer(), titleBlock]
-          : [titleBlock, pw.Spacer(), legend],
+          ? [legend, pw.Spacer(), titleColumn]
+          : [titleColumn, pw.Spacer(), legend],
     );
   }
 }
@@ -832,6 +903,7 @@ class _SidePanel extends pw.StatelessWidget {
     required this.showPointList,
     required this.compact,
     this.sheetCallout = '17"×11"',
+    this.titleBlock = const TitleBlockData(),
   });
 
   final String title;
@@ -842,6 +914,7 @@ class _SidePanel extends pw.StatelessWidget {
   final bool showPointList;
   final bool compact;
   final String sheetCallout;
+  final TitleBlockData titleBlock;
 
   @override
   pw.Widget build(pw.Context context) {
@@ -870,6 +943,41 @@ class _SidePanel extends pw.StatelessWidget {
               fontWeight: pw.FontWeight.bold,
             ),
           ),
+        ],
+        if (titleBlock.enabled) ...[
+          pw.SizedBox(height: 6),
+          if (titleBlock.project.trim().isNotEmpty)
+            pw.Text(
+              titleBlock.project.trim().toUpperCase(),
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(fontSize: compact ? 8 : 9),
+            ),
+          if (titleBlock.drawnBy.trim().isNotEmpty)
+            pw.Text(
+              'DRAWN: ${titleBlock.drawnBy.trim()}',
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(fontSize: compact ? 7 : 8),
+            ),
+          if (titleBlock.checkedBy.trim().isNotEmpty)
+            pw.Text(
+              'CHECKED: ${titleBlock.checkedBy.trim()}',
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(fontSize: compact ? 7 : 8),
+            ),
+          if (titleBlock.revision.trim().isNotEmpty)
+            pw.Text(
+              'REV: ${titleBlock.revision.trim()}',
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(fontSize: compact ? 7 : 8),
+            ),
+          if (titleBlock.notes.trim().isNotEmpty) ...[
+            pw.SizedBox(height: 4),
+            pw.Text(
+              titleBlock.notes.trim(),
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(fontSize: compact ? 6.5 : 7.5),
+            ),
+          ],
         ],
         if (showPointList) ...[
           pw.SizedBox(height: 14),
@@ -940,7 +1048,9 @@ class _SidePanel extends pw.StatelessWidget {
         ),
         pw.SizedBox(height: 2),
         pw.Text(
-          'PAGE 1 OF 1',
+          titleBlock.enabled && titleBlock.sheet.trim().isNotEmpty
+              ? 'PAGE ${titleBlock.sheet.trim()}'
+              : 'PAGE 1 OF 1',
           textAlign: pw.TextAlign.right,
           style: pw.TextStyle(fontSize: compact ? 8 : 9),
         ),

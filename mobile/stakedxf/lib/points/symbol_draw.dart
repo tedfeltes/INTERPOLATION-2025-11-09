@@ -8,9 +8,8 @@ import 'plot_symbols.dart';
 
 /// Draw all placed symbols (after linework; typically before stake markers).
 ///
-/// Size is **paper-based** (inches × scale × annotationScale) so objects stay
-/// readable when the engineering scale is large. Object name labels are omitted
-/// unless [showLabels] is true.
+/// Size is **paper-based** (inches × object scale only) — independent of
+/// annotation scale. Object name labels draw when [showLabels] is true.
 void drawPlacedSymbols(
   PdfGraphics canvas,
   PdfPoint Function(double e, double n) toPage,
@@ -24,10 +23,10 @@ void drawPlacedSymbols(
 }) {
   for (final sym in symbols) {
     final c = toPage(sym.easting, sym.northing);
-    // Paper diameter in PDF points — independent of engineering scale (ppt).
+    // Independent of annotationScale — each object has its own scale.
     final half = math.max(
       5.0,
-      (symbolPaperInches * 72.0 / 2.0) * sym.scale * annotationScale,
+      (symbolPaperInches * 72.0 / 2.0) * sym.scale,
     );
     final color = PdfColor.fromInt(sym.colorArgb);
 
@@ -49,7 +48,8 @@ void drawPlacedSymbols(
 
     if (showLabels) {
       final text = sym.libraryLabel;
-      final fontSize = (7.0 * annotationScale).clamp(6.0, 12.0);
+      // Label size tracks object scale, not annotation scale.
+      final fontSize = (7.0 * sym.scale).clamp(6.0, 14.0);
       canvas
         ..setFillColor(color)
         ..drawString(labelFont, fontSize, text, c.x + half + 2, c.y - 2);

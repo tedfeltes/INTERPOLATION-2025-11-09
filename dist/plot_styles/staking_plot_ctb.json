@@ -1,7 +1,7 @@
 {
   "sourceFile": "staking_plot.ctb",
   "source": "User CTB from Drive (PIAFILEVERSION_2.0 CTBVER1)",
-  "note": "White CTB colors plot as black on paper (AutoCAD convention). useObjectColor keeps ACI hue; lineweight/screening always from CTB.",
+  "note": "Project CTB: ACI 10 uses object color (reddish); ACI 252 grey linework.",
   "lineweightTableMm": {
     "0": 0.0762,
     "1": 0.1524,
@@ -104,15 +104,11 @@
       "colorPolicy": 1
     },
     "10": {
-      "useObjectColor": false,
-      "rgb": [
-        0,
-        0,
-        0
-      ],
+      "useObjectColor": true,
+      "rgb": null,
       "lineweightMm": 0.254,
       "screening": 100,
-      "colorPolicy": 1
+      "colorPolicy": 5
     },
     "11": {
       "useObjectColor": true,

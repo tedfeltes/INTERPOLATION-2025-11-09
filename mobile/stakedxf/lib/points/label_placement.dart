@@ -65,6 +65,7 @@ class LabelDragState {
 
 /// Text drawn next to each stake point (shared by PDF + preview).
 List<String> labelLinesFor(SurveyPoint p, PointLabelFormat format) {
+  final desc = p.description.trim().toUpperCase();
   switch (format) {
     case PointLabelFormat.none:
       return const [];
@@ -73,16 +74,25 @@ List<String> labelLinesFor(SurveyPoint p, PointLabelFormat format) {
     case PointLabelFormat.numberDescription:
       return [
         p.id,
-        if (p.description.trim().isNotEmpty) p.description.trim().toUpperCase(),
+        if (desc.isNotEmpty) desc,
       ];
     case PointLabelFormat.numberElevation:
       return [p.id, p.elevText];
     case PointLabelFormat.numberDescriptionElevation:
       return [
         p.id,
-        if (p.description.trim().isNotEmpty) p.description.trim().toUpperCase(),
+        if (desc.isNotEmpty) desc,
         p.elevText,
       ];
+    case PointLabelFormat.descriptionElevation:
+      return [
+        if (desc.isNotEmpty) desc,
+        p.elevText,
+      ];
+    case PointLabelFormat.descriptionOnly:
+      return desc.isEmpty ? const [] : [desc];
+    case PointLabelFormat.elevationOnly:
+      return [p.elevText];
   }
 }
 
