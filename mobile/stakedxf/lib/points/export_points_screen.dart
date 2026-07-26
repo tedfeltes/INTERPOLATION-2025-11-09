@@ -702,7 +702,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                           onPressed: _busy || previewPoints.isEmpty
                               ? null
                               : _spreadLabelsNow,
-                          icon: const Icon(Icons.auto_fix_fix, size: 18),
+                          icon: const Icon(Icons.scatter_plot_outlined, size: 18),
                           label: const Text('Spread labels'),
                         ),
                         FilterChip(
