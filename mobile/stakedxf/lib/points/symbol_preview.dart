@@ -3,26 +3,30 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'block_catalog.dart';
+import 'hatch_paint.dart';
 import 'plot_symbols.dart';
 
-/// Tiny preview icon for the symbol library picker.
+/// Tiny preview icon for the symbol library picker (hatched, not solid fill).
 class SymbolPreviewPainter extends CustomPainter {
-  SymbolPreviewPainter(this.kind, {this.color = const Color(0xFFE4572E)});
+  SymbolPreviewPainter(
+    this.kind, {
+    this.color = const Color(0xFFE4572E),
+    this.opacity = 1.0,
+  });
 
   final PlotSymbolKind kind;
   final Color color;
+  final double opacity;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final paintColor = color.withValues(alpha: opacity.clamp(0.05, 1.0));
     final stroke = Paint()
-      ..color = color
+      ..color = paintColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    final fill = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
     final cx = size.width / 2;
     final cy = size.height / 2;
     final h = math.min(size.width, size.height) * 0.35;
@@ -41,7 +45,7 @@ class SymbolPreviewPainter extends CustomPainter {
           }
         }
         path.close();
-        canvas.drawPath(path, fill);
+        hatchFlutterPath(canvas, path, paintColor, spacing: 3.2);
         return;
       case PlotSymbolKind.yieldSign:
         canvas.drawPath(
@@ -93,27 +97,40 @@ class SymbolPreviewPainter extends CustomPainter {
         return;
       default:
         canvas.drawCircle(Offset(cx, cy), h, stroke);
-        canvas.drawCircle(Offset(cx, cy), h * 0.28, fill);
+        hatchFlutterCircle(
+          canvas,
+          Offset(cx, cy),
+          h * 0.35,
+          paintColor,
+          spacing: 2.8,
+        );
         return;
     }
   }
 
   @override
   bool shouldRepaint(covariant SymbolPreviewPainter oldDelegate) =>
-      oldDelegate.kind != kind || oldDelegate.color != color;
+      oldDelegate.kind != kind ||
+      oldDelegate.color != color ||
+      oldDelegate.opacity != opacity;
 }
 
 /// Preview painter for extracted DWG block geometry.
 class BlockPreviewPainter extends CustomPainter {
-  BlockPreviewPainter(this.block, {this.color = const Color(0xFFE4572E)});
+  BlockPreviewPainter(
+    this.block, {
+    this.color = const Color(0xFFE4572E),
+    this.opacity = 1.0,
+  });
 
   final DwgBlockSymbol block;
   final Color color;
+  final double opacity;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color
+      ..color = color.withValues(alpha: opacity.clamp(0.05, 1.0))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
@@ -130,12 +147,24 @@ class BlockPreviewPainter extends CustomPainter {
         final pt = path.points[i];
         p.lineTo(cx + pt[0] * s, cy - pt[1] * s);
       }
-      if (path.closed) p.close();
-      canvas.drawPath(p, paint);
+      if (path.closed) {
+        p.close();
+        // Closed block paths: Civil-style hatch instead of solid fill.
+        hatchFlutterPath(
+          canvas,
+          p,
+          color.withValues(alpha: opacity.clamp(0.05, 1.0)),
+          spacing: 3.5,
+        );
+      } else {
+        canvas.drawPath(p, paint);
+      }
     }
   }
 
   @override
   bool shouldRepaint(covariant BlockPreviewPainter oldDelegate) =>
-      oldDelegate.block.id != block.id || oldDelegate.color != color;
+      oldDelegate.block.id != block.id ||
+      oldDelegate.color != color ||
+      oldDelegate.opacity != opacity;
 }

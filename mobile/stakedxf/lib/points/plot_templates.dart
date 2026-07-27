@@ -20,6 +20,9 @@ enum AnsiSheetSize {
   String get sizeCallout =>
       '${_fmt(shortIn)}"×${_fmt(longIn)}"';
 
+  /// UI label: `ANSI B (11"×17")`.
+  String get pickerLabel => '$label ($sizeCallout)';
+
   static String _fmt(double v) =>
       v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
 }
@@ -321,7 +324,78 @@ PlotTemplate plotTemplateById(String? id) {
   for (final t in kPlotTemplates) {
     if (t.id == id) return t;
   }
+  // Composed ids: field|header|control _ a|b|c|d _ landscape|portrait
+  final composed = tryParseComposedTemplateId(id);
+  if (composed != null) return composed;
   return kDefaultPlotTemplate;
+}
+
+/// Build a sheet from ANSI size × orientation × layout (UI pickers).
+PlotTemplate composePlotTemplate({
+  required AnsiSheetSize size,
+  required SheetOrientation orientation,
+  PlotTemplateLayout layout = PlotTemplateLayout.sidePanel,
+}) {
+  final sizeKey = switch (size) {
+    AnsiSheetSize.a => 'a',
+    AnsiSheetSize.b => 'b',
+    AnsiSheetSize.c => 'c',
+    AnsiSheetSize.d => 'd',
+  };
+  final layoutKey = switch (layout) {
+    PlotTemplateLayout.fieldMap => 'field',
+    PlotTemplateLayout.fieldHeader => 'header',
+    PlotTemplateLayout.sidePanel => 'control',
+  };
+  final orientKey =
+      orientation == SheetOrientation.landscape ? 'landscape' : 'portrait';
+  final id = '${layoutKey}_${sizeKey}_$orientKey';
+  for (final t in kPlotTemplates) {
+    if (t.id == id) return t;
+  }
+  final legend = layout == PlotTemplateLayout.fieldHeader
+      ? FieldLegendCorner.topLeft
+      : (size == AnsiSheetSize.c || size == AnsiSheetSize.d) &&
+              orientation == SheetOrientation.landscape
+          ? FieldLegendCorner.bottomLeft
+          : FieldLegendCorner.bottomRight;
+  return PlotTemplate(
+    id: id,
+    name: '${size.pickerLabel} · ${orientation.label}',
+    size: size,
+    orientation: orientation,
+    layout: layout,
+    legendCorner: legend,
+  );
+}
+
+PlotTemplate? tryParseComposedTemplateId(String id) {
+  final parts = id.split('_');
+  if (parts.length < 3) return null;
+  final layout = switch (parts[0]) {
+    'field' => PlotTemplateLayout.fieldMap,
+    'header' => PlotTemplateLayout.fieldHeader,
+    'control' => PlotTemplateLayout.sidePanel,
+    _ => null,
+  };
+  final size = switch (parts[1]) {
+    'a' => AnsiSheetSize.a,
+    'b' => AnsiSheetSize.b,
+    'c' => AnsiSheetSize.c,
+    'd' => AnsiSheetSize.d,
+    _ => null,
+  };
+  final orient = switch (parts[2]) {
+    'landscape' => SheetOrientation.landscape,
+    'portrait' => SheetOrientation.portrait,
+    _ => null,
+  };
+  if (layout == null || size == null || orient == null) return null;
+  return composePlotTemplate(
+    size: size,
+    orientation: orient,
+    layout: layout,
+  );
 }
 
 /// Templates grouped for UI section headers.

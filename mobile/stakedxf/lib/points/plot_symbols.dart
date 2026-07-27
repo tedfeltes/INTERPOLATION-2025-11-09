@@ -284,6 +284,7 @@ class PlacedPlotSymbol {
     this.scale = 1.0,
     this.rotationDeg = 0.0,
     this.colorArgb = 0xFF1A1A1A,
+    this.opacity = 1.0,
     this.label = '',
   }) : assert(kind != null || blockId != null);
 
@@ -296,6 +297,7 @@ class PlacedPlotSymbol {
     double scale = 1.0,
     double rotationDeg = 0.0,
     int colorArgb = 0xFF1A1A1A,
+    double opacity = 1.0,
     String label = '',
   }) {
     return PlacedPlotSymbol(
@@ -308,6 +310,7 @@ class PlacedPlotSymbol {
       scale: scale,
       rotationDeg: rotationDeg,
       colorArgb: colorArgb,
+      opacity: opacity,
       label: label,
     );
   }
@@ -323,6 +326,7 @@ class PlacedPlotSymbol {
     double scale = 1.0,
     double rotationDeg = 0.0,
     int colorArgb = 0xFF1A1A1A,
+    double opacity = 1.0,
     String label = '',
   }) {
     return PlacedPlotSymbol(
@@ -335,6 +339,7 @@ class PlacedPlotSymbol {
       scale: scale,
       rotationDeg: rotationDeg,
       colorArgb: colorArgb,
+      opacity: opacity,
       label: label,
     );
   }
@@ -349,6 +354,7 @@ class PlacedPlotSymbol {
   final double scale;
   final double rotationDeg;
   final int colorArgb;
+  final double opacity;
   final String label;
 
   bool get isBlock => blockId != null;
@@ -367,6 +373,7 @@ class PlacedPlotSymbol {
     double? scale,
     double? rotationDeg,
     int? colorArgb,
+    double? opacity,
     String? label,
   }) {
     return PlacedPlotSymbol(
@@ -380,6 +387,7 @@ class PlacedPlotSymbol {
       scale: scale ?? this.scale,
       rotationDeg: rotationDeg ?? this.rotationDeg,
       colorArgb: colorArgb ?? this.colorArgb,
+      opacity: opacity ?? this.opacity,
       label: label ?? this.label,
     );
   }

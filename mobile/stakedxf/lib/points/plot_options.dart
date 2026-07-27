@@ -85,6 +85,7 @@ class PlotOptions {
     this.pointStyleOverrides = const {},
     this.titleBlock = const TitleBlockData(),
     this.defaultPointColorArgb,
+    this.textStyleId = 'ROMANS_SHX',
   });
 
   final PointMarkerStyle markerStyle;
@@ -133,6 +134,9 @@ class PlotOptions {
   /// Optional global point/label color override (ARGB). Null → CTB ACI 10.
   final int? defaultPointColorArgb;
 
+  /// Civil DWG text style id for plot labels / text objects.
+  final String textStyleId;
+
   PlotOptions copyWith({
     PointMarkerStyle? markerStyle,
     PointLabelFormat? labelFormat,
@@ -150,6 +154,7 @@ class PlotOptions {
     Map<String, PointStyleOverride>? pointStyleOverrides,
     TitleBlockData? titleBlock,
     int? defaultPointColorArgb,
+    String? textStyleId,
     bool clearDefaultPointColor = false,
   }) {
     return PlotOptions(
@@ -171,6 +176,7 @@ class PlotOptions {
       defaultPointColorArgb: clearDefaultPointColor
           ? null
           : (defaultPointColorArgb ?? this.defaultPointColorArgb),
+      textStyleId: textStyleId ?? this.textStyleId,
     );
   }
 }

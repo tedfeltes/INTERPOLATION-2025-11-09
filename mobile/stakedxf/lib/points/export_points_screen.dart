@@ -29,6 +29,7 @@ import 'sticky_section.dart';
 import 'survey_point.dart';
 import 'symbol_library_sheet.dart';
 import 'symbol_preview.dart';
+import 'text_style_catalog.dart';
 
 /// Export Points screen — import CSV, customize plot, export CSV / staking plot PDF.
 class ExportPointsScreen extends StatefulWidget {
@@ -57,6 +58,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   BlockCatalog? _blockCatalog;
   LinetypeCatalog _linetypeCatalog = LinetypeCatalog.builtin();
   CtbPlotStyleTable _ctbPlotStyle = CtbPlotStyleTable.builtin();
+  TextStyleCatalog _textStyleCatalog = TextStyleCatalog.builtin();
   String? _error;
   String? _status;
   bool _busy = false;
@@ -83,6 +85,10 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     CtbPlotStyleTable.load().then((c) {
       if (!mounted) return;
       setState(() => _ctbPlotStyle = c);
+    });
+    TextStyleCatalog.load().then((c) {
+      if (!mounted) return;
+      setState(() => _textStyleCatalog = c);
     });
   }
 
@@ -244,6 +250,20 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       _symbols[i] = _symbols[i].copyWith(easting: easting, northing: northing);
       _selectedSymbolId = id;
       _selectedLabelPointId = null;
+      _selectedTextId = null;
+    });
+  }
+
+  void _moveText(String id, double easting, double northing) {
+    final i = _textObjects.indexWhere((t) => t.id == id);
+    if (i < 0) return;
+    setState(() {
+      _textObjects[i] =
+          _textObjects[i].copyWith(easting: easting, northing: northing);
+      _selectedTextId = id;
+      _selectedSymbolId = null;
+      _selectedLabelPointId = null;
+      _annotationsOpen = true;
     });
   }
 
@@ -304,6 +324,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     double? scale,
     double? rotationDeg,
     int? colorArgb,
+    double? opacity,
   }) {
     final id = _selectedSymbolId;
     if (id == null) return;
@@ -314,6 +335,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         scale: scale,
         rotationDeg: rotationDeg,
         colorArgb: colorArgb,
+        opacity: opacity,
       );
     });
   }
@@ -662,11 +684,13 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       blockCatalog: _blockCatalog,
                       linetypeCatalog: _linetypeCatalog,
                       ctbPlotStyle: _ctbPlotStyle,
+                      textStyleCatalog: _textStyleCatalog,
                       layerStyles: _linework?.layerStyles ?? const {},
                       selectedSymbolId: _selectedSymbolId,
                       selectedLabelPointId: _selectedLabelPointId,
                       selectedLineworkId: _selectedLineworkId,
                       selectedLineworkLayer: _selectedLineworkLayer,
+                      selectedTextId: _selectedTextId,
                       selectedNodeIndex: _selectedNodeIndex,
                       selectedSegmentIndex: _selectedSegmentIndex,
                       onSelectSymbol: (id) => setState(() {
@@ -692,6 +716,15 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         }
                       }),
                       onSelectLinework: _selectLineworkEntity,
+                      onSelectText: (id) => setState(() {
+                        _selectedTextId = id;
+                        if (id != null) {
+                          _selectedSymbolId = null;
+                          _selectedLabelPointId = null;
+                          _selectedLineworkId = null;
+                          _annotationsOpen = true;
+                        }
+                      }),
                       onSelectNode: (i) => setState(() {
                         _selectedNodeIndex = i;
                         if (i != null) _selectedSegmentIndex = null;
@@ -702,6 +735,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       }),
                       onMoveSymbol: _moveSymbol,
                       onMoveLabel: _moveLabel,
+                      onMoveText: _moveText,
                       lineEditMode: _lineEditMode,
                     ),
                     const SizedBox(height: 6),
@@ -853,6 +887,25 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                 ),
                               ],
                             ),
+                            Row(
+                              children: [
+                                const Text('Opacity',
+                                    style: TextStyle(fontSize: 11)),
+                                Expanded(
+                                  child: Slider(
+                                    value: selectedSym.opacity.clamp(0.05, 1.0),
+                                    min: 0.05,
+                                    max: 1.0,
+                                    onChanged: (v) =>
+                                        _updateSelectedSymbol(opacity: v),
+                                  ),
+                                ),
+                                Text(
+                                  '${(selectedSym.opacity * 100).round()}%',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -954,22 +1007,119 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         () => _plotOptionsOpen = !_plotOptionsOpen,
                       ),
                       children: [
-                        DropdownButtonFormField<PlotTemplate>(
-                          value: plotTemplateById(_options.template.id),
+                        DropdownButtonFormField<AnsiSheetSize>(
+                          value: _options.template.size,
                           isExpanded: true,
                           decoration: const InputDecoration(
-                            labelText: 'Sheet template',
+                            labelText: 'Sheet size',
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
                           items: [
-                            for (final t in kPlotTemplates)
+                            for (final s in AnsiSheetSize.values)
                               DropdownMenuItem(
-                                value: t,
+                                value: s,
+                                child: Text(s.pickerLabel),
+                              ),
+                          ],
+                          onChanged: _busy
+                              ? null
+                              : (v) {
+                                  if (v == null) return;
+                                  setState(() {
+                                    _options = _options.copyWith(
+                                      template: composePlotTemplate(
+                                        size: v,
+                                        orientation:
+                                            _options.template.orientation,
+                                        layout: _options.template.layout,
+                                      ),
+                                    );
+                                  });
+                                },
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<SheetOrientation>(
+                          value: _options.template.orientation,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Orientation',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          items: [
+                            for (final o in SheetOrientation.values)
+                              DropdownMenuItem(
+                                value: o,
+                                child: Text(o.label),
+                              ),
+                          ],
+                          onChanged: _busy
+                              ? null
+                              : (v) {
+                                  if (v == null) return;
+                                  setState(() {
+                                    _options = _options.copyWith(
+                                      template: composePlotTemplate(
+                                        size: _options.template.size,
+                                        orientation: v,
+                                        layout: _options.template.layout,
+                                      ),
+                                    );
+                                  });
+                                },
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<PlotTemplateLayout>(
+                          value: _options.template.layout,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Sheet style',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          items: [
+                            for (final l in PlotTemplateLayout.values)
+                              DropdownMenuItem(
+                                value: l,
+                                child: Text(l.label),
+                              ),
+                          ],
+                          onChanged: _busy
+                              ? null
+                              : (v) {
+                                  if (v == null) return;
+                                  setState(() {
+                                    _options = _options.copyWith(
+                                      template: composePlotTemplate(
+                                        size: _options.template.size,
+                                        orientation:
+                                            _options.template.orientation,
+                                        layout: v,
+                                      ),
+                                    );
+                                  });
+                                },
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          value: _textStyleCatalog
+                              .resolve(_options.textStyleId)
+                              .id,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Text style',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          items: [
+                            for (final s in _textStyleCatalog.styles)
+                              DropdownMenuItem(
+                                value: s.id,
                                 child: Text(
-                                  t.name,
+                                  s.pickerLabel,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 13),
+                                  style: const TextStyle(fontSize: 12),
                                 ),
                               ),
                           ],
@@ -979,7 +1129,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                   if (v == null) return;
                                   setState(
                                     () => _options =
-                                        _options.copyWith(template: v),
+                                        _options.copyWith(textStyleId: v),
                                   );
                                 },
                         ),
@@ -1598,6 +1748,34 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                         style: const TextStyle(fontSize: 11),
                                       ),
                                     ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      const Text('Opacity',
+                                          style: TextStyle(fontSize: 12)),
+                                      Expanded(
+                                        child: Slider(
+                                          value: t.opacity.clamp(0.05, 1.0),
+                                          min: 0.05,
+                                          max: 1.0,
+                                          onChanged: (v) => setState(() {
+                                            _textObjects[i] =
+                                                t.copyWith(opacity: v);
+                                          }),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${(t.opacity * 100).round()}%',
+                                        style: const TextStyle(fontSize: 11),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    'Drag text on the preview to move it.',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: cs.onSurface.withValues(alpha: 0.55),
+                                    ),
                                   ),
                                 ],
                               );

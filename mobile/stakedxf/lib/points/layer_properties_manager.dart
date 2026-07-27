@@ -153,6 +153,7 @@ class LayerPropertiesManager extends StatelessWidget {
           SizedBox(width: 44, child: _H('LT')),
           SizedBox(width: 36, child: _H('LW')),
           SizedBox(width: 36, child: _H('LTS')),
+          SizedBox(width: 36, child: _H('Op')),
           Expanded(child: _H('Name')),
         ],
       ),
@@ -168,6 +169,7 @@ class LayerPropertiesManager extends StatelessWidget {
     final ltAbbrev = _ltAbbrev(resolved.linetype.name);
     final lwLabel = resolved.strokeWidthPt.toStringAsFixed(1);
     final ltsLabel = resolved.linetypeScale.toStringAsFixed(1);
+    final opLabel = '${(resolved.opacity * 100).round()}';
 
     return Material(
       color: selected
@@ -224,6 +226,13 @@ class LayerPropertiesManager extends StatelessWidget {
                 child: _CellTap(
                   label: ltsLabel,
                   onTap: () => _pickLtScale(context, layer, ov, resolved),
+                ),
+              ),
+              SizedBox(
+                width: 36,
+                child: _CellTap(
+                  label: opLabel,
+                  onTap: () => _pickOpacity(context, layer, ov, resolved),
                 ),
               ),
               Expanded(
@@ -420,6 +429,63 @@ class LayerPropertiesManager extends StatelessWidget {
       onApplyLayerOverride(layer, ov.copyWith(clearStroke: true));
     } else {
       onApplyLayerOverride(layer, ov.copyWith(strokeWidthPt: picked));
+    }
+  }
+
+  Future<void> _pickOpacity(
+    BuildContext context,
+    String layer,
+    LineworkStyleOverride ov,
+    ResolvedLineworkStyle resolved,
+  ) async {
+    var value = (ov.opacity ?? resolved.opacity).clamp(0.05, 1.0);
+    final picked = await showModalBottomSheet<double>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Opacity — $layer',
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Slider(
+                      value: value,
+                      min: 0.05,
+                      max: 1.0,
+                      onChanged: (v) => setLocal(() => value = v),
+                    ),
+                    Text('${(value * 100).round()}%'),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, -1.0),
+                          child: const Text('Reset'),
+                        ),
+                        const Spacer(),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx, value),
+                          child: const Text('Apply'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (picked == null) return;
+    if (picked < 0) {
+      onApplyLayerOverride(layer, ov.copyWith(clearOpacity: true));
+    } else {
+      onApplyLayerOverride(layer, ov.copyWith(opacity: picked));
     }
   }
 

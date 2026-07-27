@@ -1,7 +1,7 @@
 name: stakedxf
 description: On-device Civil 3D DWG to Trimble Access DXF converter for phone and TSC5
 publish_to: "none"
-version: 1.17.0+17
+version: 1.18.0+18
 
 environment:
   sdk: ^3.8.1
@@ -31,3 +31,4 @@ flutter:
     - assets/linework/linetype_catalog.json
     - assets/plot_styles/staking_plot_ctb.json
     - assets/plot_styles/staking_plot.ctb
+    - assets/plot_styles/text_style_catalog.json

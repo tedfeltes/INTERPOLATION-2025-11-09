@@ -15,6 +15,7 @@ import 'package:stakedxf/points/plot_pdf.dart';
 import 'package:stakedxf/points/plot_symbols.dart';
 import 'package:stakedxf/points/plot_templates.dart';
 import 'package:stakedxf/points/survey_point.dart';
+import 'package:stakedxf/points/text_style_catalog.dart';
 
 void main() {
   test('parse PNEZD headered CSV', () {
@@ -335,6 +336,24 @@ void main() {
     );
     expect(withSym.rangeE, without.rangeE);
     expect(withSym.rangeN, without.rangeN);
+  });
+
+  test('text style catalog resolves Civil DWG styles', () {
+    final cat = TextStyleCatalog.builtin();
+    expect(cat.resolve('ROMANS_SHX').pdfFamily, 'times');
+    expect(cat.resolve('arial').pdfFamily, 'helvetica');
+    expect(cat.resolve('P-CONT').bold, isTrue);
+  });
+
+  test('composePlotTemplate builds ANSI size × orientation', () {
+    final t = composePlotTemplate(
+      size: AnsiSheetSize.b,
+      orientation: SheetOrientation.landscape,
+      layout: PlotTemplateLayout.sidePanel,
+    );
+    expect(t.size.pickerLabel, contains('ANSI B'));
+    expect(t.widthIn, 17);
+    expect(t.heightIn, 11);
   });
 
   test('CTB plot styles drive ACI color and lineweight', () {

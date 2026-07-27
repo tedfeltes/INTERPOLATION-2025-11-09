@@ -1,0 +1,160 @@
+{
+  "source": "CIVIL_BASE_PHEASANT_FARM_2026-05-22.dwg STYLE table",
+  "defaultStyleId": "ROMANS_SHX",
+  "styles": [
+    {
+      "id": "Standard",
+      "name": "Standard",
+      "font": "romans.shx",
+      "pdfFamily": "times",
+      "widthFactor": 0.8,
+      "obliqueDeg": 15,
+      "bold": false,
+      "italic": true,
+      "description": "Drawing standard (Romans, 15\u00b0 oblique)"
+    },
+    {
+      "id": "ROMANS_SHX",
+      "name": "ROMANS_SHX",
+      "font": "romans.shx",
+      "pdfFamily": "times",
+      "widthFactor": 0.8,
+      "obliqueDeg": 0,
+      "bold": false,
+      "italic": false,
+      "description": "Romans SHX"
+    },
+    {
+      "id": "ROMAND_SHX",
+      "name": "ROMAND_SHX",
+      "font": "romand.shx",
+      "pdfFamily": "times",
+      "widthFactor": 0.85,
+      "obliqueDeg": 0,
+      "bold": false,
+      "italic": false,
+      "description": "Romand SHX"
+    },
+    {
+      "id": "ROMANS",
+      "name": "ROMANS",
+      "font": "ROMANS",
+      "pdfFamily": "times",
+      "widthFactor": 1.0,
+      "obliqueDeg": 0,
+      "bold": false,
+      "italic": false,
+      "description": "Romans"
+    },
+    {
+      "id": "ITALICT",
+      "name": "ITALICT",
+      "font": "italict.shx",
+      "pdfFamily": "times",
+      "widthFactor": 1.0,
+      "obliqueDeg": 0,
+      "bold": false,
+      "italic": true,
+      "description": "Italic SHX"
+    },
+    {
+      "id": "SHR",
+      "name": "SHR",
+      "font": "SIMPLEX",
+      "pdfFamily": "helvetica",
+      "widthFactor": 1.0,
+      "obliqueDeg": 0,
+      "bold": false,
+      "italic": false,
+      "description": "Simplex (SHR)"
+    },
+    {
+      "id": "L80",
+      "name": "L80",
+      "font": "SIMPLEX.SHX",
+      "pdfFamily": "helvetica",
+      "widthFactor": 1.0,
+      "obliqueDeg": 0,
+      "bold": false,
+      "italic": false,
+      "description": "Simplex L80"
+    },
+    {
+      "id": "arial",
+      "name": "Arial",
+      "font": "arial.ttf",
+      "pdfFamily": "helvetica",
+      "widthFactor": 1.0,
+      "obliqueDeg": 0,
+      "bold": false,
+      "italic": false,
+      "description": "Arial TTF"
+    },
+    {
+      "id": "SYLFAEN",
+      "name": "SYLFAEN",
+      "font": "sylfaen.ttf",
+      "pdfFamily": "times",
+      "widthFactor": 1.0,
+      "obliqueDeg": 0,
+      "bold": false,
+      "italic": false,
+      "description": "Sylfaen TTF"
+    },
+    {
+      "id": "P-TEXT",
+      "name": "P-TEXT",
+      "font": "Romans TT.ttf",
+      "pdfFamily": "times",
+      "widthFactor": 0.95,
+      "obliqueDeg": 0,
+      "bold": false,
+      "italic": false,
+      "description": "Plan text (Romans TT)"
+    },
+    {
+      "id": "P-CONT",
+      "name": "P-CONT",
+      "font": "Souvenir Bold.ttf",
+      "pdfFamily": "helvetica",
+      "widthFactor": 1.0,
+      "obliqueDeg": 0,
+      "bold": true,
+      "italic": false,
+      "description": "Contour / bold annotation"
+    },
+    {
+      "id": "OR-LD_SHX",
+      "name": "OR-LD_SHX",
+      "font": "or-ld.shx",
+      "pdfFamily": "helvetica",
+      "widthFactor": 1.0,
+      "obliqueDeg": 0,
+      "bold": false,
+      "italic": false,
+      "description": "OR-LD SHX (most used labels)"
+    },
+    {
+      "id": "TD-LD_SHX",
+      "name": "TD-LD_SHX",
+      "font": "td-ld.shx",
+      "pdfFamily": "helvetica",
+      "widthFactor": 1.0,
+      "obliqueDeg": 0,
+      "bold": false,
+      "italic": false,
+      "description": "TD-LD SHX"
+    },
+    {
+      "id": "HL-LD",
+      "name": "HL-LD",
+      "font": "hl-ld.shx",
+      "pdfFamily": "helvetica",
+      "widthFactor": 1.0,
+      "obliqueDeg": 0,
+      "bold": false,
+      "italic": false,
+      "description": "HL-LD SHX"
+    }
+  ]
+}

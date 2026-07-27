@@ -9,6 +9,8 @@ class PlotTextObject {
     this.rotationDeg = 0.0,
     this.colorArgb = 0xFF1A1A1A,
     this.fontSizePt = 10.0,
+    this.opacity = 1.0,
+    this.textStyleId,
   });
 
   final String id;
@@ -24,6 +26,12 @@ class PlotTextObject {
   /// Base font size in PDF points at [scale] 1.0.
   final double fontSizePt;
 
+  /// 0–1 display opacity.
+  final double opacity;
+
+  /// Optional override of the plot-wide text style id.
+  final String? textStyleId;
+
   double get effectiveFontSizePt =>
       (fontSizePt * scale).clamp(4.0, 72.0);
 
@@ -36,6 +44,9 @@ class PlotTextObject {
     double? rotationDeg,
     int? colorArgb,
     double? fontSizePt,
+    double? opacity,
+    String? textStyleId,
+    bool clearTextStyleId = false,
   }) {
     return PlotTextObject(
       id: id ?? this.id,
@@ -46,6 +57,9 @@ class PlotTextObject {
       rotationDeg: rotationDeg ?? this.rotationDeg,
       colorArgb: colorArgb ?? this.colorArgb,
       fontSizePt: fontSizePt ?? this.fontSizePt,
+      opacity: opacity ?? this.opacity,
+      textStyleId:
+          clearTextStyleId ? null : (textStyleId ?? this.textStyleId),
     );
   }
 }

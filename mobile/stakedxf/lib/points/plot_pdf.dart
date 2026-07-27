@@ -11,12 +11,14 @@ import 'label_placement.dart';
 import 'leader_geometry.dart';
 import 'linetype_catalog.dart';
 import 'linework_draw.dart';
+import 'hatch_paint.dart';
 import 'plot_annotations.dart';
 import 'plot_options.dart';
 import 'plot_symbols.dart';
 import 'plot_templates.dart';
 import 'survey_point.dart';
 import 'symbol_draw.dart';
+import 'text_style_catalog.dart';
 
 /// Legacy alias — ANSI B landscape control-note sheet.
 final PdfPageFormat stakingSheet = kDefaultPlotTemplate.pageFormat;
@@ -438,7 +440,9 @@ class _PlanPanel extends pw.StatelessWidget {
 
   @override
   pw.Widget build(pw.Context context) {
-    final labelFont = pw.Font.helveticaBoldOblique().getFont(context);
+    final style =
+        TextStyleCatalog.builtin().resolve(options.textStyleId);
+    final labelFont = style.pdfFont().getFont(context);
     return pw.LayoutBuilder(
       builder: (context, constraints) {
         // pdf LayoutBuilder can hand infinity/0 when flex constraints are loose;
@@ -587,7 +591,9 @@ void paintStakingPlan(
     final c = toPage(t.easting, t.northing);
     final fs = t.effectiveFontSizePt;
     canvas
-      ..setFillColor(PdfColor.fromInt(t.colorArgb))
+      ..setFillColor(
+        PdfColor.fromInt(applyOpacityArgb(t.colorArgb, t.opacity)),
+      )
       ..drawString(labelFont, fs, t.text, c.x, c.y);
   }
 

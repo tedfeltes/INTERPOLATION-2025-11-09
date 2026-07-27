@@ -8,10 +8,10 @@ Companion PDFs:
 
 ## 1. Installation (Trimble TSC5)
 
-**File:** `dist/StakeDXF v1.17.0.apk` (~65 MB)  
+**File:** `dist/StakeDXF v1.18.0.apk` (~65 MB)  
 **Package:** `com.stakedxf.stakedxf`
 
-1. Copy `StakeDXF v1.17.0.apk` onto the TSC5 (USB File Transfer or your usual file share).
+1. Copy `StakeDXF v1.18.0.apk` onto the TSC5 (USB File Transfer or your usual file share).
 2. Open **Files / Downloads** and tap the APK.
 3. If blocked, enable **Allow from this source** for the app that opened the APK.
 4. Tap **Install**, then open **StakeDXF**.
@@ -56,8 +56,8 @@ Recover Civil 3D linework into a Trimble-stakeable DXF on the controller.
 2. **StakeDXF → Export Points**
 3. **Import points CSV / TXT**
 4. (Optional) **Link DXF linework** and select layers
-5. Choose a **plot template** (ANSI A/B/C/D · field map / titled field / control note)
-6. Choose **point marker** and **point label** format
+5. Choose **sheet size** (ANSI A–D with dimensions), **orientation**, and sheet style
+6. Choose **text style** (from Civil DWG STYLE table), **point marker**, and **label** format
 7. Watch the **live plot preview** (updates as points/layers/objects change)
 8. (Optional) **Add from object library** — color/scale stay pinned; **drag objects on the preview** to place
 9. Leave **Include point list table** off unless you want the coordinate table (control-note templates)
@@ -91,8 +91,10 @@ Annotation scale affects point labels/markers only.
 ### Objects & text
 
 Library objects and free text objects scale independently of annotation scale.
-Enable **Object labels** to show names. **TITLE / TEXT** adds a sheet title block
-and plan-space text.
+Objects draw **hatched** (Civil ANSI31 style), not solid-filled. Opacity sliders
+apply to objects and layers. Drag text on the preview to place it. Enable
+**Object labels** to show names. **TITLE / TEXT** adds a sheet title block
+(also shown on the live preview when on) and plan-space text.
 
 ### Linked DXF linework
 Draws `LINE`, `LWPOLYLINE`, `POLYLINE`, `ARC`, `CIRCLE` for checked layers.

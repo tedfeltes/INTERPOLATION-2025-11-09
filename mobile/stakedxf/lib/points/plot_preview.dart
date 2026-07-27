@@ -10,6 +10,7 @@ import 'label_placement.dart';
 import 'leader_geometry.dart';
 import 'linetype_catalog.dart';
 import 'linework_draw.dart';
+import 'hatch_paint.dart';
 import 'plot_annotations.dart';
 import 'plot_options.dart';
 import 'plot_pdf.dart';
@@ -17,6 +18,7 @@ import 'plot_symbols.dart';
 import 'plot_templates.dart';
 import 'survey_point.dart';
 import 'symbol_preview.dart';
+import 'text_style_catalog.dart';
 
 /// Live interactive plan preview framed to the selected sheet template.
 ///
@@ -39,13 +41,16 @@ class PlotPreview extends StatefulWidget {
     this.selectedLabelPointId,
     this.selectedLineworkId,
     this.selectedLineworkLayer,
+    this.selectedTextId,
     this.selectedNodeIndex,
     this.selectedSegmentIndex,
     this.lineEditMode = false,
     this.textObjects = const [],
+    this.textStyleCatalog,
     this.onSelectSymbol,
     this.onSelectLabelPoint,
     this.onSelectLinework,
+    this.onSelectText,
     this.onSelectNode,
     this.onSelectSegment,
     this.onMoveSymbol,
@@ -66,13 +71,16 @@ class PlotPreview extends StatefulWidget {
   final String? selectedLabelPointId;
   final String? selectedLineworkId;
   final String? selectedLineworkLayer;
+  final String? selectedTextId;
   final int? selectedNodeIndex;
   final int? selectedSegmentIndex;
   final bool lineEditMode;
   final List<PlotTextObject> textObjects;
+  final TextStyleCatalog? textStyleCatalog;
   final ValueChanged<String?>? onSelectSymbol;
   final ValueChanged<String?>? onSelectLabelPoint;
   final ValueChanged<String?>? onSelectLinework;
+  final ValueChanged<String?>? onSelectText;
   final ValueChanged<int?>? onSelectNode;
   final ValueChanged<int?>? onSelectSegment;
   final void Function(String id, double easting, double northing)? onMoveSymbol;
@@ -86,7 +94,7 @@ class PlotPreview extends StatefulWidget {
   State<PlotPreview> createState() => _PlotPreviewState();
 }
 
-enum _DragKind { none, symbol, label }
+enum _DragKind { none, symbol, label, text }
 
 class _PlotPreviewState extends State<PlotPreview> {
   _DragKind _dragKind = _DragKind.none;
@@ -97,6 +105,8 @@ class _PlotPreviewState extends State<PlotPreview> {
   final Map<String, LabelDragState> _liveLabelDrags = {};
   double? _liveSymE;
   double? _liveSymN;
+  double? _liveTextE;
+  double? _liveTextN;
 
   Map<String, LabelDragState>? _cachedDrags;
   Object? _dragCacheKey;
@@ -246,6 +256,8 @@ class _PlotPreviewState extends State<PlotPreview> {
                                   LinetypeCatalog.builtin(),
                               ctbPlotStyle: widget.ctbPlotStyle ??
                                   CtbPlotStyleTable.builtin(),
+                              textStyleCatalog: widget.textStyleCatalog ??
+                                  TextStyleCatalog.builtin(),
                               layerStyles: widget.layerStyles,
                               selectedSymbolId: widget.selectedSymbolId,
                               selectedLabelPointId:
@@ -253,15 +265,16 @@ class _PlotPreviewState extends State<PlotPreview> {
                               selectedLineworkId: widget.selectedLineworkId,
                               selectedLineworkLayer:
                                   widget.selectedLineworkLayer,
+                              selectedTextId: widget.selectedTextId,
                               selectedNodeIndex: widget.selectedNodeIndex,
                               selectedSegmentIndex:
                                   widget.selectedSegmentIndex,
                               draggingId: _draggingId,
                               dragKind: _dragKind,
                               labelDrags: drags,
-                              textObjects: widget.textObjects,
+                              textObjects: _textObjectsForPaint(),
                               sheetLabel:
-                                  '${tpl.name} · ${tpl.sizeCallout}',
+                                  '${tpl.size.pickerLabel} · ${tpl.orientation.label}',
                               lineEditMode: widget.lineEditMode,
                             ),
                           ),
@@ -294,6 +307,22 @@ class _PlotPreviewState extends State<PlotPreview> {
     ];
   }
 
+  List<PlotTextObject> _textObjectsForPaint() {
+    if (_dragKind != _DragKind.text ||
+        _draggingId == null ||
+        _liveTextE == null ||
+        _liveTextN == null) {
+      return widget.textObjects;
+    }
+    return [
+      for (final t in widget.textObjects)
+        if (t.id == _draggingId)
+          t.copyWith(easting: _liveTextE, northing: _liveTextN)
+        else
+          t,
+    ];
+  }
+
   void _commitDrag() {
     final id = _draggingId;
     final kind = _dragKind;
@@ -307,6 +336,11 @@ class _PlotPreviewState extends State<PlotPreview> {
         _liveSymE != null &&
         _liveSymN != null) {
       widget.onMoveSymbol?.call(id, _liveSymE!, _liveSymN!);
+    } else if (kind == _DragKind.text &&
+        id != null &&
+        _liveTextE != null &&
+        _liveTextN != null) {
+      widget.onMoveText?.call(id, _liveTextE!, _liveTextN!);
     }
     setState(() {
       _dragKind = _DragKind.none;
@@ -314,6 +348,8 @@ class _PlotPreviewState extends State<PlotPreview> {
       _liveLabelDrags.clear();
       _liveSymE = null;
       _liveSymN = null;
+      _liveTextE = null;
+      _liveTextN = null;
     });
   }
 
@@ -354,6 +390,15 @@ class _PlotPreviewState extends State<PlotPreview> {
       widget.onSelectLabelPoint?.call(labelHit);
       widget.onSelectSymbol?.call(null);
       widget.onSelectLinework?.call(null);
+      widget.onSelectText?.call(null);
+      return;
+    }
+    final textHit = _hitText(local, map);
+    if (textHit != null) {
+      widget.onSelectText?.call(textHit.id);
+      widget.onSelectLabelPoint?.call(null);
+      widget.onSelectSymbol?.call(null);
+      widget.onSelectLinework?.call(null);
       return;
     }
     final pointHit = _hitPoint(local, map);
@@ -361,6 +406,7 @@ class _PlotPreviewState extends State<PlotPreview> {
       widget.onSelectLabelPoint?.call(pointHit);
       widget.onSelectSymbol?.call(null);
       widget.onSelectLinework?.call(null);
+      widget.onSelectText?.call(null);
       return;
     }
     final sym = _hitSymbol(local, map);
@@ -368,6 +414,7 @@ class _PlotPreviewState extends State<PlotPreview> {
       widget.onSelectSymbol?.call(sym.id);
       widget.onSelectLabelPoint?.call(null);
       widget.onSelectLinework?.call(null);
+      widget.onSelectText?.call(null);
       return;
     }
     // Tap linework → select layer (Civil 3D layer properties workflow).
@@ -381,11 +428,13 @@ class _PlotPreviewState extends State<PlotPreview> {
     if (lw != null) {
       widget.onSelectSymbol?.call(null);
       widget.onSelectLabelPoint?.call(null);
+      widget.onSelectText?.call(null);
       return;
     }
     widget.onSelectLabelPoint?.call(null);
     widget.onSelectSymbol?.call(null);
     widget.onSelectLinework?.call(null);
+    widget.onSelectText?.call(null);
     widget.onSelectNode?.call(null);
     widget.onSelectSegment?.call(null);
   }
@@ -421,6 +470,19 @@ class _PlotPreviewState extends State<PlotPreview> {
       widget.onSelectSymbol?.call(null);
       return;
     }
+    final textHit = _hitText(local, map);
+    if (textHit != null) {
+      setState(() {
+        _dragKind = _DragKind.text;
+        _draggingId = textHit.id;
+        _liveTextE = textHit.easting;
+        _liveTextN = textHit.northing;
+      });
+      widget.onSelectText?.call(textHit.id);
+      widget.onSelectLabelPoint?.call(null);
+      widget.onSelectSymbol?.call(null);
+      return;
+    }
     final sym = _hitSymbol(local, map);
     if (sym != null) {
       setState(() {
@@ -431,6 +493,7 @@ class _PlotPreviewState extends State<PlotPreview> {
       });
       widget.onSelectSymbol?.call(sym.id);
       widget.onSelectLabelPoint?.call(null);
+      widget.onSelectText?.call(null);
       return;
     }
     _dragKind = _DragKind.none;
@@ -451,6 +514,14 @@ class _PlotPreviewState extends State<PlotPreview> {
       setState(() {
         _liveSymE = en.$1;
         _liveSymN = en.$2;
+      });
+      return;
+    }
+    if (_dragKind == _DragKind.text) {
+      final en = map.toSurvey(clamped);
+      setState(() {
+        _liveTextE = en.$1;
+        _liveTextN = en.$2;
       });
       return;
     }
@@ -523,6 +594,43 @@ class _PlotPreviewState extends State<PlotPreview> {
       if (d <= half + 10 && d < bestDist + half) {
         bestDist = d;
         best = s;
+      }
+    }
+    return best;
+  }
+
+  PlotTextObject? _hitText(Offset local, _PlanMap map) {
+    PlotTextObject? best;
+    var bestDist = 36.0;
+    final catalog = widget.textStyleCatalog ?? TextStyleCatalog.builtin();
+    for (final t in widget.textObjects) {
+      if (t.text.trim().isEmpty) continue;
+      final c = map.toPixel(t.easting, t.northing);
+      final style = catalog.resolve(t.textStyleId ?? widget.options.textStyleId);
+      final tp = TextPainter(
+        text: TextSpan(
+          text: t.text,
+          style: TextStyle(
+            fontSize: t.effectiveFontSizePt,
+            fontFamily: style.flutterFontFamily,
+            fontWeight: style.flutterWeight,
+            fontStyle: style.flutterStyle,
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      )..layout();
+      final rect = Rect.fromLTWH(
+        c.dx,
+        c.dy - tp.height,
+        tp.width,
+        tp.height,
+      ).inflate(8);
+      if (rect.contains(local)) {
+        final d = (c - local).distance;
+        if (d < bestDist) {
+          bestDist = d;
+          best = t;
+        }
       }
     }
     return best;
@@ -620,11 +728,13 @@ class _PlotPreviewPainter extends CustomPainter {
     required this.blockCatalog,
     required this.linetypeCatalog,
     required this.ctbPlotStyle,
+    required this.textStyleCatalog,
     required this.layerStyles,
     required this.selectedSymbolId,
     required this.selectedLabelPointId,
     required this.selectedLineworkId,
     required this.selectedLineworkLayer,
+    required this.selectedTextId,
     required this.selectedNodeIndex,
     required this.selectedSegmentIndex,
     required this.draggingId,
@@ -643,11 +753,13 @@ class _PlotPreviewPainter extends CustomPainter {
   final BlockCatalog? blockCatalog;
   final LinetypeCatalog linetypeCatalog;
   final CtbPlotStyleTable ctbPlotStyle;
+  final TextStyleCatalog textStyleCatalog;
   final Map<String, DxfLayerStyle> layerStyles;
   final String? selectedSymbolId;
   final String? selectedLabelPointId;
   final String? selectedLineworkId;
   final String? selectedLineworkLayer;
+  final String? selectedTextId;
   final int? selectedNodeIndex;
   final int? selectedSegmentIndex;
   final String? draggingId;
@@ -669,6 +781,9 @@ class _PlotPreviewPainter extends CustomPainter {
     _paintPointsAndLabels(canvas);
     canvas.restore();
     _paintSheetFrame(canvas);
+    if (options.titleBlock.enabled) {
+      _paintTitleBlock(canvas);
+    }
   }
 
   void _paintSheet(Canvas canvas) {
@@ -760,6 +875,7 @@ class _PlotPreviewPainter extends CustomPainter {
         ctbPlotStyle.resolve(kCtbPointLabelAci).colorArgb;
     final ann = options.annotationScale.clamp(0.6, 3.0);
     final fontSize = (10.0 * ann).clamp(8.0, 16.0);
+    final textStyle = textStyleCatalog.resolve(options.textStyleId);
 
     for (final p in points) {
       final ov = options.pointStyleOverrides[p.id];
@@ -801,7 +917,9 @@ class _PlotPreviewPainter extends CustomPainter {
           style: TextStyle(
             color: color,
             fontSize: fontSize,
-            fontWeight: FontWeight.w700,
+            fontFamily: textStyle.flutterFontFamily,
+            fontWeight: textStyle.flutterWeight,
+            fontStyle: textStyle.flutterStyle,
             height: 1.15,
             backgroundColor: selected
                 ? const Color(0x66FFE082)
@@ -900,12 +1018,13 @@ class _PlotPreviewPainter extends CustomPainter {
   void _paintSymbols(Canvas canvas) {
     // Object size uses object scale only (not annotation scale).
     final paperPx = math.max(14.0, options.symbolPaperInches * 72.0);
+    final labelStyle = textStyleCatalog.resolve(options.textStyleId);
     for (final s in symbols) {
       final c = map.toPixel(s.easting, s.northing);
       final half = math.max(8.0, paperPx * 0.5 * s.scale);
       final selected = s.id == selectedSymbolId ||
           (dragKind == _DragKind.symbol && s.id == draggingId);
-      final color = Color(s.colorArgb);
+      final color = colorWithOpacityArgb(s.colorArgb, s.opacity);
 
       canvas.save();
       canvas.translate(c.dx, c.dy);
@@ -913,25 +1032,27 @@ class _PlotPreviewPainter extends CustomPainter {
       canvas.translate(-half, -half);
 
       if (s.kind != null) {
-        SymbolPreviewPainter(s.kind!, color: color)
+        SymbolPreviewPainter(s.kind!, color: color, opacity: 1.0)
             .paint(canvas, Size(half * 2, half * 2));
       } else if (s.blockId != null && blockCatalog != null) {
         final def = blockCatalog![s.blockId!];
         if (def != null) {
-          BlockPreviewPainter(def, color: color)
+          BlockPreviewPainter(def, color: color, opacity: 1.0)
               .paint(canvas, Size(half * 2, half * 2));
         } else {
-          canvas.drawCircle(
+          hatchFlutterCircle(
+            canvas,
             Offset(half, half),
             half * 0.55,
-            Paint()..color = color,
+            color,
           );
         }
       } else {
-        canvas.drawCircle(
+        hatchFlutterCircle(
+          canvas,
           Offset(half, half),
           half * 0.55,
-          Paint()..color = color,
+          color,
         );
       }
       canvas.restore();
@@ -943,7 +1064,9 @@ class _PlotPreviewPainter extends CustomPainter {
             style: TextStyle(
               color: color,
               fontSize: (9.0 * s.scale).clamp(8.0, 14.0),
-              fontWeight: FontWeight.w700,
+              fontFamily: labelStyle.flutterFontFamily,
+              fontWeight: labelStyle.flutterWeight,
+              fontStyle: labelStyle.flutterStyle,
               backgroundColor: const Color(0xCCF7F4EE),
             ),
           ),
@@ -967,20 +1090,93 @@ class _PlotPreviewPainter extends CustomPainter {
     for (final t in textObjects) {
       if (t.text.trim().isEmpty) continue;
       final c = map.toPixel(t.easting, t.northing);
+      final style = textStyleCatalog.resolve(
+        t.textStyleId ?? options.textStyleId,
+      );
+      final color = colorWithOpacityArgb(t.colorArgb, t.opacity);
+      final selected = t.id == selectedTextId ||
+          (dragKind == _DragKind.text && t.id == draggingId);
       final tp = TextPainter(
         text: TextSpan(
           text: t.text,
           style: TextStyle(
-            color: Color(t.colorArgb),
+            color: color,
             fontSize: t.effectiveFontSizePt,
-            fontWeight: FontWeight.w700,
-            backgroundColor: const Color(0xAAF7F4EE),
+            fontFamily: style.flutterFontFamily,
+            fontWeight: style.flutterWeight,
+            fontStyle: style.flutterStyle,
+            backgroundColor: selected
+                ? const Color(0x66FFE082)
+                : const Color(0xAAF7F4EE),
           ),
         ),
         textDirection: ui.TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(c.dx, c.dy - tp.height));
+      if (selected) {
+        canvas.drawRect(
+          Rect.fromLTWH(c.dx, c.dy - tp.height, tp.width, tp.height)
+              .inflate(2),
+          Paint()
+            ..color = const Color(0xFFE4572E)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.4,
+        );
+      }
     }
+  }
+
+  void _paintTitleBlock(Canvas canvas) {
+    final tb = options.titleBlock;
+    final style = textStyleCatalog.resolve(options.textStyleId);
+    final lines = <String>[
+      if (tb.title.trim().isNotEmpty) tb.title.trim().toUpperCase(),
+      if (tb.project.trim().isNotEmpty) tb.project.trim().toUpperCase(),
+      if (tb.drawnBy.trim().isNotEmpty) 'DRWN: ${tb.drawnBy.trim()}',
+      if (tb.checkedBy.trim().isNotEmpty) 'CHK: ${tb.checkedBy.trim()}',
+      if (tb.sheet.trim().isNotEmpty) 'SHT: ${tb.sheet.trim()}',
+      if (tb.revision.trim().isNotEmpty) 'REV: ${tb.revision.trim()}',
+      if (tb.notes.trim().isNotEmpty) tb.notes.trim(),
+    ];
+    if (lines.isEmpty) {
+      lines.add('TITLE BLOCK');
+    }
+    final tp = TextPainter(
+      text: TextSpan(
+        children: [
+          for (var i = 0; i < lines.length; i++)
+            TextSpan(
+              text: '${lines[i]}${i == lines.length - 1 ? '' : '\n'}',
+              style: TextStyle(
+                color: const Color(0xFF1A1A1A),
+                fontSize: i == 0 ? 11 : 9,
+                fontFamily: style.flutterFontFamily,
+                fontWeight: i == 0 ? FontWeight.w800 : style.flutterWeight,
+                fontStyle: style.flutterStyle,
+                height: 1.25,
+              ),
+            ),
+        ],
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout(maxWidth: map.sheetRect.width * 0.42);
+
+    final pad = 6.0;
+    final box = Rect.fromLTWH(
+      map.sheetRect.right - tp.width - pad * 2 - 8,
+      map.sheetRect.top + 8,
+      tp.width + pad * 2,
+      tp.height + pad * 2,
+    );
+    canvas.drawRect(box, Paint()..color = const Color(0xEEF7F4EE));
+    canvas.drawRect(
+      box,
+      Paint()
+        ..color = const Color(0xFF333333)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1,
+    );
+    tp.paint(canvas, Offset(box.left + pad, box.top + pad));
   }
 
   @override
@@ -994,6 +1190,7 @@ class _PlotPreviewPainter extends CustomPainter {
         old.selectedLabelPointId != selectedLabelPointId ||
         old.selectedLineworkId != selectedLineworkId ||
         old.selectedLineworkLayer != selectedLineworkLayer ||
+        old.selectedTextId != selectedTextId ||
         old.selectedNodeIndex != selectedNodeIndex ||
         old.selectedSegmentIndex != selectedSegmentIndex ||
         old.draggingId != draggingId ||
