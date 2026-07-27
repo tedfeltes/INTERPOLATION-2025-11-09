@@ -11,6 +11,11 @@ data/outputs/*
 .coverage
 htmlcov/
 
+# Community Finder (credentials + exports stay local)
+community-finder/config.yaml
+community-finder/exports/
+community-finder/.venv/
+
 # Flutter / Android
 mobile/stakedxf/.dart_tool/
 mobile/stakedxf/.flutter-plugins
