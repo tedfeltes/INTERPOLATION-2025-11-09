@@ -66,6 +66,35 @@ Draws `LINE`, `LWPOLYLINE`, `POLYLINE`, `ARC`, `CIRCLE` for checked layers.
 
 ## 4. Plot customization
 
+### Layer Properties Manager (Civil 3D style)
+
+Opens under **LAYERS** on the PLOT screen when a DXF is linked. Column order and
+behaviour mirror the AutoCAD/Civil 3D LPM:
+
+| Column | Purpose |
+| --- | --- |
+| **On** | Light-bulb toggle — draws the layer on the plot |
+| **Frz** | Freeze marker (snowflake ⇄ sun) |
+| **Lk** | Padlock — prevents accidental drag-selection |
+| **Color** | ACI / CTB / HSV true-color picker |
+| **Linetype** | CONT / DASHED / DASHDOT / HIDDEN / DOT / BORDER / CENTER / PHANTOM |
+| **LW** | Printed weight in points (0.18 – 2.00) |
+| **Tr** | Transparency % (Op = 100 − Tr) |
+| **LTS** | Per-layer linetype scale |
+
+Toolbar strip (top of the manager):
+
+- Bulb-on / bulb-off / invert — bulk On toggling
+- Lock-all / unlock-all — bulk Lk toggling
+- Reset selected-layer overrides / reset ALL overrides
+- Refresh sort
+
+Filter chips: **ALL · ON · OFF · LOCKED · OVERRIDDEN**.  
+Search box filters by layer name. Column headers with `▲/▼` are sortable.  
+Selected layer shows an orange left bar; overridden layers show a yellow bar.
+
+### Other plot options
+
 | Option | Choices |
 | --- | --- |
 | Markers | Filled triangle, triangle outline, cross (+), X, large X, circle, dot, large dot |
@@ -75,7 +104,6 @@ Draws `LINE`, `LWPOLYLINE`, `POLYLINE`, `ARC`, `CIRCLE` for checked layers.
 | Scale | Auto engineering scale, or fixed `1"=N'` |
 | Sheet | ANSI A–D, portrait or landscape |
 | Colors | Full ACI, CTB, HSV true-color |
-| Layer lock | Lk column — locked layers can't be dragged |
 
 Examples: `dist/plot_examples/`  
 Regenerate: `cd mobile/stakedxf && dart run tool/generate_plot_examples.dart`

@@ -78,7 +78,7 @@ def new_slide(doc: fitz.Document, title: str | None = None) -> fitz.Page:
     page.draw_rect(ribbon, color=None, fill=CARD)
     page.draw_line((0, 30), (SLIDE_W, 30), color=BORDER, width=1)
     page.draw_rect(fitz.Rect(20, 11, 28, 19), color=None, fill=ORANGE)
-    page.insert_text((36, 20), "SDX  ·  v1.22", fontsize=9, fontname=F_MONO, color=DIM)
+    page.insert_text((36, 20), "SDX  ·  v1.23", fontsize=9, fontname=F_MONO, color=DIM)
     # Right-side telemetry pills
     for i, (label, ok) in enumerate([("ONLINE", True), ("LOCAL", False)]):
         x = SLIDE_W - 40 - i * 90
@@ -135,9 +135,11 @@ def bullet_block(page, x, y, lines, size=13, gap=24, color=FG, width=600):
     return y + len(lines) * gap
 
 
-def draw_phone(page: fitz.Page, x: float, y: float, screen_drawer) -> None:
+def draw_phone(page: fitz.Page, x: float, y: float, screen_drawer,
+                content_height: int | None = None) -> None:
     """Draw a TSC5-ish handheld chrome and call screen_drawer(page, inner)."""
-    outer = fitz.Rect(x - 10, y - 12, x + PHONE_W + 10, y + PHONE_H + 12)
+    phone_h = content_height if content_height is not None else PHONE_H
+    outer = fitz.Rect(x - 10, y - 12, x + PHONE_W + 10, y + phone_h + 12)
     # Rugged bezel
     page.draw_rect(outer, color=BORDER_STRONG, fill=(0.02, 0.02, 0.03), width=2)
     # Screw dots
@@ -147,7 +149,7 @@ def draw_phone(page: fitz.Page, x: float, y: float, screen_drawer) -> None:
                    (outer.x1 - 6, outer.y1 - 6)]:
         page.draw_circle((cx, cy), 2, color=BORDER_STRONG, fill=RAIL, width=0.5)
     # Screen
-    screen = fitz.Rect(x, y, x + PHONE_W, y + PHONE_H)
+    screen = fitz.Rect(x, y, x + PHONE_W, y + phone_h)
     page.draw_rect(screen, color=None, fill=BG)
     # Instrument ribbon
     rib = fitz.Rect(screen.x0, screen.y0, screen.x1, screen.y0 + 24)
@@ -242,7 +244,7 @@ def _before_after_slide(page):
     page.draw_rect(right, color=None, fill=BG)
     _corner_brackets(page, right, color=OK, length=18, stroke=1.8)
     page.insert_text((right.x0 + 20, right.y0 + 28),
-                     "v1.22  —  shipped",
+                     "v1.23  —  shipped",
                      fontsize=12, fontname=F_MONO, color=OK)
     # HERO
     page.insert_text((right.x0 + 20, right.y0 + 100), "STAKE",
@@ -507,6 +509,919 @@ def ui_export(page, r: fitz.Rect, mode="loaded"):
                      fontsize=8, fontname=F_MONO, color=FG)
 
 
+# ────────────────────────────────────────────────────────────────────────
+# Sub-menu mockups (Civil 3D-style Layer Properties Manager + bottom sheets)
+# ────────────────────────────────────────────────────────────────────────
+
+def _tri(page, x, y, up=True, right=False, color=FG, size=5):
+    """Draw a small vector triangle glyph (avoids missing Unicode arrows)."""
+    if right:
+        pts = [(x, y), (x + size, y + size / 2), (x, y + size)]
+    elif up:
+        pts = [(x, y + size), (x + size / 2, y), (x + size, y + size)]
+    else:
+        pts = [(x, y), (x + size / 2, y + size), (x + size, y)]
+    page.draw_polyline(pts + [pts[0]], color=color, fill=color, width=0.4)
+
+def _lpm_toolbar_icon(page, x, y, w, h, kind, enabled=True):
+    r = fitz.Rect(x, y, x + w, y + h)
+    page.draw_rect(r, color=BORDER, fill=RAIL, width=0.8)
+    cx = (r.x0 + r.x1) / 2
+    cy = (r.y0 + r.y1) / 2
+    col = DIM if enabled else MUTED
+    if kind == "bulb_on":
+        page.draw_circle((cx, cy - 1), 3, color=WARN, fill=WARN, width=0.6)
+        page.draw_line((cx - 2, cy + 3), (cx + 2, cy + 3), color=WARN, width=0.8)
+    elif kind == "bulb_off":
+        page.draw_circle((cx, cy - 1), 3, color=col, width=0.8)
+        page.draw_line((cx - 2, cy + 3), (cx + 2, cy + 3), color=col, width=0.8)
+    elif kind == "invert":
+        page.draw_line((cx - 4, cy - 2), (cx + 4, cy - 2), color=col, width=0.9)
+        page.draw_line((cx + 2, cy - 4), (cx + 4, cy - 2), color=col, width=0.9)
+        page.draw_line((cx + 4, cy - 2), (cx + 2, cy), color=col, width=0.9)
+        page.draw_line((cx - 4, cy + 2), (cx + 4, cy + 2), color=col, width=0.9)
+        page.draw_line((cx - 2, cy), (cx - 4, cy + 2), color=col, width=0.9)
+        page.draw_line((cx - 4, cy + 2), (cx - 2, cy + 4), color=col, width=0.9)
+    elif kind == "lock":
+        page.draw_rect(fitz.Rect(cx - 3, cy, cx + 3, cy + 4),
+                       color=ORANGE, fill=ORANGE, width=0.6)
+        page.draw_line((cx - 2, cy), (cx - 2, cy - 3), color=ORANGE, width=0.8)
+        page.draw_line((cx + 2, cy), (cx + 2, cy - 3), color=ORANGE, width=0.8)
+        page.draw_line((cx - 2, cy - 3), (cx + 2, cy - 3), color=ORANGE, width=0.8)
+    elif kind == "unlock":
+        page.draw_rect(fitz.Rect(cx - 3, cy, cx + 3, cy + 4),
+                       color=col, width=0.6)
+        page.draw_line((cx + 2, cy), (cx + 2, cy - 3), color=col, width=0.8)
+        page.draw_line((cx - 2, cy - 3), (cx + 2, cy - 3), color=col, width=0.8)
+    elif kind == "reset":
+        page.draw_line((cx - 3, cy), (cx + 3, cy), color=col, width=0.9)
+        page.draw_line((cx + 1, cy - 2), (cx + 3, cy), color=col, width=0.9)
+        page.draw_line((cx + 3, cy), (cx + 1, cy + 2), color=col, width=0.9)
+    elif kind == "reset_all":
+        page.draw_circle((cx, cy), 3, color=col, width=0.9)
+        page.draw_line((cx + 2, cy - 2), (cx + 4, cy - 4), color=col, width=0.9)
+    elif kind == "refresh":
+        page.draw_circle((cx, cy), 3, color=col, width=0.9)
+        page.draw_line((cx + 3, cy - 1), (cx + 5, cy - 3), color=col, width=0.9)
+        page.draw_line((cx + 3, cy - 1), (cx + 1, cy - 3), color=col, width=0.9)
+
+
+def _lpm_column_swatch(page, x, y, w, h, argb_rgb):
+    r = fitz.Rect(x, y, x + w, y + h)
+    page.draw_rect(r, color=BORDER_STRONG, fill=argb_rgb, width=0.6)
+
+
+def _lpm_linetype_preview(page, x, y, w, kind, color=FG):
+    y0 = y
+    if kind == "cont":
+        page.draw_line((x, y0), (x + w, y0), color=color, width=1)
+    elif kind == "dash":
+        i = 0
+        while i < w:
+            page.draw_line((x + i, y0), (x + min(i + 4, w), y0),
+                           color=color, width=1)
+            i += 6
+    elif kind == "dashdot":
+        i = 0
+        step = 0
+        while i < w:
+            seg = [4, 2, 1, 2][step % 4]
+            if step % 2 == 0:
+                page.draw_line((x + i, y0), (x + min(i + seg, w), y0),
+                               color=color, width=1)
+            i += seg
+            step += 1
+    elif kind == "dot":
+        i = 0
+        while i < w:
+            page.draw_line((x + i, y0), (x + min(i + 1, w), y0),
+                           color=color, width=1)
+            i += 3
+    elif kind == "hidden":
+        i = 0
+        while i < w:
+            page.draw_line((x + i, y0), (x + min(i + 3, w), y0),
+                           color=color, width=1)
+            i += 5
+
+
+def ui_layer_properties_manager(page, r: fitz.Rect):
+    """Civil-3D-style Layer Properties Manager screen inside the phone."""
+    x = r.x0
+    # title bar (rail with orange marker)
+    yy = r.y0
+    tb = fitz.Rect(x, yy, r.x1, yy + 22)
+    page.draw_rect(tb, color=None, fill=RAIL)
+    page.draw_rect(fitz.Rect(x + 8, yy + 4, x + 11, yy + 18),
+                   color=None, fill=ORANGE)
+    page.insert_text((x + 16, yy + 15), "LAYER PROPERTIES MANAGER",
+                     fontsize=7, fontname=F_MONO_BOLD, color=FG)
+    page.insert_text((r.x1 - 60, yy + 15), "5 / 12 ON",
+                     fontsize=6, fontname=F_MONO, color=MUTED)
+    page.draw_line((x, tb.y1), (r.x1, tb.y1), color=BORDER, width=1)
+    yy = tb.y1
+
+    # toolbar strip
+    tool = fitz.Rect(x, yy, r.x1, yy + 26)
+    page.draw_rect(tool, color=None, fill=ELEVATED)
+    tx = x + 6
+    for kind in ("bulb_on", "bulb_off", "invert"):
+        _lpm_toolbar_icon(page, tx, yy + 4, 22, 18, kind); tx += 24
+    page.draw_line((tx, yy + 6), (tx, yy + 20), color=BORDER, width=0.6)
+    tx += 6
+    for kind in ("lock", "unlock"):
+        _lpm_toolbar_icon(page, tx, yy + 4, 22, 18, kind); tx += 24
+    page.draw_line((tx, yy + 6), (tx, yy + 20), color=BORDER, width=0.6)
+    tx += 6
+    for kind in ("reset", "reset_all"):
+        _lpm_toolbar_icon(page, tx, yy + 4, 22, 18, kind); tx += 24
+    page.draw_line((tx, yy + 6), (tx, yy + 20), color=BORDER, width=0.6)
+    tx += 6
+    _lpm_toolbar_icon(page, tx, yy + 4, 22, 18, "refresh")
+    page.draw_line((x, tool.y1), (r.x1, tool.y1), color=BORDER, width=1)
+    yy = tool.y1
+
+    # filter chip bar
+    fb = fitz.Rect(x, yy, r.x1, yy + 24)
+    page.draw_rect(fb, color=None, fill=CARD)
+    page.insert_text((x + 8, yy + 15), "FILTER",
+                     fontsize=6, fontname=F_MONO_BOLD, color=MUTED)
+    fx = x + 46
+    chips = [("ALL", True), ("ON", False), ("OFF", False), ("LOCKED", False), ("OVERRIDDEN", False)]
+    for label, active in chips:
+        w = len(label) * 4 + 12
+        cr = fitz.Rect(fx, yy + 5, fx + w, yy + 19)
+        page.draw_rect(cr, color=ORANGE if active else BORDER,
+                       fill=ORANGE_DIM if active else MUTED,
+                       width=1 if active else 0.6)
+        page.insert_text((fx + 4, yy + 15), label, fontsize=6,
+                         fontname=F_MONO_BOLD if active else F_MONO,
+                         color=ORANGE if active else DIM)
+        fx += w + 4
+    page.draw_line((x, fb.y1), (r.x1, fb.y1), color=BORDER, width=1)
+    yy = fb.y1
+
+    # search bar
+    sb = fitz.Rect(x, yy, r.x1, yy + 20)
+    page.draw_rect(sb, color=None, fill=CARD)
+    page.draw_circle((x + 12, yy + 10), 3, color=MUTED, width=0.8)
+    page.draw_line((x + 14, yy + 12), (x + 17, yy + 15), color=MUTED, width=0.9)
+    page.insert_text((x + 22, yy + 13), "Filter layers…",
+                     fontsize=6, fontname=F_MONO, color=MUTED)
+    page.draw_line((x, sb.y1), (r.x1, sb.y1), color=BORDER, width=1)
+    yy = sb.y1
+
+    # ── grid area ──
+    grid_top = yy
+    name_col_w = 110
+    # Column widths in the scrolling strip (mirrors the widget)
+    on_w, frz_w, lk_w = 22, 22, 22
+    color_w, lt_w, lw_w, tr_w, lts_w = 26, 46, 26, 26, 26
+    header_h = 18
+    row_h = 18
+
+    # ── name column ──
+    nb = fitz.Rect(x, yy, x + name_col_w, yy + header_h)
+    page.draw_rect(nb, color=None, fill=ELEVATED)
+    # up-arrow (drawn as a triangle so glyph coverage is irrelevant)
+    _tri(page, x + 8, yy + 6, up=True, color=ORANGE)
+    page.insert_text((x + 16, yy + 13), "NAME",
+                     fontsize=6, fontname=F_MONO_BOLD, color=FG)
+    page.insert_text((x + name_col_w - 24, yy + 13), "ENT",
+                     fontsize=6, fontname=F_MONO_BOLD, color=MUTED)
+    page.draw_line((x + name_col_w, yy), (x + name_col_w, r.y1),
+                   color=BORDER_STRONG, width=1)
+    page.draw_line((x, yy + header_h), (x + name_col_w, yy + header_h),
+                   color=BORDER, width=1)
+
+    # data-strip headers
+    hx = x + name_col_w
+    def _h(w, label, active=False):
+        nonlocal hx
+        hh = fitz.Rect(hx, yy, hx + w, yy + header_h)
+        page.draw_rect(hh, color=None, fill=ELEVATED)
+        page.insert_text((hx + 3, yy + 13), label,
+                         fontsize=5.5,
+                         fontname=F_MONO_BOLD,
+                         color=ORANGE if active else DIM)
+        page.draw_line((hh.x1, yy), (hh.x1, yy + header_h),
+                       color=BORDER, width=0.6)
+        hx += w
+
+    _h(on_w, "On")
+    _h(frz_w, "Frz")
+    _h(lk_w, "Lk")
+    _h(color_w, "COLOR", active=True)
+    _h(lt_w, "LTYPE")
+    _h(lw_w, "LW")
+    _h(tr_w, "TR")
+    _h(lts_w, "LTS")
+
+    yy += header_h
+    page.draw_line((x, yy), (r.x1, yy), color=BORDER, width=1)
+
+    # rows
+    rows = [
+        ("P-CURB",       390, True, False, False, (1.0, 0.20, 0.20), "dash", "0.35", "30", "1.0", True),
+        ("P-U-STM",      649, True, False, False, (0.30, 0.65, 1.0), "cont", "0.50", "20", "1.0", False),
+        ("P-CL",         124, True, False, False, (1.00, 0.98, 0.20), "dashdot", "0.25", "0", "1.5", False),
+        ("P-BLDG",        82, True, False, True,  (0.60, 0.60, 0.60), "cont", "0.70", "0", "1.0", False),
+        ("HATCH",         33, False, True, False, (0.35, 0.30, 0.30), "hidden", "0.18", "40", "1.0", False),
+        ("DEFPOINTS", 26804, False, False, False, (0.55, 0.55, 0.55), "dot", "0.18", "0", "1.0", False),
+        ("P-VP",           4, True, False, True,  (0.20, 0.85, 0.40), "cont", "0.35", "0", "1.0", False),
+        ("P-ROAD",       260, True, False, False, (0.95, 0.60, 0.20), "cont", "0.50", "0", "1.0", True),
+    ]
+    for i, (name, cnt, on, frz, locked, col, lt, lw, tr, lts, override) in enumerate(rows):
+        zebra = fitz.utils.getColorList()  # not used; visual only
+        row_bg = ELEVATED if i % 2 else CARD
+        selected = (name == "P-CL")
+        bg = ORANGE_DIM if selected else row_bg
+        rr_name = fitz.Rect(x, yy, x + name_col_w, yy + row_h)
+        page.draw_rect(rr_name, color=None, fill=bg)
+        # left marker
+        marker = fitz.Rect(x, yy, x + 3, yy + row_h)
+        if selected:
+            page.draw_rect(marker, color=None, fill=ORANGE)
+        elif override:
+            page.draw_rect(marker, color=None, fill=WARN)
+        if selected:
+            _tri(page, x + 8, yy + 6, up=False, right=True, color=ORANGE)
+        elif locked:
+            _draw_lock(page, fitz.Rect(x + 6, yy + 2, x + 16, yy + row_h - 2), True)
+        page.insert_text((x + 18, yy + 12), name,
+                         fontsize=6.5, fontname=F_MONO_BOLD if selected else F_MONO,
+                         color=FG if on else MUTED)
+        page.insert_text((x + name_col_w - 26, yy + 12), str(cnt),
+                         fontsize=6, fontname=F_MONO, color=MUTED)
+        page.draw_line((x, yy + row_h), (x + name_col_w, yy + row_h),
+                       color=BORDER, width=0.6)
+
+        # data strip
+        rx = x + name_col_w
+        strip = fitz.Rect(rx, yy, r.x1, yy + row_h)
+        page.draw_rect(strip, color=None, fill=bg)
+
+        def _cell(w, drawer):
+            nonlocal rx
+            cell = fitz.Rect(rx, yy, rx + w, yy + row_h)
+            drawer(cell)
+            page.draw_line((cell.x1, yy), (cell.x1, yy + row_h),
+                           color=BORDER, width=0.5)
+            rx += w
+
+        _cell(on_w, lambda c: (
+            page.draw_circle(((c.x0 + c.x1) / 2, (c.y0 + c.y1) / 2 - 1),
+                             2.4,
+                             color=WARN if on else MUTED,
+                             fill=WARN if on else None,
+                             width=0.7),
+        ))
+        _cell(frz_w, lambda c: (
+            _ice_or_sun(page, c, frz),
+        ))
+        _cell(lk_w, lambda c: (
+            _draw_lock(page, c, locked),
+        ))
+        _cell(color_w, lambda c: (
+            _lpm_column_swatch(page, c.x0 + 2, c.y0 + 4,
+                                c.width - 4, c.height - 8, col),
+        ))
+        _cell(lt_w, lambda c: (
+            _lpm_linetype_preview(page, c.x0 + 3, c.y0 + 10, 22, lt, color=col),
+            page.insert_text((c.x0 + 28, c.y0 + 12),
+                             {"cont": "CONT", "dash": "DASH", "dashdot": "DASHD",
+                              "dot": "DOT", "hidden": "HIDD"}.get(lt, "CONT"),
+                             fontsize=5.5, fontname=F_MONO,
+                             color=FG if on else MUTED),
+        ))
+        _cell(lw_w, lambda c: page.insert_text(
+            (c.x0 + 4, c.y0 + 12), lw,
+            fontsize=6, fontname=F_MONO,
+            color=FG if on else MUTED))
+        _cell(tr_w, lambda c: page.insert_text(
+            (c.x0 + 4, c.y0 + 12), tr,
+            fontsize=6, fontname=F_MONO,
+            color=FG if on else MUTED))
+        _cell(lts_w, lambda c: page.insert_text(
+            (c.x0 + 4, c.y0 + 12), lts,
+            fontsize=6, fontname=F_MONO,
+            color=FG if on else MUTED))
+
+        page.draw_line((x, yy + row_h), (r.x1, yy + row_h),
+                       color=BORDER, width=0.6)
+        yy += row_h
+        if yy + row_h > r.y1 - 28:
+            break
+
+    # footer: global LTS
+    ft = fitz.Rect(x, r.y1 - 28, r.x1, r.y1)
+    page.draw_rect(ft, color=None, fill=RAIL)
+    page.draw_line((x, ft.y0), (r.x1, ft.y0), color=BORDER, width=1)
+    page.insert_text((x + 8, ft.y0 + 12), "GLOBAL  LTS",
+                     fontsize=6, fontname=F_MONO_BOLD, color=MUTED)
+    tr_ = fitz.Rect(x + 62, ft.y0 + 12, r.x1 - 40, ft.y0 + 14)
+    page.draw_line((tr_.x0, tr_.y0 + 1), (tr_.x1, tr_.y0 + 1),
+                   color=BORDER, width=1)
+    page.draw_line((tr_.x0, tr_.y0 + 1), (tr_.x0 + tr_.width * 0.4, tr_.y0 + 1),
+                   color=ORANGE, width=1.4)
+    page.draw_circle((tr_.x0 + tr_.width * 0.4, tr_.y0 + 1),
+                     2.4, color=ORANGE, fill=ORANGE, width=0.4)
+    page.insert_text((r.x1 - 36, ft.y0 + 15), "1.0",
+                     fontsize=7, fontname=F_MONO_BOLD, color=FG)
+
+
+def _ice_or_sun(page, c, frozen):
+    cx = (c.x0 + c.x1) / 2
+    cy = (c.y0 + c.y1) / 2
+    if frozen:
+        for angle in range(0, 180, 30):
+            dx = 3
+            page.draw_line((cx - dx, cy), (cx + dx, cy),
+                           color=(0.44, 0.77, 1.00), width=0.7)
+            # rotate a little via approximated angles
+            page.draw_line((cx - 2, cy - 2), (cx + 2, cy + 2),
+                           color=(0.44, 0.77, 1.00), width=0.7)
+            page.draw_line((cx - 2, cy + 2), (cx + 2, cy - 2),
+                           color=(0.44, 0.77, 1.00), width=0.7)
+            break
+    else:
+        page.draw_circle((cx, cy), 1.8, color=MUTED, width=0.6)
+        for a in ((cx - 3, cy), (cx + 3, cy), (cx, cy - 3), (cx, cy + 3)):
+            page.draw_line((cx, cy), a, color=MUTED, width=0.5)
+
+
+def _draw_lock(page, c, locked):
+    cx = (c.x0 + c.x1) / 2
+    cy = (c.y0 + c.y1) / 2
+    col = ORANGE if locked else MUTED
+    body = fitz.Rect(cx - 3, cy, cx + 3, cy + 4)
+    if locked:
+        page.draw_rect(body, color=col, fill=col, width=0.5)
+        page.draw_line((cx - 2, cy), (cx - 2, cy - 3), color=col, width=0.8)
+        page.draw_line((cx + 2, cy), (cx + 2, cy - 3), color=col, width=0.8)
+        page.draw_line((cx - 2, cy - 3), (cx + 2, cy - 3), color=col, width=0.8)
+    else:
+        page.draw_rect(body, color=col, width=0.6)
+        page.draw_line((cx + 2, cy), (cx + 2, cy - 3), color=col, width=0.8)
+        page.draw_line((cx - 2, cy - 3), (cx + 2, cy - 3), color=col, width=0.8)
+
+
+def ui_color_picker(page, r: fitz.Rect):
+    x = r.x0
+    yy = r.y0
+    hd = fitz.Rect(x, yy, r.x1, yy + 24)
+    page.draw_rect(hd, color=None, fill=RAIL)
+    page.draw_rect(fitz.Rect(x + 8, yy + 5, x + 11, yy + 19),
+                   color=None, fill=ORANGE)
+    page.insert_text((x + 16, yy + 15), "LAYER COLOR — P-CL",
+                     fontsize=7, fontname=F_MONO_BOLD, color=FG)
+    # current swatch
+    page.draw_rect(fitz.Rect(r.x1 - 30, yy + 5, r.x1 - 10, yy + 19),
+                   color=BORDER_STRONG, fill=(1.0, 0.98, 0.20), width=0.6)
+    yy = hd.y1
+    page.draw_line((x, yy), (r.x1, yy), color=BORDER, width=1)
+
+    # Tab bar
+    tab = fitz.Rect(x, yy, r.x1, yy + 22)
+    page.draw_rect(tab, color=None, fill=CARD)
+    page.insert_text((x + 14, yy + 15), "ACI / CTB",
+                     fontsize=7, fontname=F_MONO_BOLD, color=ORANGE)
+    page.insert_text((x + 90, yy + 15), "True color",
+                     fontsize=7, fontname=F_MONO, color=MUTED)
+    page.draw_line((x + 8, yy + 21), (x + 74, yy + 21), color=ORANGE, width=2)
+    page.draw_line((x, yy + 22), (r.x1, yy + 22), color=BORDER, width=1)
+    yy = tab.y1 + 2
+
+    # 10 × N ACI grid
+    grid_left = x + 8
+    grid_top = yy + 4
+    cols = 10
+    rows = 12
+    sw = (r.x1 - x - 16) / cols
+    sh = sw
+    aci_colors = [
+        (1.0, 0.0, 0.0), (1.0, 1.0, 0.0), (0.0, 1.0, 0.0),
+        (0.0, 1.0, 1.0), (0.0, 0.0, 1.0), (1.0, 0.0, 1.0),
+        (1.0, 1.0, 1.0), (0.55, 0.55, 0.55), (0.75, 0.75, 0.75),
+        (0.99, 0.32, 0.10),
+    ]
+    for j in range(rows):
+        for i in range(cols):
+            idx = j * cols + i
+            base = aci_colors[i % len(aci_colors)]
+            shade = 1.0 - (j / (rows + 2))
+            r_ = base[0] * shade
+            g_ = base[1] * shade
+            b_ = base[2] * shade
+            rx = grid_left + i * sw
+            ry = grid_top + j * sh
+            page.draw_rect(fitz.Rect(rx + 1, ry + 1, rx + sw - 1, ry + sh - 1),
+                           color=None, fill=(r_, g_, b_))
+            if idx == 34:
+                page.draw_rect(fitz.Rect(rx + 1, ry + 1, rx + sw - 1, ry + sh - 1),
+                               color=ORANGE, width=1.4)
+
+    # bottom cta
+    bt = fitz.Rect(x + 8, r.y1 - 34, r.x1 - 8, r.y1 - 10)
+    page.draw_rect(bt, color=BORDER_STRONG, fill=CARD, width=0.8)
+    page.insert_text((bt.x0 + 10, bt.y0 + 15),
+                     "BYLAYER  /  CTB DEFAULT",
+                     fontsize=7, fontname=F_MONO, color=DIM)
+
+
+def ui_truecolor(page, r: fitz.Rect):
+    x = r.x0
+    yy = r.y0
+    hd = fitz.Rect(x, yy, r.x1, yy + 24)
+    page.draw_rect(hd, color=None, fill=RAIL)
+    page.draw_rect(fitz.Rect(x + 8, yy + 5, x + 11, yy + 19),
+                   color=None, fill=ORANGE)
+    page.insert_text((x + 16, yy + 15), "LAYER COLOR — P-CL",
+                     fontsize=7, fontname=F_MONO_BOLD, color=FG)
+    page.draw_rect(fitz.Rect(r.x1 - 30, yy + 5, r.x1 - 10, yy + 19),
+                   color=BORDER_STRONG, fill=(1.00, 0.55, 0.10), width=0.6)
+    yy = hd.y1
+    page.draw_line((x, yy), (r.x1, yy), color=BORDER, width=1)
+    tab = fitz.Rect(x, yy, r.x1, yy + 22)
+    page.draw_rect(tab, color=None, fill=CARD)
+    page.insert_text((x + 14, yy + 15), "ACI / CTB",
+                     fontsize=7, fontname=F_MONO, color=MUTED)
+    page.insert_text((x + 90, yy + 15), "True color",
+                     fontsize=7, fontname=F_MONO_BOLD, color=ORANGE)
+    page.draw_line((x + 84, yy + 21), (x + 164, yy + 21), color=ORANGE, width=2)
+    page.draw_line((x, yy + 22), (r.x1, yy + 22), color=BORDER, width=1)
+    yy = tab.y1 + 4
+
+    # Big saturation×value gradient block
+    sv = fitz.Rect(x + 8, yy, r.x1 - 8, yy + 100)
+    # left = white, right = pure orange
+    steps_x = 24
+    steps_y = 10
+    dx = sv.width / steps_x
+    dy = sv.height / steps_y
+    for i in range(steps_x):
+        for j in range(steps_y):
+            s = i / (steps_x - 1)
+            v = 1.0 - j / (steps_y - 1)
+            col = (1.0 * v + (1 - s) * (1 - v),
+                   (0.55 * s) * v + (1 - s) * (1 - v),
+                   (0.10 * s) * v + (1 - s) * (1 - v))
+            rx = sv.x0 + i * dx
+            ry = sv.y0 + j * dy
+            page.draw_rect(fitz.Rect(rx, ry, rx + dx + 0.5, ry + dy + 0.5),
+                           color=None, fill=col)
+    page.draw_rect(sv, color=BORDER_STRONG, width=0.8)
+    # crosshair
+    page.draw_circle((sv.x0 + sv.width * 0.85, sv.y0 + sv.height * 0.35),
+                     4, color=WHITE, width=1.4)
+
+    # hue slider
+    yy = sv.y1 + 8
+    hue = fitz.Rect(x + 8, yy, r.x1 - 8, yy + 12)
+    steps = 40
+    dxh = hue.width / steps
+    hues = [(1, 0, 0), (1, 0.6, 0), (1, 1, 0), (0.2, 1, 0),
+            (0, 1, 0.6), (0, 1, 1), (0, 0.6, 1), (0, 0, 1),
+            (0.6, 0, 1), (1, 0, 0.6), (1, 0, 0)]
+    for i in range(steps):
+        t = i / (steps - 1)
+        seg = min(int(t * (len(hues) - 1)), len(hues) - 2)
+        frac = t * (len(hues) - 1) - seg
+        h0 = hues[seg]
+        h1 = hues[seg + 1]
+        col = (h0[0] * (1 - frac) + h1[0] * frac,
+               h0[1] * (1 - frac) + h1[1] * frac,
+               h0[2] * (1 - frac) + h1[2] * frac)
+        page.draw_rect(fitz.Rect(hue.x0 + i * dxh, hue.y0,
+                                 hue.x0 + (i + 1) * dxh + 0.5, hue.y1),
+                       color=None, fill=col)
+    page.draw_rect(hue, color=BORDER_STRONG, width=0.6)
+    page.draw_rect(fitz.Rect(hue.x0 + hue.width * 0.10 - 2, hue.y0 - 1,
+                             hue.x0 + hue.width * 0.10 + 2, hue.y1 + 1),
+                   color=WHITE, width=1)
+
+    yy = hue.y1 + 8
+    # RGB readout
+    for i, (lbl, val) in enumerate([("R", "FF"), ("G", "8C"), ("B", "1A")]):
+        rx = x + 8 + i * 60
+        page.insert_text((rx, yy + 12), f"{lbl}  {val}",
+                         fontsize=8, fontname=F_MONO, color=FG)
+    yy += 22
+    # apply button
+    bt = fitz.Rect(x + 8, r.y1 - 34, r.x1 - 8, r.y1 - 10)
+    page.draw_rect(bt, color=None, fill=ORANGE)
+    page.insert_text((bt.x0 + 10, bt.y0 + 15), "APPLY  #FF8C1A",
+                     fontsize=8, fontname=F_MONO_BOLD, color=BLACK)
+
+
+def ui_linetype_sheet(page, r: fitz.Rect):
+    x = r.x0
+    yy = r.y0
+    hd = fitz.Rect(x, yy, r.x1, yy + 24)
+    page.draw_rect(hd, color=None, fill=RAIL)
+    page.draw_rect(fitz.Rect(x + 8, yy + 5, x + 11, yy + 19),
+                   color=None, fill=ORANGE)
+    page.insert_text((x + 16, yy + 15), "LINETYPE — P-CL",
+                     fontsize=7, fontname=F_MONO_BOLD, color=FG)
+    yy = hd.y1
+    page.draw_line((x, yy), (r.x1, yy), color=BORDER, width=1)
+    yy += 4
+    entries = [
+        ("CONTINUOUS", "cont"),
+        ("DASHED",     "dash"),
+        ("DASHED2",    "dash"),
+        ("DASHDOT",    "dashdot"),
+        ("DASHDOT2",   "dashdot"),
+        ("HIDDEN",     "hidden"),
+        ("HIDDEN2",    "hidden"),
+        ("DOT",        "dot"),
+        ("DOT2",       "dot"),
+        ("BORDER",     "dashdot"),
+        ("CENTER",     "dashdot"),
+        ("PHANTOM",    "dashdot"),
+    ]
+    for name, kind in entries:
+        rr = fitz.Rect(x + 8, yy, r.x1 - 8, yy + 22)
+        page.draw_line((rr.x0, rr.y1), (rr.x1, rr.y1),
+                       color=BORDER, width=0.6)
+        _lpm_linetype_preview(page, rr.x0, rr.y0 + 12, 60, kind, color=DIM)
+        page.insert_text((rr.x0 + 72, rr.y0 + 15), name,
+                         fontsize=7, fontname=F_MONO, color=FG)
+        yy += 22
+        if yy > r.y1 - 44:
+            break
+    bt = fitz.Rect(x + 8, r.y1 - 34, r.x1 - 8, r.y1 - 10)
+    page.draw_rect(bt, color=BORDER_STRONG, fill=CARD, width=0.8)
+    page.insert_text((bt.x0 + 10, bt.y0 + 15), "BYLAYER DEFAULT",
+                     fontsize=7, fontname=F_MONO, color=DIM)
+
+
+def ui_lineweight_sheet(page, r: fitz.Rect):
+    x = r.x0
+    yy = r.y0
+    hd = fitz.Rect(x, yy, r.x1, yy + 24)
+    page.draw_rect(hd, color=None, fill=RAIL)
+    page.draw_rect(fitz.Rect(x + 8, yy + 5, x + 11, yy + 19),
+                   color=None, fill=ORANGE)
+    page.insert_text((x + 16, yy + 15), "LINEWEIGHT (pt) — P-CL",
+                     fontsize=7, fontname=F_MONO_BOLD, color=FG)
+    yy = hd.y1
+    page.draw_line((x, yy), (r.x1, yy), color=BORDER, width=1)
+    yy += 4
+    for w in (0.18, 0.25, 0.35, 0.50, 0.70, 1.00, 1.40, 2.00):
+        rr = fitz.Rect(x + 8, yy, r.x1 - 8, yy + 26)
+        page.draw_line((rr.x0, rr.y1), (rr.x1, rr.y1),
+                       color=BORDER, width=0.6)
+        page.draw_line((rr.x0 + 8, rr.y0 + 13), (rr.x0 + 58, rr.y0 + 13),
+                       color=FG, width=w * 1.4)
+        page.insert_text((rr.x0 + 72, rr.y0 + 16), f"{w:.2f}",
+                         fontsize=8, fontname=F_MONO, color=FG)
+        yy += 26
+        if yy > r.y1 - 44:
+            break
+    bt = fitz.Rect(x + 8, r.y1 - 34, r.x1 - 8, r.y1 - 10)
+    page.draw_rect(bt, color=BORDER_STRONG, fill=CARD, width=0.8)
+    page.insert_text((bt.x0 + 10, bt.y0 + 15), "BYLAYER / CTB DEFAULT",
+                     fontsize=7, fontname=F_MONO, color=DIM)
+
+
+def _slider_sheet(page, r: fitz.Rect, title, value_label, orange_frac,
+                  apply_label="APPLY"):
+    x = r.x0
+    yy = r.y0
+    hd = fitz.Rect(x, yy, r.x1, yy + 24)
+    page.draw_rect(hd, color=None, fill=RAIL)
+    page.draw_rect(fitz.Rect(x + 8, yy + 5, x + 11, yy + 19),
+                   color=None, fill=ORANGE)
+    page.insert_text((x + 16, yy + 15), title,
+                     fontsize=7, fontname=F_MONO_BOLD, color=FG)
+    yy = hd.y1
+    page.draw_line((x, yy), (r.x1, yy), color=BORDER, width=1)
+    # Slider
+    sy = yy + 44
+    sr = fitz.Rect(x + 16, sy, r.x1 - 16, sy + 2)
+    page.draw_line((sr.x0, sr.y0 + 1), (sr.x1, sr.y0 + 1),
+                   color=BORDER, width=1)
+    page.draw_line((sr.x0, sr.y0 + 1),
+                   (sr.x0 + sr.width * orange_frac, sr.y0 + 1),
+                   color=ORANGE, width=1.6)
+    page.draw_circle((sr.x0 + sr.width * orange_frac, sr.y0 + 1),
+                     3.4, color=ORANGE, fill=ORANGE, width=0.5)
+    page.insert_text((sr.x0, sr.y1 + 22),
+                     value_label,
+                     fontsize=10, fontname=F_MONO_BOLD, color=FG)
+    # Reset + apply
+    reset = fitz.Rect(x + 8, r.y1 - 34, x + 90, r.y1 - 10)
+    apply = fitz.Rect(r.x1 - 100, r.y1 - 34, r.x1 - 8, r.y1 - 10)
+    page.draw_rect(reset, color=BORDER_STRONG, fill=CARD, width=0.8)
+    page.insert_text((reset.x0 + 24, reset.y0 + 15), "RESET",
+                     fontsize=7, fontname=F_MONO, color=DIM)
+    page.draw_rect(apply, color=None, fill=ORANGE)
+    page.insert_text((apply.x0 + 22, apply.y0 + 15), apply_label,
+                     fontsize=7, fontname=F_MONO_BOLD, color=BLACK)
+
+
+def ui_transparency_sheet(page, r):
+    _slider_sheet(page, r, "TRANSPARENCY — P-CL",
+                  "OPACITY  75%   ·   TRANS  25%",
+                  orange_frac=0.75)
+
+
+def ui_ltscale_sheet(page, r):
+    _slider_sheet(page, r, "LINETYPE SCALE — P-CL", "1.50", 0.15 / 20)
+
+
+def ui_linework_panel(page, r):
+    x = r.x0
+    yy = r.y0 + 8
+    page.insert_text((x + 14, yy + 12), "◂  LINEWORK  ·  P-CURB · LWPOLYLINE",
+                     fontsize=8, fontname=F_MONO, color=ORANGE)
+    yy += 22
+    # Preview strip
+    prev = fitz.Rect(x + 12, yy, r.x1 - 12, yy + 44)
+    page.draw_rect(prev, color=BORDER, fill=CARD, width=0.8)
+    page.draw_line((prev.x0 + 12, prev.y0 + 22),
+                   (prev.x1 - 12, prev.y0 + 22), color=(1.0, 0.2, 0.2), width=1.4)
+    page.insert_text((prev.x0 + 8, prev.y0 + 40), "SEG 3 / 12  ·  53.42 LF",
+                     fontsize=6, fontname=F_MONO, color=MUTED)
+    yy = prev.y1 + 8
+    # Rows
+    rows = [
+        ("LAYER",   "P-CURB"),
+        ("COLOR",   "ACI 1  RED"),
+        ("LINETYPE", "DASHED"),
+        ("WEIGHT",  "0.35 pt"),
+        ("SCALE",   "1.0"),
+        ("TRANS",   "30 %"),
+        ("SEG LEN", "53.42 ft"),
+    ]
+    for k, v in rows:
+        rr = fitz.Rect(x + 12, yy, r.x1 - 12, yy + 22)
+        page.draw_rect(rr, color=BORDER, fill=CARD, width=0.6)
+        page.insert_text((rr.x0 + 8, rr.y0 + 15), k,
+                         fontsize=7, fontname=F_MONO, color=MUTED)
+        page.insert_text((rr.x0 + 90, rr.y0 + 15), v,
+                         fontsize=7, fontname=F_MONO_BOLD, color=FG)
+        yy = rr.y1 + 3
+    # Actions
+    yy += 4
+    for label, kind in (("TRIM SEGMENT", False), ("DELETE SEGMENT", False), ("CLEAR SELECTION", True)):
+        rr = fitz.Rect(x + 12, yy, r.x1 - 12, yy + 24)
+        page.draw_rect(rr, color=None,
+                       fill=(ORANGE if kind else CARD))
+        page.draw_rect(rr, color=BORDER_STRONG if not kind else None, width=0.8)
+        page.insert_text((rr.x0 + 12, rr.y0 + 16), label,
+                         fontsize=7, fontname=F_MONO_BOLD,
+                         color=BLACK if kind else FG)
+        yy = rr.y1 + 6
+
+
+def ui_point_properties(page, r):
+    x = r.x0
+    yy = r.y0 + 8
+    page.insert_text((x + 14, yy + 12), "◂  POINT  ·  #142",
+                     fontsize=8, fontname=F_MONO, color=ORANGE)
+    yy += 22
+    prev = fitz.Rect(x + 12, yy, r.x1 - 12, yy + 44)
+    page.draw_rect(prev, color=BORDER, fill=CARD, width=0.8)
+    # X-shaped marker
+    cx = (prev.x0 + prev.x1) / 2
+    cy = (prev.y0 + prev.y1) / 2
+    page.draw_line((cx - 8, cy - 8), (cx + 8, cy + 8), color=ORANGE, width=1.6)
+    page.draw_line((cx - 8, cy + 8), (cx + 8, cy - 8), color=ORANGE, width=1.6)
+    page.insert_text((cx + 10, cy + 2), "#142  EL 1218.42",
+                     fontsize=6, fontname=F_MONO, color=DIM)
+    yy = prev.y1 + 8
+    for k, v in (("PT #", "142"),
+                 ("NORTH", "6,241,822.145"),
+                 ("EAST", "1,842,633.911"),
+                 ("ELEV", "1218.42 ft"),
+                 ("DESC", "CURB RETURN"),
+                 ("LABEL", "#  +  ELEV"),
+                 ("MARKER", "LARGE X"),
+                 ("OFFSET", "dN 0.20  dE 0.15")):
+        rr = fitz.Rect(x + 12, yy, r.x1 - 12, yy + 20)
+        page.draw_rect(rr, color=BORDER, fill=CARD, width=0.6)
+        page.insert_text((rr.x0 + 8, rr.y0 + 14), k,
+                         fontsize=6.5, fontname=F_MONO, color=MUTED)
+        page.insert_text((rr.x0 + 74, rr.y0 + 14), v,
+                         fontsize=6.5, fontname=F_MONO_BOLD, color=FG)
+        yy = rr.y1 + 3
+    yy += 2
+    # actions
+    for label, primary in (("MOVE LABEL", False), ("HIDE POINT", False), ("RESET OFFSET", True)):
+        rr = fitz.Rect(x + 12, yy, r.x1 - 12, yy + 22)
+        page.draw_rect(rr, color=None,
+                       fill=(ORANGE if primary else CARD))
+        page.draw_rect(rr, color=BORDER_STRONG if not primary else None, width=0.8)
+        page.insert_text((rr.x0 + 12, rr.y0 + 15), label,
+                         fontsize=7, fontname=F_MONO_BOLD,
+                         color=BLACK if primary else FG)
+        yy = rr.y1 + 6
+
+
+def ui_text_style(page, r):
+    x = r.x0
+    yy = r.y0
+    hd = fitz.Rect(x, yy, r.x1, yy + 24)
+    page.draw_rect(hd, color=None, fill=RAIL)
+    page.draw_rect(fitz.Rect(x + 8, yy + 5, x + 11, yy + 19),
+                   color=None, fill=ORANGE)
+    page.insert_text((x + 16, yy + 15), "TEXT STYLE",
+                     fontsize=7, fontname=F_MONO_BOLD, color=FG)
+    yy = hd.y1 + 4
+    entries = [
+        ("STANDARD", "arial", 3.0),
+        ("ROMANS",   "romans", 2.4),
+        ("ROMAND",   "romand", 2.5),
+        ("ITALIC",   "italic", 2.4),
+        ("MONO",     "mono", 2.2),
+        ("SANS-B",   "sans-b", 3.2),
+    ]
+    for name, sample, height in entries:
+        rr = fitz.Rect(x + 8, yy, r.x1 - 8, yy + 30)
+        page.draw_rect(rr, color=BORDER, fill=CARD, width=0.6)
+        page.insert_text((rr.x0 + 10, rr.y0 + 12), name,
+                         fontsize=7, fontname=F_MONO_BOLD, color=FG)
+        page.insert_text((rr.x0 + 10, rr.y0 + 24),
+                         f"h {height:.1f} mm  ·  0.90 W",
+                         fontsize=6, fontname=F_MONO, color=MUTED)
+        # preview
+        page.insert_text((rr.x1 - 90, rr.y0 + 22), "142 ELEV 1218.42",
+                         fontsize=8,
+                         fontname=F_MONO if "mono" in sample else F_BOLD,
+                         color=DIM)
+        yy = rr.y1 + 6
+
+
+def ui_symbol_library(page, r):
+    x = r.x0
+    yy = r.y0
+    hd = fitz.Rect(x, yy, r.x1, yy + 24)
+    page.draw_rect(hd, color=None, fill=RAIL)
+    page.draw_rect(fitz.Rect(x + 8, yy + 5, x + 11, yy + 19),
+                   color=None, fill=ORANGE)
+    page.insert_text((x + 16, yy + 15), "SYMBOL LIBRARY",
+                     fontsize=7, fontname=F_MONO_BOLD, color=FG)
+    yy = hd.y1 + 4
+    # category chips
+    chips = ["ALL", "UTILITY", "STRUCT", "SURVEY", "DWG BLOCKS"]
+    fx = x + 8
+    for i, name in enumerate(chips):
+        w = len(name) * 4 + 12
+        active = i == 1
+        page.draw_rect(fitz.Rect(fx, yy, fx + w, yy + 16),
+                       color=ORANGE if active else BORDER,
+                       fill=ORANGE_DIM if active else CARD, width=0.8)
+        page.insert_text((fx + 4, yy + 12), name,
+                         fontsize=6, fontname=F_MONO_BOLD,
+                         color=ORANGE if active else DIM)
+        fx += w + 4
+    yy += 22
+
+    def _mh(cx, cy):
+        page.draw_circle((cx, cy), 5, color=DIM, width=1)
+        page.draw_line((cx - 3, cy), (cx + 3, cy), color=DIM, width=0.8)
+    def _hyd(cx, cy):
+        page.draw_rect(fitz.Rect(cx - 3, cy - 4, cx + 3, cy + 4), color=ORANGE, width=1)
+        page.draw_line((cx, cy - 5), (cx, cy + 5), color=ORANGE, width=0.8)
+    def _wv(cx, cy):
+        page.draw_circle((cx, cy), 4, color=DIM, width=1)
+        page.draw_line((cx - 3, cy - 3), (cx + 3, cy + 3), color=DIM, width=0.8)
+        page.draw_line((cx + 3, cy - 3), (cx - 3, cy + 3), color=DIM, width=0.8)
+    def _sign(cx, cy):
+        page.draw_line((cx, cy - 5), (cx, cy + 4), color=DIM, width=1)
+        page.draw_rect(fitz.Rect(cx - 4, cy - 6, cx + 4, cy - 2), color=DIM, width=1)
+    def _cb(cx, cy):
+        page.draw_rect(fitz.Rect(cx - 5, cy - 3, cx + 5, cy + 3), color=DIM, width=1)
+        page.draw_line((cx - 3, cy), (cx + 3, cy), color=DIM, width=0.6)
+    def _tree(cx, cy):
+        page.draw_circle((cx, cy - 2), 4, color=OK, width=1)
+        page.draw_line((cx, cy + 2), (cx, cy + 5), color=OK, width=1)
+    icons = [("MANHOLE", _mh), ("HYDRANT", _hyd),
+             ("W-VALVE", _wv), ("SIGN", _sign),
+             ("CATCH B", _cb), ("TREE", _tree)]
+    grid_w = (r.x1 - r.x0 - 16)
+    cell_w = grid_w / 3
+    for i, (label, drawer) in enumerate(icons):
+        col = i % 3
+        row = i // 3
+        cx = x + 8 + col * cell_w + cell_w / 2
+        cy_row = yy + row * 74
+        card_r = fitz.Rect(x + 8 + col * cell_w + 4, cy_row,
+                            x + 8 + (col + 1) * cell_w - 4, cy_row + 66)
+        page.draw_rect(card_r, color=BORDER, fill=CARD, width=0.6)
+        drawer(cx, cy_row + 22)
+        page.insert_text((card_r.x0 + 6, card_r.y1 - 8), label,
+                         fontsize=6.5, fontname=F_MONO, color=DIM)
+
+
+def ui_plot_preview(page, r):
+    x = r.x0
+    yy = r.y0 + 8
+    page.insert_text((x + 14, yy + 12), "◂  PLOT PREVIEW",
+                     fontsize=8, fontname=F_MONO, color=ORANGE)
+    yy += 20
+    # Sheet border with template outline
+    sheet = fitz.Rect(x + 10, yy, r.x1 - 10, r.y1 - 46)
+    page.draw_rect(sheet, color=BORDER_STRONG, fill=(0.02, 0.02, 0.03), width=1)
+    # title block band
+    tb = fitz.Rect(sheet.x0, sheet.y1 - 34, sheet.x1, sheet.y1)
+    page.draw_rect(tb, color=None, fill=CARD)
+    page.draw_line((tb.x0, tb.y0), (tb.x1, tb.y0), color=BORDER, width=0.8)
+    page.insert_text((tb.x0 + 8, tb.y0 + 12), "STAKING PLOT",
+                     fontsize=7, fontname=F_BOLD, color=FG)
+    page.insert_text((tb.x0 + 8, tb.y0 + 24),
+                     "ALPINE_HILLS   1\"=40'   ANSI B",
+                     fontsize=6, fontname=F_MONO, color=DIM)
+    page.insert_text((tb.x1 - 46, tb.y0 + 24),
+                     "SDX v1.23",
+                     fontsize=6, fontname=F_MONO, color=MUTED)
+    # simple linework
+    plan = fitz.Rect(sheet.x0 + 10, sheet.y0 + 10,
+                     sheet.x1 - 10, tb.y0 - 8)
+    # some polylines
+    curbs = [
+        (plan.x0 + 30, plan.y0 + 60, plan.x0 + 130, plan.y0 + 68),
+        (plan.x0 + 130, plan.y0 + 68, plan.x0 + 200, plan.y0 + 40),
+        (plan.x0 + 200, plan.y0 + 40, plan.x1 - 20, plan.y0 + 30),
+    ]
+    for x0, y0, x1, y1 in curbs:
+        page.draw_line((x0, y0), (x1, y1), color=(1, 0.2, 0.2), width=0.8)
+    # crosses for staking points
+    pts = [
+        (plan.x0 + 60, plan.y0 + 66, "101"),
+        (plan.x0 + 110, plan.y0 + 68, "102"),
+        (plan.x0 + 170, plan.y0 + 52, "103"),
+        (plan.x0 + 220, plan.y0 + 40, "104"),
+        (plan.x1 - 40, plan.y0 + 30, "105"),
+    ]
+    for px, py, lbl in pts:
+        page.draw_line((px - 4, py - 4), (px + 4, py + 4),
+                       color=ORANGE, width=1.2)
+        page.draw_line((px - 4, py + 4), (px + 4, py - 4),
+                       color=ORANGE, width=1.2)
+        page.insert_text((px + 6, py + 2), lbl,
+                         fontsize=5, fontname=F_MONO, color=DIM)
+    # scale bar
+    sb = fitz.Rect(plan.x0 + 10, plan.y1 - 12, plan.x0 + 90, plan.y1 - 4)
+    page.draw_line((sb.x0, sb.y0 + 4), (sb.x1, sb.y0 + 4),
+                   color=DIM, width=0.8)
+    for i in range(5):
+        px = sb.x0 + (sb.width / 4) * i
+        page.draw_line((px, sb.y0 + 2), (px, sb.y0 + 6),
+                       color=DIM, width=0.8)
+    page.insert_text((sb.x0, sb.y1 + 6), "0    40    80 ft",
+                     fontsize=5, fontname=F_MONO, color=MUTED)
+    # bottom action bar
+    ba = fitz.Rect(x + 10, r.y1 - 38, r.x1 - 10, r.y1 - 14)
+    page.draw_rect(ba, color=None, fill=ORANGE)
+    page.insert_text((ba.x0 + 10, ba.y0 + 16), "SAVE PLOT PDF",
+                     fontsize=8, fontname=F_MONO_BOLD, color=BLACK)
+
+
+def ui_templates(page, r):
+    x = r.x0
+    yy = r.y0
+    hd = fitz.Rect(x, yy, r.x1, yy + 24)
+    page.draw_rect(hd, color=None, fill=RAIL)
+    page.draw_rect(fitz.Rect(x + 8, yy + 5, x + 11, yy + 19),
+                   color=None, fill=ORANGE)
+    page.insert_text((x + 16, yy + 15), "SHEET TEMPLATE",
+                     fontsize=7, fontname=F_MONO_BOLD, color=FG)
+    yy = hd.y1 + 6
+    templates = [
+        ("ANSI A", "8.5 × 11",  "P", False),
+        ("ANSI A", "11 × 8.5",  "L", True),
+        ("ANSI B", "11 × 17",   "L", False),
+        ("ANSI B", "17 × 11",   "L", False),
+        ("ANSI C", "22 × 17",   "L", False),
+        ("ANSI D", "34 × 22",   "L", False),
+        ("FIELD MAP", "8×5.25", "L", False),
+        ("FIELD MAP", "4×3",    "L", False),
+    ]
+    grid_w = (r.x1 - r.x0 - 16) / 2
+    for i, (name, size, orient, active) in enumerate(templates):
+        col = i % 2
+        row = i // 2
+        cx0 = x + 8 + col * grid_w
+        cy0 = yy + row * 58
+        card = fitz.Rect(cx0 + 2, cy0, cx0 + grid_w - 2, cy0 + 52)
+        page.draw_rect(card, color=ORANGE if active else BORDER,
+                       fill=ORANGE_DIM if active else CARD, width=1 if active else 0.6)
+        # mini sheet icon (portrait/landscape ratio)
+        if orient == "L":
+            sh = fitz.Rect(card.x0 + 8, card.y0 + 8, card.x0 + 40, card.y0 + 30)
+        else:
+            sh = fitz.Rect(card.x0 + 12, card.y0 + 8, card.x0 + 36, card.y0 + 40)
+        page.draw_rect(sh, color=DIM, width=0.8)
+        page.insert_text((card.x0 + 50, card.y0 + 20), name,
+                         fontsize=7.5, fontname=F_MONO_BOLD,
+                         color=ORANGE if active else FG)
+        page.insert_text((card.x0 + 50, card.y0 + 34), f"{size}  {orient}",
+                         fontsize=6, fontname=F_MONO, color=MUTED)
+
+
 def insert_image_fit(page, rect: fitz.Rect, path: Path):
     if not path.exists():
         page.draw_rect(rect, color=BORDER, fill=CARD, width=0.8)
@@ -532,7 +1447,7 @@ def build_slide_deck() -> Path:
     page.insert_text((40, 260), "STAKE", fontsize=110, fontname=F_BOLD, color=FG)
     page.insert_text((40 + stake_w + 6, 260), "DXF",
                      fontsize=110, fontname=F_BOLD, color=ORANGE)
-    page.insert_text((40, 300), "UI & CAPABILITIES  ·  v1.22", fontsize=14,
+    page.insert_text((40, 300), "UI & CAPABILITIES  ·  v1.23", fontsize=14,
                      fontname=F_MONO, color=MUTED)
     page.draw_line((40, 320), (SLIDE_W - 40, 320), color=BORDER, width=1)
     page.insert_textbox(
@@ -663,6 +1578,159 @@ def build_slide_deck() -> Path:
                   "CREATE STAKING PLOT PDF or EXPORT CSV"],
                  size=13, gap=24, width=640)
 
+    # 7b Layer Properties Manager — Civil 3D style
+    page = add(new_slide(doc, "LAYER PROPERTIES MANAGER"))
+    draw_phone(page, 60, 100, ui_layer_properties_manager, content_height=500)
+    page.insert_textbox(
+        fitz.Rect(430, 120, 1080, 220),
+        "The DXF linework grid is a true Layer Properties Manager — Civil 3D "
+        "column order, sortable headers, sticky Name pane, horizontally "
+        "scrolling data strip.",
+        fontsize=14, fontname=F_BODY, color=DIM,
+    )
+    _section_rule(page, 430, 250, 1080, "COLUMNS")
+    bullet_block(page, 430, 268,
+                 ["On — light-bulb toggle (draws layer on the plot)",
+                  "Frz — freeze marker (snowflake / sun icon)",
+                  "Lk — padlock; locked layers can't be drag-selected",
+                  "Color — ACI / CTB / true-color HSV picker",
+                  "Linetype — CONT / DASHED / DASHDOT / HIDDEN …",
+                  "LW — printed weight in points",
+                  "Tr — transparency %; opacity = 100 - Tr",
+                  "LTS — per-layer linetype scale"],
+                 size=12, gap=22, width=640)
+    _section_rule(page, 430, 480, 1080, "TOOLBAR + FILTER")
+    bullet_block(page, 430, 498,
+                 ["All-on / all-off / invert bulbs",
+                  "Lock-all / unlock-all",
+                  "Reset overrides for selected layer or every layer",
+                  "Chips: ALL · ON · OFF · LOCKED · OVERRIDDEN",
+                  "Live search box — filters by layer name"],
+                 size=12, gap=22, width=640)
+
+    # 7c Colour picker — ACI/CTB
+    page = add(new_slide(doc, "COLOR PICKER  ·  ACI + CTB"))
+    draw_phone(page, 60, 100, ui_color_picker, content_height=500)
+    bullet_block(page, 430, 150,
+                 ["Full ACI 1 – 255 grid, CTB-resolved swatches",
+                  "Header shows the current color swatch",
+                  "Selected chip framed in safety-orange",
+                  "Tap ByLayer / CTB default to clear override",
+                  "Two-tab sheet — ACI on the left, True on the right"],
+                 size=13, gap=26, width=640)
+
+    # 7d Colour picker — true color
+    page = add(new_slide(doc, "COLOR PICKER  ·  TRUE COLOR"))
+    draw_phone(page, 60, 100, ui_truecolor, content_height=500)
+    bullet_block(page, 430, 150,
+                 ["Sat/Value gradient — pick with a single tap",
+                  "Full-hue slider under the pad",
+                  "Live R / G / B readout in mono",
+                  "APPLY writes the exact #RRGGBB override"],
+                 size=13, gap=26, width=640)
+
+    # 7e Linetype sheet
+    page = add(new_slide(doc, "LINETYPE PICKER"))
+    draw_phone(page, 60, 100, ui_linetype_sheet, content_height=500)
+    bullet_block(page, 430, 150,
+                 ["Full LIN catalog + user-loaded linetypes",
+                  "Each row shows the actual dash pattern preview",
+                  "Tap ByLayer default to inherit the layer style",
+                  "Choice applies to the whole layer — same as Civil 3D"],
+                 size=13, gap=26, width=640)
+
+    # 7f Lineweight sheet
+    page = add(new_slide(doc, "LINEWEIGHT PICKER"))
+    draw_phone(page, 60, 100, ui_lineweight_sheet, content_height=500)
+    bullet_block(page, 430, 150,
+                 ["Standard AutoCAD weights 0.18 – 2.00 pt",
+                  "Each row shows a scaled preview stroke",
+                  "Choice affects the printed PDF stroke only",
+                  "Tap ByLayer / CTB to defer to the CTB table"],
+                 size=13, gap=26, width=640)
+
+    # 7g Transparency sheet
+    page = add(new_slide(doc, "TRANSPARENCY / OPACITY"))
+    draw_phone(page, 60, 100, ui_transparency_sheet, content_height=500)
+    bullet_block(page, 430, 150,
+                 ["Live-updates the plot preview while dragging",
+                  "OPACITY and TRANS both shown in mono",
+                  "RESET returns to the resolved ByLayer / CTB value",
+                  "APPLY commits the override; no more no-op slider"],
+                 size=13, gap=26, width=640)
+
+    # 7h Linetype scale sheet
+    page = add(new_slide(doc, "LINETYPE SCALE (LTS)"))
+    draw_phone(page, 60, 100, ui_ltscale_sheet, content_height=500)
+    bullet_block(page, 430, 150,
+                 ["Per-layer LTS override — 0.1 to 20.0",
+                  "Global LTS lives on the LPM footer",
+                  "Resolved value = layer LTS × global LTS",
+                  "Reset returns to the resolved 1.0"],
+                 size=13, gap=26, width=640)
+
+    # 7i Linework properties panel
+    page = add(new_slide(doc, "LINEWORK PROPERTIES"))
+    draw_phone(page, 60, 100, ui_linework_panel, content_height=500)
+    bullet_block(page, 430, 150,
+                 ["Selecting a segment on the preview opens this panel",
+                  "Read-outs: layer / color / linetype / weight / scale",
+                  "TRIM SEGMENT — surgical edit without a full delete",
+                  "DELETE SEGMENT — drop just this run",
+                  "CLEAR SELECTION restores the sticky behaviour fix"],
+                 size=13, gap=26, width=640)
+
+    # 7j Point properties panel
+    page = add(new_slide(doc, "POINT PROPERTIES"))
+    draw_phone(page, 60, 100, ui_point_properties, content_height=500)
+    bullet_block(page, 430, 150,
+                 ["Full PNEZD read-out + label offset",
+                  "Marker + label style overridable per-point",
+                  "MOVE LABEL — drag on the preview to reposition",
+                  "HIDE POINT — omit from the final PDF",
+                  "RESET OFFSET returns to the auto-layout position"],
+                 size=13, gap=26, width=640)
+
+    # 7k Text style picker
+    page = add(new_slide(doc, "TEXT STYLE PICKER"))
+    draw_phone(page, 60, 100, ui_text_style, content_height=500)
+    bullet_block(page, 430, 150,
+                 ["Every SHX-equivalent style shown with a live preview",
+                  "Height / width factor labelled in monospace",
+                  "STANDARD, ROMANS, ROMAND, ITALIC, MONO, SANS-B",
+                  "Applies to the selected label / callout style"],
+                 size=13, gap=26, width=640)
+
+    # 7l Symbol library
+    page = add(new_slide(doc, "SYMBOL LIBRARY"))
+    draw_phone(page, 60, 100, ui_symbol_library, content_height=500)
+    bullet_block(page, 430, 150,
+                 ["Category chips: ALL / UTILITY / STRUCT / SURVEY / DWG BLOCKS",
+                  "Built-ins + AutoCAD blocks pulled from the DWG catalog",
+                  "Tap a card, then place on the sheet at real-world scale",
+                  "Symbols honour marker size + layer color overrides"],
+                 size=13, gap=26, width=640)
+
+    # 7m Plot preview
+    page = add(new_slide(doc, "PLOT PREVIEW"))
+    draw_phone(page, 60, 100, ui_plot_preview, content_height=500)
+    bullet_block(page, 430, 150,
+                 ["Live sheet preview — points, labels, linework, title block",
+                  "Pinch-to-zoom on the phone; tap segments for edits",
+                  "Scale bar renders inside the plan window",
+                  "SAVE PLOT PDF writes the final Trimble-ready sheet"],
+                 size=13, gap=26, width=640)
+
+    # 7n Sheet template picker
+    page = add(new_slide(doc, "SHEET TEMPLATE PICKER"))
+    draw_phone(page, 60, 100, ui_templates, content_height=500)
+    bullet_block(page, 430, 150,
+                 ["ANSI A / B / C / D + portrait or landscape",
+                  "Compact FIELD MAP presets for handheld staking",
+                  "Active template highlighted in safety-orange",
+                  "Sheet drives scale bar, title block, and usable area"],
+                 size=13, gap=26, width=640)
+
     # 8 Plot options matrix
     page = add(new_slide(doc, "PLOT CUSTOMIZATION"))
     _section_rule(page, 40, 130, SLIDE_W - 40, "MARKERS")
@@ -791,7 +1859,7 @@ def build_tutorial_pdf() -> Path:
     page.insert_text((48 + _stake_w42 + 4, 250), "DXF",
                      fontsize=42, fontname=F_BOLD, color=ORANGE)
     page.draw_line((48, 270), (W - 48, 270), color=BORDER, width=1)
-    page.insert_text((48, 300), "USER GUIDE  ·  v1.22",
+    page.insert_text((48, 300), "USER GUIDE  ·  v1.23",
                      fontsize=16, fontname=F_MONO, color=DIM)
     page.insert_textbox(
         fitz.Rect(48, 340, 520, 460),
@@ -998,6 +2066,35 @@ Draws `LINE`, `LWPOLYLINE`, `POLYLINE`, `ARC`, `CIRCLE` for checked layers.
 
 ## 4. Plot customization
 
+### Layer Properties Manager (Civil 3D style)
+
+Opens under **LAYERS** on the PLOT screen when a DXF is linked. Column order and
+behaviour mirror the AutoCAD/Civil 3D LPM:
+
+| Column | Purpose |
+| --- | --- |
+| **On** | Light-bulb toggle — draws the layer on the plot |
+| **Frz** | Freeze marker (snowflake ⇄ sun) |
+| **Lk** | Padlock — prevents accidental drag-selection |
+| **Color** | ACI / CTB / HSV true-color picker |
+| **Linetype** | CONT / DASHED / DASHDOT / HIDDEN / DOT / BORDER / CENTER / PHANTOM |
+| **LW** | Printed weight in points (0.18 – 2.00) |
+| **Tr** | Transparency % (Op = 100 − Tr) |
+| **LTS** | Per-layer linetype scale |
+
+Toolbar strip (top of the manager):
+
+- Bulb-on / bulb-off / invert — bulk On toggling
+- Lock-all / unlock-all — bulk Lk toggling
+- Reset selected-layer overrides / reset ALL overrides
+- Refresh sort
+
+Filter chips: **ALL · ON · OFF · LOCKED · OVERRIDDEN**.  
+Search box filters by layer name. Column headers with `▲/▼` are sortable.  
+Selected layer shows an orange left bar; overridden layers show a yellow bar.
+
+### Other plot options
+
 | Option | Choices |
 | --- | --- |
 | Markers | Filled triangle, triangle outline, cross (+), X, large X, circle, dot, large dot |
@@ -1007,7 +2104,6 @@ Draws `LINE`, `LWPOLYLINE`, `POLYLINE`, `ARC`, `CIRCLE` for checked layers.
 | Scale | Auto engineering scale, or fixed `1"=N'` |
 | Sheet | ANSI A–D, portrait or landscape |
 | Colors | Full ACI, CTB, HSV true-color |
-| Layer lock | Lk column — locked layers can't be dragged |
 
 Examples: `dist/plot_examples/`  
 Regenerate: `cd mobile/stakedxf && dart run tool/generate_plot_examples.dart`
@@ -1064,19 +2160,33 @@ python3 docs/generate_docs.py
 ```
 
 ## Slides
-1. Title — STAKE·DXF · UI & Capabilities · v1.22
+1. Title — STAKE·DXF · UI & Capabilities · v1.23
 2. Agenda
-3. Design system (tokens + principles)
-4. Home / Operations (rugged action rails)
-5. CONVERT · DWG → DXF pipeline
-6. PLOT · Export Points — start
-7. PLOT · Customize + Create
-8. Plot customization matrix
-9–10. Staking plot example galleries
-11. Install on Trimble TSC5
-12. Field workflow
-13. Docs & help
-14. Ready for the field.
+3. Before / after
+4. Design system (tokens + principles)
+5. Home / Operations (rugged action rails)
+6. CONVERT · DWG → DXF pipeline
+7. PLOT · Export Points — start
+8. PLOT · Customize + Create
+9. **Layer Properties Manager (Civil 3D style)**
+10. Color picker · ACI + CTB
+11. Color picker · True color
+12. Linetype picker
+13. Lineweight picker
+14. Transparency / opacity
+15. Linetype scale (LTS)
+16. Linework properties panel
+17. Point properties panel
+18. Text style picker
+19. Symbol library
+20. Plot preview
+21. Sheet template picker
+22. Plot customization matrix
+23–24. Staking plot example galleries
+25. Install on Trimble TSC5
+26. Field workflow
+27. Docs & help
+28. Ready for the field.
 """,
         encoding="utf-8",
     )
