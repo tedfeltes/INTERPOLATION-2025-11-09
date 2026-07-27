@@ -78,8 +78,18 @@ class BlockCatalog {
     for (final b in blocks) {
       if (b.id == id) return b;
     }
+    // Fall back to display name / normalized id so "NORTH ARROW" finds NORTH_ARROW.
+    final needle = _normalizeKey(id);
+    for (final b in blocks) {
+      if (_normalizeKey(b.id) == needle || _normalizeKey(b.name) == needle) {
+        return b;
+      }
+    }
     return null;
   }
+
+  static String _normalizeKey(String value) =>
+      value.trim().toLowerCase().replaceAll(RegExp(r'[\s_]+'), ' ');
 
   List<DwgBlockSymbol> get sorted {
     final copy = List<DwgBlockSymbol>.from(blocks)
