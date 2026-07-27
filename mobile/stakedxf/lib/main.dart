@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'converter.dart';
 import 'points/export_points_screen.dart';
+import 'points/plot_ui_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,66 +21,13 @@ class StakeDxfApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const bg = Color(0xFF0C0E0C);
-    const card = Color(0xFF141814);
-    const border = Color(0xFF2E362E);
-    const fg = Color(0xFFE6EBE4);
-    const accent = Color(0xFFE4572E);
-    final base = ColorScheme.fromSeed(
-      seedColor: accent,
-      brightness: Brightness.dark,
-    );
     return MaterialApp(
       title: 'StakeDXF',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: base.copyWith(
-          surface: card,
-          onSurface: fg,
-          primary: accent,
-          outline: border,
-          surfaceContainerHighest: const Color(0xFF1A1F1A),
-        ),
-        scaffoldBackgroundColor: bg,
-        canvasColor: bg,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: bg,
-          foregroundColor: fg,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          surfaceTintColor: Colors.transparent,
-        ),
-        cardTheme: const CardThemeData(
-          color: card,
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero,
-            side: BorderSide(color: border),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-            elevation: 0,
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-            side: const BorderSide(color: border),
-          ),
-        ),
-        dialogTheme: const DialogThemeData(
-          backgroundColor: card,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-        ),
-        bottomSheetTheme: const BottomSheetThemeData(
-          backgroundColor: card,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-        ),
+      theme: PlotUi.theme(context),
+      builder: (context, child) => Theme(
+        data: PlotUi.theme(context),
+        child: child ?? const SizedBox.shrink(),
       ),
       home: const HomePage(),
     );
@@ -91,64 +39,315 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: PlotUi.bg,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'StakeDXF',
-              style: TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.w800,
-                color: cs.onSurface,
-                height: 1,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Recover Civil 3D linework, choose layers, or build a staking '
-              'plot from points on this controller.',
-              style: TextStyle(
-                color: cs.onSurface.withValues(alpha: 0.75),
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _CardButton(
-              title: 'Convert DWG → DXF',
-              subtitle: 'Recover Civil 3D linework for Trimble Access',
-              icon: Icons.polyline,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ConvertDwgPage()),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            _CardButton(
-              title: 'Export Points',
-              subtitle: 'Select points → CSV or staking plot PDF',
-              icon: Icons.pin_drop,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const ExportPointsScreen(),
+            const _InstrumentRibbon(),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                children: [
+                  // Hero mark — heavy, oversized, mono line below like a device
+                  // model number rather than marketing copy.
+                  RichText(
+                    text: const TextSpan(
+                      style: TextStyle(
+                        fontSize: 56,
+                        fontWeight: FontWeight.w900,
+                        color: PlotUi.fg,
+                        height: 0.95,
+                        letterSpacing: -1.5,
+                      ),
+                      children: [
+                        TextSpan(text: 'STAKE'),
+                        TextSpan(
+                          text: 'DXF',
+                          style: TextStyle(color: PlotUi.accent),
+                        ),
+                      ],
+                    ),
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 28),
-            Text(
-              'Runs entirely on this device. No cloud upload.',
-              style: TextStyle(
-                color: cs.onSurface.withValues(alpha: 0.55),
-                fontSize: 13,
+                  const SizedBox(height: 6),
+                  Text(
+                    'FIELD-KIT / TSC5 / TRIMBLE',
+                    style: PlotUi.monoLabel.copyWith(color: PlotUi.mutedFg),
+                  ),
+                  const SizedBox(height: 22),
+                  _SectionRule(label: 'OPERATIONS'),
+                  const SizedBox(height: 10),
+                  _ActionRail(
+                    tag: '01',
+                    title: 'CONVERT',
+                    detail: 'DWG → DXF · Civil 3D linework recovery',
+                    icon: Icons.polyline,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ConvertDwgPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _ActionRail(
+                    tag: '02',
+                    title: 'PLOT',
+                    detail: 'Points + linework → scaled staking PDF',
+                    icon: Icons.grid_on,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ExportPointsScreen(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  _SectionRule(label: 'STATUS'),
+                  const SizedBox(height: 10),
+                  const _StatusGrid(),
+                ],
               ),
             ),
+            const _BottomIdBar(),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Top ribbon: brand mark ident + telemetry pill (like a device readout).
+class _InstrumentRibbon extends StatelessWidget {
+  const _InstrumentRibbon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
+        color: PlotUi.card,
+        border: Border(bottom: BorderSide(color: PlotUi.border)),
+      ),
+      child: Row(
+        children: [
+          Container(width: 8, height: 8, color: PlotUi.accent),
+          const SizedBox(width: 10),
+          Text('SDX', style: PlotUi.monoLabel.copyWith(color: PlotUi.fg)),
+          const SizedBox(width: 8),
+          Text('·', style: PlotUi.monoLabel),
+          const SizedBox(width: 8),
+          Text('v1.22', style: PlotUi.mono),
+          const Spacer(),
+          _TelemetryChip(label: 'ONLINE', ok: true),
+          const SizedBox(width: 8),
+          _TelemetryChip(label: 'LOCAL'),
+        ],
+      ),
+    );
+  }
+}
+
+class _TelemetryChip extends StatelessWidget {
+  const _TelemetryChip({required this.label, this.ok = false});
+  final String label;
+  final bool ok;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        border: Border.all(color: ok ? PlotUi.ok : PlotUi.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            color: ok ? PlotUi.ok : PlotUi.mutedFg,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: PlotUi.monoLabel.copyWith(
+              color: ok ? PlotUi.ok : PlotUi.mutedFg,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionRule extends StatelessWidget {
+  const _SectionRule({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(label, style: PlotUi.monoLabel),
+        const SizedBox(width: 10),
+        Expanded(child: Container(height: 1, color: PlotUi.border)),
+      ],
+    );
+  }
+}
+
+/// A rugged full-width action bar with a numeric tag, thick left rail, and
+/// an outlined arrow — reads as a hardware toggle, not a card.
+class _ActionRail extends StatelessWidget {
+  const _ActionRail({
+    required this.tag,
+    required this.title,
+    required this.detail,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String tag;
+  final String title;
+  final String detail;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: PlotUi.card,
+      child: InkWell(
+        onTap: onTap,
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: PlotUi.accentDim,
+        child: Container(
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: PlotUi.border),
+              bottom: BorderSide(color: PlotUi.border),
+              left: BorderSide(color: PlotUi.accent, width: 4),
+              right: BorderSide(color: PlotUi.border),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 36,
+                child: Text(tag, style: PlotUi.monoLabel),
+              ),
+              Container(width: 1, height: 44, color: PlotUi.border),
+              const SizedBox(width: 14),
+              Icon(icon, color: PlotUi.accent, size: 24),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                        color: PlotUi.fg,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      detail,
+                      style: PlotUi.mono.copyWith(fontSize: 11.5),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward,
+                size: 20,
+                color: PlotUi.accent,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusGrid extends StatelessWidget {
+  const _StatusGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: const [
+        Expanded(child: _StatusCell(label: 'ENGINE', value: 'LIBREDWG')),
+        SizedBox(width: 1),
+        Expanded(child: _StatusCell(label: 'OUTPUT', value: 'DXF R2010')),
+        SizedBox(width: 1),
+        Expanded(child: _StatusCell(label: 'MODE', value: 'ON-DEVICE')),
+      ],
+    );
+  }
+}
+
+class _StatusCell extends StatelessWidget {
+  const _StatusCell({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: PlotUi.card,
+        border: Border.all(color: PlotUi.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: PlotUi.monoLabel),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: PlotUi.fg,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomIdBar extends StatelessWidget {
+  const _BottomIdBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
+        color: PlotUi.card,
+        border: Border(top: BorderSide(color: PlotUi.border)),
+      ),
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('TRIO / FIELD OPS', style: PlotUi.monoLabel),
+          Text('NO CLOUD · NO TRACKING', style: PlotUi.monoLabel),
+        ],
       ),
     );
   }
@@ -326,246 +525,111 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final layers = _result?.layers ?? const <LayerInfo>[];
     final selectedCount = _selectedLayers.length;
     final allSelected =
         layers.isNotEmpty && selectedCount == layers.length;
 
     return Scaffold(
+      backgroundColor: PlotUi.bg,
       appBar: AppBar(
-        title: const Text('Convert DWG'),
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
+        title: const Text('CONVERT / DWG → DXF'),
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.arrow_back, color: PlotUi.accent),
+        ),
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            Text(
-              'Import a Civil 3D DWG, recover the stakeable linework on this '
-              'device, review layers with data, then export a DXF for '
-              'Trimble Access. Large conversions run under a foreground '
-              'notification so you can switch apps without killing the job.',
-              style: TextStyle(
-                color: cs.onSurface.withValues(alpha: 0.75),
-                height: 1.35,
-              ),
+            _InputSlot(
+              name: _inputName,
+              path: _inputPath,
+              onPick: _busy ? null : _pick,
             ),
-            const SizedBox(height: 24),
-            _CardButton(
-              title: _inputName == null ? 'Choose DWG / DXF' : _inputName!,
-              subtitle: _inputName == null
-                  ? 'Civil 3D drawing with linework'
-                  : _inputPath,
-              icon: Icons.folder_open,
-              onTap: _busy ? null : _pick,
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
+            const SizedBox(height: 10),
+            _PrimaryActionButton(
+              label: 'RUN CONVERT',
+              icon: Icons.play_arrow,
+              busy: _busy && _result == null,
               onPressed: _busy || _inputPath == null ? null : _convert,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(54),
-                backgroundColor: cs.primary,
-                foregroundColor: Colors.black,
-              ),
-              child: _busy && _result == null
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.4),
-                    )
-                  : const Text(
-                      'Convert for Trimble Access',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
-                    ),
             ),
             if (_busy && _result == null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               LinearProgressIndicator(
                 value: _progressPercent > 0 ? _progressPercent / 100.0 : null,
-                minHeight: 6,
+                minHeight: 4,
+                backgroundColor: PlotUi.border,
+                color: PlotUi.accent,
               ),
               const SizedBox(height: 8),
               Text(
                 _progressMessage == null
-                    ? 'Converting…'
-                    : '${_progressPercent > 0 ? '$_progressPercent% · ' : ''}'
-                        '$_progressMessage',
-                style: TextStyle(
-                  color: cs.onSurface.withValues(alpha: 0.8),
-                  height: 1.35,
-                ),
+                    ? 'RUNNING…'
+                    : '${_progressPercent > 0 ? '${_progressPercent.toString().padLeft(3, '0')}%  ·  ' : ''}'
+                        '${_progressMessage!.toUpperCase()}',
+                style: PlotUi.mono.copyWith(color: PlotUi.fg),
               ),
               const SizedBox(height: 4),
               Text(
-                'You can switch to Trimble Access — conversion continues in '
-                'the background with a status notification.',
-                style: TextStyle(
-                  color: cs.onSurface.withValues(alpha: 0.55),
-                  fontSize: 12,
-                  height: 1.35,
-                ),
+                'BACKGROUND: SAFE TO SWITCH APPS',
+                style: PlotUi.monoLabel,
               ),
             ],
             if (_error != null) ...[
-              const SizedBox(height: 16),
-              Text(_error!, style: TextStyle(color: cs.error)),
+              const SizedBox(height: 14),
+              _ErrorBlock(message: _error!),
             ],
             if (_result != null) ...[
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFF2E362E)),
-                  color: const Color(0xFF141814),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _result!.message,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Stakeable entities: ${_result!.stakeableCount}'),
-                    Text(
-                      'Layers with data: ${layers.length}'
-                      '${_result!.emptyLayersRemoved > 0 ? ' (empty layers omitted)' : ''}',
-                    ),
-                    if (_result!.proxyExploded > 0)
-                      Text(
-                        'Civil 3D proxies exploded: ${_result!.proxyExploded}',
-                      ),
-                    Text(
-                      p.basename(_result!.outputPath),
-                      style: TextStyle(
-                        color: cs.onSurface.withValues(alpha: 0.7),
-                      ),
-                    ),
-                    if (layers.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Converted layers ($selectedCount/${layers.length})',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: _busy
-                                ? null
-                                : () => _selectAllLayers(!allSelected),
-                            child: Text(allSelected ? 'None' : 'All'),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        'Only layers with stakeable data are listed. '
-                        'Uncheck layers to leave them out of the exported DXF.',
-                        style: TextStyle(
-                          color: cs.onSurface.withValues(alpha: 0.65),
-                          fontSize: 12,
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ...layers.map((layer) {
-                        return CheckboxListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          value: _selectedLayers.contains(layer.name),
-                          onChanged: _busy
-                              ? null
-                              : (value) {
-                                  setState(() {
-                                    if (value ?? false) {
-                                      _selectedLayers.add(layer.name);
-                                    } else {
-                                      _selectedLayers.remove(layer.name);
-                                    }
-                                  });
-                                },
-                          title: Text(
-                            layer.name,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          subtitle: Text(
-                            '${layer.entityCount} entit'
-                            '${layer.entityCount == 1 ? 'y' : 'ies'}',
-                            style: TextStyle(
-                              color: cs.onSurface.withValues(alpha: 0.6),
-                              fontSize: 12,
-                            ),
-                          ),
-                          controlAffinity: ListTileControlAffinity.leading,
-                        );
-                      }),
-                      const SizedBox(height: 8),
-                      FilledButton.icon(
-                        onPressed: _busy || _selectedLayers.isEmpty
-                            ? null
-                            : _exportSelected,
-                        icon: _busy
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.2,
-                                ),
-                              )
-                            : const Icon(Icons.filter_alt),
-                        label: Text(
-                          selectedCount == layers.length
-                              ? 'Save DXF (all layers)'
-                              : 'Save DXF ($selectedCount layers)',
-                        ),
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        onPressed: _busy ? null : _shareAll,
-                        icon: const Icon(Icons.ios_share),
-                        label: const Text('Share full converted DXF'),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
-                        ),
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 14),
-                      FilledButton.icon(
-                        onPressed: _shareAll,
-                        icon: const Icon(Icons.ios_share),
-                        label: const Text('Save DXF'),
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    Text(
-                      'Put the DXF in your Trimble job folder, set it as a '
-                      'selectable map file, then stake the linework.',
-                      style: TextStyle(
-                        color: cs.onSurface.withValues(alpha: 0.7),
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 18),
+              _ResultReadout(
+                result: _result!,
+                filename: p.basename(_result!.outputPath),
               ),
+              if (layers.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                _LayerChecklist(
+                  layers: layers,
+                  selected: _selectedLayers,
+                  allSelected: allSelected,
+                  onToggle: _busy
+                      ? null
+                      : (name, on) => setState(() {
+                            if (on) {
+                              _selectedLayers.add(name);
+                            } else {
+                              _selectedLayers.remove(name);
+                            }
+                          }),
+                  onSelectAll: _busy
+                      ? null
+                      : () => _selectAllLayers(!allSelected),
+                ),
+                const SizedBox(height: 10),
+                _PrimaryActionButton(
+                  label: selectedCount == layers.length
+                      ? 'SAVE DXF · ALL LAYERS'
+                      : 'SAVE DXF · $selectedCount LAYER${selectedCount == 1 ? '' : 'S'}',
+                  icon: Icons.save_alt,
+                  busy: _busy,
+                  onPressed:
+                      _busy || _selectedLayers.isEmpty ? null : _exportSelected,
+                ),
+                const SizedBox(height: 8),
+                _SecondaryActionButton(
+                  label: 'SHARE FULL DXF',
+                  icon: Icons.ios_share,
+                  onPressed: _busy ? null : _shareAll,
+                ),
+              ] else ...[
+                const SizedBox(height: 12),
+                _PrimaryActionButton(
+                  label: 'SAVE DXF',
+                  icon: Icons.save_alt,
+                  onPressed: _shareAll,
+                ),
+              ],
             ],
           ],
         ),
@@ -574,63 +638,72 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
   }
 }
 
-class _CardButton extends StatelessWidget {
-  const _CardButton({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String title;
-  final String? subtitle;
-  final IconData icon;
-  final VoidCallback? onTap;
+/// Convert page: rugged input slot showing the picked filename in mono.
+class _InputSlot extends StatelessWidget {
+  const _InputSlot({required this.name, required this.path, required this.onPick});
+  final String? name;
+  final String? path;
+  final VoidCallback? onPick;
 
   @override
   Widget build(BuildContext context) {
+    final loaded = name != null;
     return Material(
-      color: const Color(0xFF141814),
+      color: PlotUi.card,
       child: InkWell(
-        onTap: onTap,
+        onTap: onPick,
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: PlotUi.accentDim,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFF2E362E)),
+            border: Border.all(
+              color: loaded ? PlotUi.accent : PlotUi.border,
+              width: loaded ? 1.4 : 1,
+            ),
           ),
           child: Row(
             children: [
-              Icon(icon, color: const Color(0xFFE4572E), size: 26),
+              Icon(
+                loaded ? Icons.description : Icons.folder_open,
+                color: loaded ? PlotUi.accent : PlotUi.mutedFg,
+                size: 22,
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                        letterSpacing: 0.2,
-                      ),
+                      loaded ? 'DRAWING' : 'NO DRAWING LOADED',
+                      style: PlotUi.monoLabel,
                     ),
-                    if (subtitle != null)
-                      Text(
-                        subtitle!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.6),
-                          fontSize: 12,
-                        ),
+                    const SizedBox(height: 4),
+                    Text(
+                      loaded ? name! : 'TAP TO PICK .DWG OR .DXF',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.4,
+                        color: loaded ? PlotUi.fg : PlotUi.dim,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (loaded && path != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        path!,
+                        style: PlotUi.mono,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Color(0xFF8A9688)),
+              const Icon(Icons.chevron_right, color: PlotUi.accent),
             ],
           ),
         ),
@@ -638,3 +711,346 @@ class _CardButton extends StatelessWidget {
     );
   }
 }
+
+class _PrimaryActionButton extends StatelessWidget {
+  const _PrimaryActionButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.busy = false,
+  });
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null && !busy;
+    return SizedBox(
+      height: 56,
+      child: Material(
+        color: enabled ? PlotUi.accent : PlotUi.rail,
+        child: InkWell(
+          onTap: onPressed,
+          splashFactory: NoSplash.splashFactory,
+          child: Row(
+            children: [
+              const SizedBox(width: 14),
+              busy
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: PlotUi.accentFg,
+                      ),
+                    )
+                  : Icon(
+                      icon,
+                      color: enabled ? PlotUi.accentFg : PlotUi.mutedFg,
+                      size: 20,
+                    ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    color: enabled ? PlotUi.accentFg : PlotUi.mutedFg,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    letterSpacing: 1.6,
+                  ),
+                ),
+              ),
+              Container(
+                width: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  border: Border(
+                    left: BorderSide(
+                      color: enabled ? PlotUi.accentFg : PlotUi.border,
+                    ),
+                  ),
+                ),
+                child: Icon(
+                  Icons.arrow_forward,
+                  color: enabled ? PlotUi.accentFg : PlotUi.mutedFg,
+                  size: 18,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SecondaryActionButton extends StatelessWidget {
+  const _SecondaryActionButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    return SizedBox(
+      height: 48,
+      child: Material(
+        color: PlotUi.card,
+        child: InkWell(
+          onTap: onPressed,
+          splashFactory: NoSplash.splashFactory,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: enabled ? PlotUi.borderStrong : PlotUi.border,
+              ),
+            ),
+            child: Row(
+              children: [
+                const SizedBox(width: 14),
+                Icon(icon, color: enabled ? PlotUi.fg : PlotUi.mutedFg, size: 18),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      color: enabled ? PlotUi.fg : PlotUi.mutedFg,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5,
+                      letterSpacing: 1.4,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResultReadout extends StatelessWidget {
+  const _ResultReadout({required this.result, required this.filename});
+  final ConvertResult result;
+  final String filename;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: PlotUi.card,
+        border: Border(
+          top: const BorderSide(color: PlotUi.border),
+          bottom: const BorderSide(color: PlotUi.border),
+          right: const BorderSide(color: PlotUi.border),
+          left: const BorderSide(color: PlotUi.ok, width: 4),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(width: 8, height: 8, color: PlotUi.ok),
+              const SizedBox(width: 8),
+              Text('CONVERT / OK', style: PlotUi.monoLabel.copyWith(color: PlotUi.ok)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            result.message.toUpperCase(),
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: PlotUi.fg,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _KV('STAKEABLE', result.stakeableCount.toString()),
+          _KV('LAYERS', '${result.layers.length}'),
+          if (result.proxyExploded > 0)
+            _KV('PROXIES', result.proxyExploded.toString()),
+          _KV('FILE', filename),
+        ],
+      ),
+    );
+  }
+}
+
+class _KV extends StatelessWidget {
+  const _KV(this.k, this.v);
+  final String k;
+  final String v;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 76, child: Text(k, style: PlotUi.monoLabel)),
+          Expanded(child: Text(v, style: PlotUi.mono.copyWith(color: PlotUi.fg))),
+        ],
+      ),
+    );
+  }
+}
+
+class _LayerChecklist extends StatelessWidget {
+  const _LayerChecklist({
+    required this.layers,
+    required this.selected,
+    required this.allSelected,
+    required this.onToggle,
+    required this.onSelectAll,
+  });
+  final List<LayerInfo> layers;
+  final Set<String> selected;
+  final bool allSelected;
+  final void Function(String name, bool on)? onToggle;
+  final VoidCallback? onSelectAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: PlotUi.card,
+        border: Border.all(color: PlotUi.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
+              color: PlotUi.elevated,
+              border: Border(bottom: BorderSide(color: PlotUi.border)),
+            ),
+            child: Row(
+              children: [
+                Text('LAYERS', style: PlotUi.monoLabel.copyWith(color: PlotUi.fg)),
+                const SizedBox(width: 8),
+                Text('${selected.length}/${layers.length}',
+                    style: PlotUi.mono.copyWith(color: PlotUi.accent)),
+                const Spacer(),
+                TextButton(
+                  onPressed: onSelectAll,
+                  child: Text(allSelected ? 'NONE' : 'ALL'),
+                ),
+              ],
+            ),
+          ),
+          for (var i = 0; i < layers.length; i++)
+            InkWell(
+              onTap: onToggle == null
+                  ? null
+                  : () => onToggle!(
+                        layers[i].name,
+                        !selected.contains(layers[i].name),
+                      ),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: i == layers.length - 1
+                          ? Colors.transparent
+                          : PlotUi.border,
+                    ),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    _Tick(on: selected.contains(layers[i].name)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        layers[i].name,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                          color: PlotUi.fg,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      layers[i].entityCount.toString(),
+                      style: PlotUi.mono.copyWith(color: PlotUi.dim),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Tick extends StatelessWidget {
+  const _Tick({required this.on});
+  final bool on;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 16,
+      height: 16,
+      decoration: BoxDecoration(
+        color: on ? PlotUi.accent : Colors.transparent,
+        border: Border.all(color: on ? PlotUi.accent : PlotUi.borderStrong, width: 1.4),
+      ),
+      alignment: Alignment.center,
+      child: on
+          ? const Icon(Icons.check, size: 12, color: PlotUi.accentFg)
+          : null,
+    );
+  }
+}
+
+class _ErrorBlock extends StatelessWidget {
+  const _ErrorBlock({required this.message});
+  final String message;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: PlotUi.card,
+        border: Border(
+          left: const BorderSide(color: PlotUi.destructive, width: 4),
+          right: const BorderSide(color: PlotUi.border),
+          top: const BorderSide(color: PlotUi.border),
+          bottom: const BorderSide(color: PlotUi.border),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('ERROR',
+              style: PlotUi.monoLabel.copyWith(color: PlotUi.destructive)),
+          const SizedBox(height: 4),
+          Text(message,
+              style: PlotUi.mono.copyWith(color: PlotUi.fg)),
+        ],
+      ),
+    );
+  }
+}
+

@@ -8,10 +8,10 @@ Companion PDFs:
 
 ## 1. Installation (Trimble TSC5)
 
-**File:** `dist/StakeDXF v1.18.0.apk` (~65 MB)  
+**File:** `dist/StakeDXF vX.Y.Z.apk` (~65 MB)  
 **Package:** `com.stakedxf.stakedxf`
 
-1. Copy `StakeDXF v1.18.0.apk` onto the TSC5 (USB File Transfer or your usual file share).
+1. Copy `StakeDXF vX.Y.Z.apk` onto the TSC5 (USB File Transfer or your usual file share).
 2. Open **Files / Downloads** and tap the APK.
 3. If blocked, enable **Allow from this source** for the app that opened the APK.
 4. Tap **Install**, then open **StakeDXF**.
@@ -26,75 +26,40 @@ Company MDM may block unknown APKs. Ask IT to allow unknown-source installs or p
 
 Also see `dist/INSTALL_TSC5.md`.
 
-## 2. Usage — Convert DWG → DXF
+## 2. Usage — CONVERT (DWG → DXF)
 
-Recover Civil 3D linework into a Trimble-stakeable DXF on the controller.
-
-1. Open **StakeDXF → Convert DWG → DXF**
-2. **Choose DWG / DXF**
-3. Allow **notifications** when prompted (keeps the conversion job alive)
-4. **Convert for Trimble Access** — watch the on-screen progress bar
-5. You may switch to Trimble Access or another app; a **foreground notification** keeps conversion running
-6. Confirm stakeable entity count (and proxy explode count when present)
-7. Review **Converted layers** (empty layers omitted) and select which to export
-8. **Save DXF** into `Trimble Data/Projects/<job>/`
-9. Trimble Access: **Map → Layer manager → Map files → selectable → Stakeout**
+1. Open **StakeDXF → CONVERT**
+2. Tap the drawing slot → pick the DWG / DXF
+3. Tap **RUN CONVERT**
+4. Confirm stakeable entity count (and proxy explode count when present)
+5. Review the **LAYERS** checklist (empty layers omitted)
+6. Tap **SAVE DXF** to the TSC5 documents folder
+7. Move it into `Trimble Data/Projects/<job>/`
+8. Trimble Access: **Map → Layer manager → Map files → selectable → Stakeout**
 
 ### On-device pipeline
-1. Foreground service + wake lock (process keep-alive while converting)  
-2. LibreDWG: DWG → DXF (background isolate)  
-3. ezdxf (background worker): single-pass explode `ACAD_PROXY_ENTITY` / AEC proxies → LINE / ARC / POLYLINE  
-4. Keep Trimble-stakeable types only; purge empty layer-table entries  
-5. Optional: export a subset of layers from the on-screen checklist  
+1. LibreDWG: DWG → DXF  
+2. ezdxf: explode `ACAD_PROXY_ENTITY` / AEC proxies → LINE / ARC / POLYLINE  
+3. Keep Trimble-stakeable types only; purge empty layer-table entries  
+4. Optional: export a subset of layers from the LAYERS checklist  
 
-**Tip:** Office DWGs should keep proxy graphics so Civil features can be recovered.  
-**Tip:** Very large Civil bases still take time — the notification shows percent complete so you can leave the app.
+**Tip:** Office DWGs should keep proxy graphics so Civil features can be recovered.
 
-## 3. Usage — Export Points & staking plots
+## 3. Usage — PLOT (Export Points)
 
 1. Export points from Trimble Access as CSV/TXT (PNEZD)
-2. **StakeDXF → Export Points**
-3. **Import points CSV / TXT**
-4. (Optional) **Link DXF linework** and select layers
-5. Choose **sheet size** (ANSI A–D with dimensions), **orientation**, and sheet style
-6. Choose **text style** (from Civil DWG STYLE table), **point marker**, and **label** format
-7. Watch the **live plot preview** (updates as points/layers/objects change)
-8. (Optional) **Add from object library** — color/scale stay pinned; **drag objects on the preview** to place
-9. Leave **Include point list table** off unless you want the coordinate table (control-note templates)
-10. Select points for the sheet
-11. **Create staking plot PDF** (auto scale for the selected sheet)  
-   or **Export selected points CSV**
+2. **StakeDXF → PLOT**
+3. Enter a **JOB** name
+4. **IMPORT POINTS CSV / TXT**
+5. (Optional) **LINK DXF LINEWORK** and pick layers
+6. Set **MARKER**, **LABEL**, **SCALE**, **SHEET**
+7. (Optional) place library objects — hydrant / MH / sign
+8. Select points for the sheet
+9. **CREATE STAKING PLOT PDF** or **EXPORT CSV**
 
 ### Supported point formats
 - PNEZD: Point, Northing, Easting, Elevation, Description (headered or not)
 - Common header aliases (`Point #`, `Elev`, `Desc`, …)
-
-### Plot styles (CTB)
-
-Staking plots use the project color-dependent plot style table
-(`assets/plot_styles/staking_plot.ctb`). Linework defaults to ACI 252 (grey);
-points and labels use ACI 10 (reddish). Layer overrides win over CTB.
-
-### Layer properties (Civil 3D style)
-
-The **LAYERS** section is a Layer Properties Manager: each row shows On · Color ·
-LT · LW · LTS · Name. Tap a cell to edit that attribute for the **whole layer**.
-Tap a line on the preview to select its layer. Use **Trim** only for explode /
-delete-segment geometry edits.
-
-### Point labels
-
-Tap a point or label on the preview to edit color, label type
-(`PT NO`, `PT NO DESC`, `PT NO DESC ELV`, …), dragged text, and reset drag state.
-Annotation scale affects point labels/markers only.
-
-### Objects & text
-
-Library objects and free text objects scale independently of annotation scale.
-Objects draw **hatched** (Civil ANSI31 style), not solid-filled. Opacity sliders
-apply to objects and layers. Drag text on the preview to place it. Enable
-**Object labels** to show names. **TITLE / TEXT** adds a sheet title block
-(also shown on the live preview when on) and plan-space text.
 
 ### Linked DXF linework
 Draws `LINE`, `LWPOLYLINE`, `POLYLINE`, `ARC`, `CIRCLE` for checked layers.
@@ -103,12 +68,14 @@ Draws `LINE`, `LWPOLYLINE`, `POLYLINE`, `ARC`, `CIRCLE` for checked layers.
 
 | Option | Choices |
 | --- | --- |
-| Plot template | 15 sheets: ANSI A–D × field map / titled field / control note (see `dist/plot_templates/`) |
 | Markers | Filled triangle, triangle outline, cross (+), X, large X, circle, dot, large dot |
 | Labels | Number · number+description · number+elevation · number+description+elevation · none |
-| Point list table | Control-note templates; off by default (more plot space) |
+| Point list table | Off by default; optional on |
 | Linework | Optional linked DXF layers |
-| Scale | Auto engineering scale to fit the selected ANSI sheet |
+| Scale | Auto engineering scale, or fixed `1"=N'` |
+| Sheet | ANSI A–D, portrait or landscape |
+| Colors | Full ACI, CTB, HSV true-color |
+| Layer lock | Lk column — locked layers can't be dragged |
 
 Examples: `dist/plot_examples/`  
 Regenerate: `cd mobile/stakedxf && dart run tool/generate_plot_examples.dart`
@@ -131,21 +98,21 @@ Must be TSC5 (Android). Enable unknown sources or get IT MDM approval.
 
 ```
 Home
-  Convert DWG → DXF     Recover Civil 3D linework
-  Export Points         CSV + staking plot PDF
+  01  CONVERT       Recover Civil 3D linework
+  02  PLOT          CSV + staking plot PDF
 
 Convert
-  Choose drawing → Convert → Save DXF → Trimble Map files
+  Pick drawing → RUN CONVERT → tick layers → SAVE DXF → Trimble Map files
 
-Export Points
-  Import CSV → (Link DXF) → Marker/Label → Select points
-  → Create staking plot PDF   or   Export CSV
+Plot
+  Import CSV → (Link DXF) → Marker / Label / Scale / Sheet →
+  Select points → CREATE STAKING PLOT PDF   or   EXPORT CSV
 
 Good staking defaults
   Marker: Large X
-  Label: Number + elevation
-  Point list table: Off
-  Linework: On (only layers you need)
+  Label:  Number + elevation
+  Table:  Off
+  Layers: On (only what you need)
 ```
 
-Runs on-device. No cloud upload.
+Runs on-device. No cloud. No tracking.
