@@ -1,46 +1,63 @@
 ---
 name: sleek-ui-design
-description: Designs and implements polished, responsive web interfaces with shadcn/ui. Use when creating or refining pages, dashboards, forms, landing pages, design systems, or reusable UI components.
+description: Designs and refines sleek, production-ready StakeDXF interfaces with intentional hierarchy, responsive behavior, accessibility, and polished interaction states. Use for UI/UX work, screens, components, styling, design systems, or visual reviews; invokes shadcn for component discovery and implementation guidance.
 disable-model-invocation: true
 ---
 
 # Sleek UI Design
 
-Create distinctive, production-ready interfaces by composing shadcn/ui primitives with the project's existing design system.
+## Required workflow
 
-## Workflow
+1. Inspect the target surface, user flow, existing design tokens, and framework before proposing changes.
+2. Identify the primary user action, information hierarchy, responsive constraints, and all loading, empty, success, disabled, and error states.
+3. Invoke shadcn before writing UI:
+   - Prefer the configured shadcn MCP tools to search the registry, inspect component source and documentation, and install compatible components.
+   - If MCP is unavailable, use the repository's package runner or `npx shadcn@latest`.
+   - Useful fallback commands:
 
-1. Inspect the application before editing:
-   - Identify the framework, package manager, Tailwind version, and existing component conventions.
-   - Read `components.json`, global styles, theme tokens, and nearby UI.
-   - Preserve established behavior and visual language unless the request calls for a redesign.
-2. Form a compact visual direction covering hierarchy, typography, color, spacing, and interaction.
-3. Invoke shadcn before hand-coding a primitive:
-   - Prefer configured shadcn registry tools to search, preview, and install components.
-   - Otherwise use the project's package manager with `shadcn@latest add <component>`.
-   - Reuse installed components when suitable.
-   - Initialize shadcn only when the project is compatible and has no `components.json`; inspect generated changes before continuing.
-4. Compose the smallest useful set of primitives. Extend them through props, variants, and theme tokens rather than duplicating their internals.
-5. Validate the result at narrow and wide viewports, with keyboard navigation, visible focus, semantic labels, and relevant loading, empty, error, and disabled states.
-6. Run the repository's focused tests, type checks, lint, and build as applicable. Manually exercise visible interaction changes.
+     ```bash
+     npx shadcn@latest info
+     npx shadcn@latest search @shadcn -q "<interface need>"
+     npx shadcn@latest view <component...>
+     npx shadcn@latest docs <component>
+     npx shadcn@latest add <component...> --dry-run
+     ```
 
-## Visual Standard
+   - Name the shadcn primitives or blocks consulted in the final handoff.
+4. Implement the smallest coherent design system needed for the task. Reuse tokens and shared primitives instead of adding one-off styles.
+5. Validate behavior, accessibility, responsive layouts, and visual polish with the repository's automated and manual test workflow.
 
-- Establish one clear focal point and a deliberate information hierarchy.
-- Use a restrained palette, consistent spacing rhythm, readable line lengths, and strong contrast.
-- Favor purposeful whitespace and subtle depth over excessive borders or nested cards.
-- Use motion only to explain state changes or improve orientation.
-- Avoid generic hero copy, decorative gradient overload, mismatched icon styles, and gratuitous effects.
-- Make every viewport feel composed rather than merely unbroken.
+## Install or adapt
 
-## shadcn Rules
+- In a compatible React project with `components.json`, install only the required shadcn items with `shadcn add`, inspect the generated source, and customize it to the product.
+- In a compatible React project without shadcn configuration, run `shadcn init` only when the task authorizes project setup and no existing component system would be displaced.
+- For StakeDXF's Flutter and plain HTML/CSS surfaces, use shadcn registry items as design and interaction references. Do not add React or Tailwind solely to consume shadcn.
+- Translate primitives to the native stack: for example, map Dialog, Sheet, Card, Alert, Progress, Tabs, Select, and Toast to Material 3 widgets or accessible semantic HTML/CSS/JavaScript.
+- Preserve the reference component's semantics, focus behavior, keyboard operation, disabled state, and screen-reader labeling.
+- Treat a framework migration as a separate architectural change that requires explicit scope.
 
-- Treat shadcn/ui as editable source that must fit the product, not as a finished visual identity.
-- Prefer shadcn primitives for standard controls, overlays, navigation, feedback, and data display.
-- Do not overwrite locally customized components without reviewing the diff.
-- Do not add a component, dependency, or variant unless the implemented interface uses it.
-- Keep accessibility behavior supplied by Radix primitives intact.
+## StakeDXF visual direction
 
-## Completion
+- Optimize first for phone and Trimble TSC5 field use: fast scanning, direct copy, high contrast, and touch targets of at least 48 logical pixels.
+- Preserve established product colors unless the task requests a rebrand: deep green-black backgrounds, restrained green support tones, and orange for the primary action.
+- Use a deliberate spacing rhythm, concise typography scale, strong alignment, and one obvious primary action per screen.
+- Prefer clear labels and familiar line icons over decorative copy, emoji, or ambiguous icon-only controls.
+- Keep data-dense engineering content legible. Use progressive disclosure for secondary options without hiding critical status or next steps.
+- Use depth, gradients, blur, and motion sparingly. Respect reduced-motion preferences and avoid decoration that competes with field tasks.
 
-Report the visual direction, shadcn components invoked, files changed, and validation performed. Mention any unavailable states or viewports that could not be verified.
+## Quality bar
+
+- Build complete states with real product language; do not leave placeholder content or inert controls.
+- Maintain WCAG AA contrast, visible focus, logical tab order, semantic headings, and useful validation messages.
+- Keep layouts stable during loading and responsive without horizontal overflow.
+- Preserve existing behavior and platform conventions unless a change is part of the request.
+- Run relevant lint and automated tests. For visual changes, exercise the real flow at a compact field-device viewport and a wider viewport, then capture the minimal useful walkthrough artifact.
+
+## Handoff
+
+Report:
+
+- the user-flow and visual improvements;
+- the shadcn components or blocks installed or adapted;
+- the validation performed and its result;
+- any remaining compatibility or accessibility concerns.
