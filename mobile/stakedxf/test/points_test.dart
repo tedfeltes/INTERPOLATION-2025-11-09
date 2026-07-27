@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/material.dart' show FontStyle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stakedxf/points/csv_io.dart';
 import 'package:stakedxf/points/ctb_plot_style.dart';
@@ -340,9 +341,40 @@ void main() {
 
   test('text style catalog resolves Civil DWG styles', () {
     final cat = TextStyleCatalog.builtin();
-    expect(cat.resolve('ROMANS_SHX').pdfFamily, 'times');
-    expect(cat.resolve('arial').pdfFamily, 'helvetica');
+    expect(cat.styles.length, greaterThanOrEqualTo(14));
+    expect(cat.resolve('ROMANS_SHX').flutterFamily, 'PlotSerif');
+    expect(cat.resolve('ROMANS_SHX').face, 'serif');
+    expect(cat.resolve('OR-LD_SHX').flutterFamily, 'PlotSans');
+    expect(cat.resolve('arial').flutterFamily, 'PlotSans');
     expect(cat.resolve('P-CONT').bold, isTrue);
+    expect(cat.resolve('Standard').effectiveItalic, isTrue);
+    expect(cat.resolve('ITALICT').flutterStyle, FontStyle.italic);
+    // Distinct faces so the picker visibly changes plot text.
+    expect(
+      cat.resolve('ROMANS_SHX').faceKey,
+      isNot(cat.resolve('OR-LD_SHX').faceKey),
+    );
+    expect(cat.pdfFont(cat.resolve('arial')), isNotNull);
+  });
+
+  test('asset text style catalog matches Pheasant Farm STYLE table', () {
+    final json = jsonDecode(
+      File('assets/plot_styles/text_style_catalog.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final cat = TextStyleCatalog.fromJson(json);
+    expect(cat.byId.containsKey('ROMAND_SHX'), isTrue);
+    expect(cat.byId.containsKey('OR-LD_SHX'), isTrue);
+    expect(cat.resolve('P-TEXT').font, 'Romans TT.ttf');
+    expect(cat.resolve('SHR').font.toUpperCase(), contains('SIMPLEX'));
+    final fonts = {for (final s in cat.styles) s.font};
+    expect(fonts, containsAll([
+      'romans.shx',
+      'romand.shx',
+      'or-ld.shx',
+      'arial.ttf',
+      'Souvenir Bold.ttf',
+      'italict.shx',
+    ]));
   });
 
   test('composePlotTemplate builds ANSI size × orientation', () {

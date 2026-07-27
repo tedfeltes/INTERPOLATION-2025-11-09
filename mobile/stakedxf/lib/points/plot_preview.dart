@@ -612,7 +612,7 @@ class _PlotPreviewState extends State<PlotPreview> {
           text: t.text,
           style: TextStyle(
             fontSize: t.effectiveFontSizePt,
-            fontFamily: style.flutterFontFamily,
+            fontFamily: style.flutterFamily,
             fontWeight: style.flutterWeight,
             fontStyle: style.flutterStyle,
           ),
@@ -917,9 +917,10 @@ class _PlotPreviewPainter extends CustomPainter {
           style: TextStyle(
             color: color,
             fontSize: fontSize,
-            fontFamily: textStyle.flutterFontFamily,
+            fontFamily: textStyle.flutterFamily,
             fontWeight: textStyle.flutterWeight,
             fontStyle: textStyle.flutterStyle,
+            letterSpacing: textStyle.letterSpacingFor(fontSize),
             height: 1.15,
             backgroundColor: selected
                 ? const Color(0x66FFE082)
@@ -1064,7 +1065,7 @@ class _PlotPreviewPainter extends CustomPainter {
             style: TextStyle(
               color: color,
               fontSize: (9.0 * s.scale).clamp(8.0, 14.0),
-              fontFamily: labelStyle.flutterFontFamily,
+              fontFamily: labelStyle.flutterFamily,
               fontWeight: labelStyle.flutterWeight,
               fontStyle: labelStyle.flutterStyle,
               backgroundColor: const Color(0xCCF7F4EE),
@@ -1102,9 +1103,10 @@ class _PlotPreviewPainter extends CustomPainter {
           style: TextStyle(
             color: color,
             fontSize: t.effectiveFontSizePt,
-            fontFamily: style.flutterFontFamily,
+            fontFamily: style.flutterFamily,
             fontWeight: style.flutterWeight,
             fontStyle: style.flutterStyle,
+            letterSpacing: style.letterSpacingFor(t.effectiveFontSizePt),
             backgroundColor: selected
                 ? const Color(0x66FFE082)
                 : const Color(0xAAF7F4EE),
@@ -1150,7 +1152,7 @@ class _PlotPreviewPainter extends CustomPainter {
               style: TextStyle(
                 color: const Color(0xFF1A1A1A),
                 fontSize: i == 0 ? 11 : 9,
-                fontFamily: style.flutterFontFamily,
+                fontFamily: style.flutterFamily,
                 fontWeight: i == 0 ? FontWeight.w800 : style.flutterWeight,
                 fontStyle: style.flutterStyle,
                 height: 1.25,
@@ -1186,6 +1188,7 @@ class _PlotPreviewPainter extends CustomPainter {
         old.symbols != symbols ||
         old.textObjects != textObjects ||
         old.options != options ||
+        old.textStyleCatalog != textStyleCatalog ||
         old.selectedSymbolId != selectedSymbolId ||
         old.selectedLabelPointId != selectedLabelPointId ||
         old.selectedLineworkId != selectedLineworkId ||

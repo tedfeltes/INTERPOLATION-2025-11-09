@@ -57,7 +57,9 @@ Future<Uint8List> buildStakingPlotPdf({
   Map<String, DxfLayerStyle> layerStyles = const {},
   LinetypeCatalog? linetypeCatalog,
   CtbPlotStyleTable? ctbPlotStyle,
+  TextStyleCatalog? textStyleCatalog,
 }) async {
+  final textStyles = textStyleCatalog ?? TextStyleCatalog.builtin();
   if (points.isEmpty) {
     throw ArgumentError('Select at least one point');
   }
@@ -103,6 +105,7 @@ Future<Uint8List> buildStakingPlotPdf({
               linetypeCatalog: catalog,
               ctbPlotStyle: ctb,
               textObjects: textObjects,
+              textStyleCatalog: textStyles,
             );
           case PlotTemplateLayout.fieldMap:
             return _buildFieldMapPage(
@@ -121,6 +124,7 @@ Future<Uint8List> buildStakingPlotPdf({
               linetypeCatalog: catalog,
               ctbPlotStyle: ctb,
               textObjects: textObjects,
+              textStyleCatalog: textStyles,
             );
           case PlotTemplateLayout.fieldHeader:
             return _buildFieldMapPage(
@@ -139,6 +143,7 @@ Future<Uint8List> buildStakingPlotPdf({
               linetypeCatalog: catalog,
               ctbPlotStyle: ctb,
               textObjects: textObjects,
+              textStyleCatalog: textStyles,
             );
         }
       },
@@ -163,6 +168,7 @@ pw.Widget _buildSidePanelPage({
   LinetypeCatalog? linetypeCatalog,
   CtbPlotStyleTable? ctbPlotStyle,
   List<PlotTextObject> textObjects = const [],
+  TextStyleCatalog? textStyleCatalog,
 }) {
   final showTable = options.showPointList;
   final plotFlex = showTable ? 58 : 78;
@@ -196,6 +202,7 @@ pw.Widget _buildSidePanelPage({
                 linetypeCatalog: linetypeCatalog,
                 ctbPlotStyle: ctbPlotStyle,
                 textObjects: textObjects,
+                textStyleCatalog: textStyleCatalog,
               ),
             ),
           ),
@@ -239,6 +246,7 @@ pw.Widget _buildFieldMapPage({
   LinetypeCatalog? linetypeCatalog,
   CtbPlotStyleTable? ctbPlotStyle,
   List<PlotTextObject> textObjects = const [],
+  TextStyleCatalog? textStyleCatalog,
 }) {
   final pad = template.outerPaddingPt;
   final sheetTitle =
@@ -268,6 +276,7 @@ pw.Widget _buildFieldMapPage({
     linetypeCatalog: linetypeCatalog,
     ctbPlotStyle: ctbPlotStyle,
     textObjects: textObjects,
+    textStyleCatalog: textStyleCatalog,
   );
 
   // Explicit plan height — pdf Expanded can collapse to 0 on some sheets,
@@ -425,6 +434,7 @@ class _PlanPanel extends pw.StatelessWidget {
     this.linetypeCatalog,
     this.ctbPlotStyle,
     this.textObjects = const [],
+    this.textStyleCatalog,
   });
 
   final List<SurveyPoint> points;
@@ -437,12 +447,13 @@ class _PlanPanel extends pw.StatelessWidget {
   final LinetypeCatalog? linetypeCatalog;
   final CtbPlotStyleTable? ctbPlotStyle;
   final List<PlotTextObject> textObjects;
+  final TextStyleCatalog? textStyleCatalog;
 
   @override
   pw.Widget build(pw.Context context) {
-    final style =
-        TextStyleCatalog.builtin().resolve(options.textStyleId);
-    final labelFont = style.pdfFont().getFont(context);
+    final catalog = textStyleCatalog ?? TextStyleCatalog.builtin();
+    final style = catalog.resolve(options.textStyleId);
+    final labelFont = catalog.pdfFont(style).getFont(context);
     return pw.LayoutBuilder(
       builder: (context, constraints) {
         // pdf LayoutBuilder can hand infinity/0 when flex constraints are loose;

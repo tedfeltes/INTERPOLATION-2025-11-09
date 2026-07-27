@@ -612,6 +612,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         layerStyles: _linework?.layerStyles ?? const {},
         linetypeCatalog: _linetypeCatalog,
         ctbPlotStyle: _ctbPlotStyle,
+        textStyleCatalog: _textStyleCatalog,
       );
       final scale = chooseEngineeringScale(
         chosen,
@@ -1119,7 +1120,12 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                 child: Text(
                                   s.pickerLabel,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 12),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontFamily: s.flutterFamily,
+                                    fontWeight: s.flutterWeight,
+                                    fontStyle: s.flutterStyle,
+                                  ),
                                 ),
                               ),
                           ],

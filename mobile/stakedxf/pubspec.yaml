@@ -1,7 +1,7 @@
 name: stakedxf
 description: On-device Civil 3D DWG to Trimble Access DXF converter for phone and TSC5
 publish_to: "none"
-version: 1.18.0+18
+version: 1.18.1+19
 
 environment:
   sdk: ^3.8.1
@@ -32,3 +32,35 @@ flutter:
     - assets/plot_styles/staking_plot_ctb.json
     - assets/plot_styles/staking_plot.ctb
     - assets/plot_styles/text_style_catalog.json
+    - assets/fonts/
+  fonts:
+    - family: PlotSerif
+      fonts:
+        - asset: assets/fonts/LiberationSerif-Regular.ttf
+        - asset: assets/fonts/LiberationSerif-Italic.ttf
+          style: italic
+        - asset: assets/fonts/LiberationSerif-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/LiberationSerif-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: PlotSans
+      fonts:
+        - asset: assets/fonts/LiberationSans-Regular.ttf
+        - asset: assets/fonts/LiberationSans-Italic.ttf
+          style: italic
+        - asset: assets/fonts/LiberationSans-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/LiberationSans-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: PlotMono
+      fonts:
+        - asset: assets/fonts/LiberationMono-Regular.ttf
+        - asset: assets/fonts/LiberationMono-Italic.ttf
+          style: italic
+        - asset: assets/fonts/LiberationMono-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/LiberationMono-BoldItalic.ttf
+          weight: 700
+          style: italic
