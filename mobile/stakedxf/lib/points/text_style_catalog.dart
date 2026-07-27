@@ -26,10 +26,11 @@ class PlotTextStyleDef {
   /// Original DWG font file / SHX name (e.g. `romans.shx`).
   final String font;
 
-  /// Registered Flutter font family: PlotSerif | PlotSans | PlotMono.
+  /// Registered Flutter font family (PlotSerif, PlotSans, PlotRomans, …).
   final String flutterFamily;
 
-  /// Liberation face group: serif | sans | mono.
+  /// Face group key into bundled TTFs: serif | sans | mono | romans_tt |
+  /// souvenir | poppins | roboto.
   final String face;
 
   /// Legacy Type1 fallback family name.
@@ -89,11 +90,11 @@ class PlotTextStyleDef {
   }
 }
 
-/// Catalog of text styles extracted from the project Civil DWG.
+/// Catalog of text styles from Drive Support Fonts + Civil STYLE tables.
 ///
-/// Selecting a style changes the **bundled Liberation** face used in preview
-/// and PDF (SHX/TTF names from the DWG cannot be shipped, so Romans→Serif,
-/// Simplex/Arial/LD→Sans, etc.).
+/// TrueType faces from the Support folder (Romans TT, Souvenir, Poppins,
+/// Roboto) are bundled. SHX fonts remain selectable and map to the closest
+/// bundled stand-in (Romans→PlotRomans, Simplex/LD→PlotSans, etc.).
 class TextStyleCatalog {
   TextStyleCatalog._(
     this.styles,
@@ -124,6 +125,23 @@ class TextStyleCatalog {
     'mono_italic': 'assets/fonts/LiberationMono-Italic.ttf',
     'mono_bold': 'assets/fonts/LiberationMono-Bold.ttf',
     'mono_boldItalic': 'assets/fonts/LiberationMono-BoldItalic.ttf',
+    // Drive Support Fonts (TrueType)
+    'romans_tt_regular': 'assets/fonts/RomansTT-Regular.ttf',
+    'romans_tt_italic': 'assets/fonts/RomansTT-Regular.ttf',
+    'romans_tt_bold': 'assets/fonts/RomansTT-Regular.ttf',
+    'romans_tt_boldItalic': 'assets/fonts/RomansTT-Regular.ttf',
+    'souvenir_regular': 'assets/fonts/Souvenir-Regular.ttf',
+    'souvenir_italic': 'assets/fonts/Souvenir-Italic.ttf',
+    'souvenir_bold': 'assets/fonts/Souvenir-Bold.ttf',
+    'souvenir_boldItalic': 'assets/fonts/Souvenir-BoldItalic.ttf',
+    'poppins_regular': 'assets/fonts/Poppins-Regular.ttf',
+    'poppins_italic': 'assets/fonts/Poppins-Italic.ttf',
+    'poppins_bold': 'assets/fonts/Poppins-Bold.ttf',
+    'poppins_boldItalic': 'assets/fonts/Poppins-BoldItalic.ttf',
+    'roboto_regular': 'assets/fonts/Roboto-Regular.ttf',
+    'roboto_italic': 'assets/fonts/Roboto-Italic.ttf',
+    'roboto_bold': 'assets/fonts/Roboto-Bold.ttf',
+    'roboto_boldItalic': 'assets/fonts/Roboto-BoldItalic.ttf',
   };
 
   static Future<TextStyleCatalog> load() async {
@@ -190,6 +208,14 @@ class TextStyleCatalog {
         return 'sans';
       case 'PlotMono':
         return 'mono';
+      case 'PlotRomans':
+        return 'romans_tt';
+      case 'PlotSouvenir':
+        return 'souvenir';
+      case 'PlotPoppins':
+        return 'poppins';
+      case 'PlotRoboto':
+        return 'roboto';
       default:
         return 'serif';
     }
@@ -201,6 +227,14 @@ class TextStyleCatalog {
         return 'PlotSans';
       case 'mono':
         return 'PlotMono';
+      case 'romans_tt':
+        return 'PlotRomans';
+      case 'souvenir':
+        return 'PlotSouvenir';
+      case 'poppins':
+        return 'PlotPoppins';
+      case 'roboto':
+        return 'PlotRoboto';
       default:
         return 'PlotSerif';
     }

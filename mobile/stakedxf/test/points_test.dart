@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart' show FontStyle;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stakedxf/points/block_catalog.dart';
 import 'package:stakedxf/points/csv_io.dart';
 import 'package:stakedxf/points/ctb_plot_style.dart';
 import 'package:stakedxf/points/dxf_linework.dart';
@@ -342,14 +343,11 @@ void main() {
   test('text style catalog resolves Civil DWG styles', () {
     final cat = TextStyleCatalog.builtin();
     expect(cat.styles.length, greaterThanOrEqualTo(14));
-    expect(cat.resolve('ROMANS_SHX').flutterFamily, 'PlotSerif');
-    expect(cat.resolve('ROMANS_SHX').face, 'serif');
     expect(cat.resolve('OR-LD_SHX').flutterFamily, 'PlotSans');
     expect(cat.resolve('arial').flutterFamily, 'PlotSans');
     expect(cat.resolve('P-CONT').bold, isTrue);
     expect(cat.resolve('Standard').effectiveItalic, isTrue);
     expect(cat.resolve('ITALICT').flutterStyle, FontStyle.italic);
-    // Distinct faces so the picker visibly changes plot text.
     expect(
       cat.resolve('ROMANS_SHX').faceKey,
       isNot(cat.resolve('OR-LD_SHX').faceKey),
@@ -357,24 +355,41 @@ void main() {
     expect(cat.pdfFont(cat.resolve('arial')), isNotNull);
   });
 
-  test('asset text style catalog matches Pheasant Farm STYLE table', () {
+  test('asset text style catalog includes Drive Support fonts', () {
     final json = jsonDecode(
       File('assets/plot_styles/text_style_catalog.json').readAsStringSync(),
     ) as Map<String, dynamic>;
     final cat = TextStyleCatalog.fromJson(json);
+    expect(cat.styles.length, greaterThanOrEqualTo(100));
     expect(cat.byId.containsKey('ROMAND_SHX'), isTrue);
     expect(cat.byId.containsKey('OR-LD_SHX'), isTrue);
-    expect(cat.resolve('P-TEXT').font, 'Romans TT.ttf');
-    expect(cat.resolve('SHR').font.toUpperCase(), contains('SIMPLEX'));
-    final fonts = {for (final s in cat.styles) s.font};
-    expect(fonts, containsAll([
-      'romans.shx',
-      'romand.shx',
-      'or-ld.shx',
-      'arial.ttf',
-      'Souvenir Bold.ttf',
-      'italict.shx',
-    ]));
+    expect(cat.resolve('P-TEXT').font.toLowerCase(), contains('romans'));
+    expect(cat.resolve('P-CONT').face, anyOf('souvenir', 'sans'));
+    final fonts = {for (final s in cat.styles) s.font.toLowerCase()};
+    expect(fonts.any((f) => f.contains('romans')), isTrue);
+    expect(fonts.any((f) => f.contains('souvenir')), isTrue);
+    expect(fonts.any((f) => f.contains('poppins')), isTrue);
+    expect(fonts.any((f) => f.contains('or-ld')), isTrue);
+  });
+
+  test('TRIO.lin linetype catalog expands utility patterns', () {
+    final json = jsonDecode(
+      File('assets/linework/linetype_catalog.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final cat = LinetypeCatalog.fromJson(json);
+    expect(cat.linetypes.length, greaterThanOrEqualTo(50));
+    expect(cat.resolve('LEDG_WATER').elements, isNotEmpty);
+    expect(cat.resolve('FLOWPATH').elements, isNotEmpty);
+    expect(cat.resolve('SAWCUT').elements, isNotEmpty);
+    expect(cat.resolve('SIDEWALK').elements, isNotEmpty);
+  });
+
+  test('Support BLOCKS merge into DWG block catalog', () {
+    final cat = BlockCatalog.loadFile('assets/symbol_library/dwg_blocks.json');
+    expect(cat.blocks.length, greaterThanOrEqualTo(230));
+    expect(cat['NORTH_ARROW'], isNotNull);
+    final names = {for (final b in cat.blocks) b.name.toUpperCase()};
+    expect(names.contains('NORTH ARROW'), isTrue);
   });
 
   test('composePlotTemplate builds ANSI size × orientation', () {

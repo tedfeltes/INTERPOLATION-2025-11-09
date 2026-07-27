@@ -30,6 +30,7 @@ import 'survey_point.dart';
 import 'symbol_library_sheet.dart';
 import 'symbol_preview.dart';
 import 'text_style_catalog.dart';
+import 'text_style_picker_sheet.dart';
 
 /// Export Points screen — import CSV, customize plot, export CSV / staking plot PDF.
 class ExportPointsScreen extends StatefulWidget {
@@ -1103,41 +1104,52 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                 },
                         ),
                         const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          value: _textStyleCatalog
-                              .resolve(_options.textStyleId)
-                              .id,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Text style',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          items: [
-                            for (final s in _textStyleCatalog.styles)
-                              DropdownMenuItem(
-                                value: s.id,
-                                child: Text(
-                                  s.pickerLabel,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontFamily: s.flutterFamily,
-                                    fontWeight: s.flutterWeight,
-                                    fontStyle: s.flutterStyle,
+                        Builder(
+                          builder: (context) {
+                            final selected = _textStyleCatalog
+                                .resolve(_options.textStyleId);
+                            return InputDecorator(
+                              decoration: InputDecoration(
+                                labelText:
+                                    'Text style (${_textStyleCatalog.styles.length})',
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                                suffixIcon: const Icon(Icons.search, size: 20),
+                              ),
+                              child: InkWell(
+                                onTap: _busy
+                                    ? null
+                                    : () async {
+                                        final id =
+                                            await showTextStylePickerSheet(
+                                          context: context,
+                                          catalog: _textStyleCatalog,
+                                          selectedId: selected.id,
+                                        );
+                                        if (id == null || !mounted) return;
+                                        setState(
+                                          () => _options = _options.copyWith(
+                                            textStyleId: id,
+                                          ),
+                                        );
+                                      },
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 4),
+                                  child: Text(
+                                    selected.pickerLabel,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontFamily: selected.flutterFamily,
+                                      fontWeight: selected.flutterWeight,
+                                      fontStyle: selected.flutterStyle,
+                                    ),
                                   ),
                                 ),
                               ),
-                          ],
-                          onChanged: _busy
-                              ? null
-                              : (v) {
-                                  if (v == null) return;
-                                  setState(
-                                    () => _options =
-                                        _options.copyWith(textStyleId: v),
-                                  );
-                                },
+                            );
+                          },
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<PointMarkerStyle>(

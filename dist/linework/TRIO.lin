@@ -1,0 +1,198 @@
+;;  AutoCAD Linetype Definition file, Version 3.0
+;;  Copyright (C) 1991, 1992, 1993, 1994, 1996, 2003, 2004 by Autodesk, Inc.
+;;  Note: in order to ease migration of this file when upgrading
+;;  to a future version of AutoCAD, it is recommended that you add
+;;  your customizations to the User Defined Linetypes section
+;;  at the end of this file.
+;;
+
+;;  LEDG custom linetypes have been added to this file.
+;;  The ACAD_ISO linetypes have been commented out.
+;;
+;;  
+
+
+*BORDER,Border __ __ . __ __ . __ __ . __ __ . __ __ .
+A,.5,-.25,.5,-.25,0,-.25
+*BORDER2,Border (.5x) __.__.__.__.__.__.__.__.__.__.__.
+A,.25,-.125,.25,-.125,0,-.125
+*BORDERX2,Border (2x) ____  ____  .  ____  ____  .  ___
+A,1.0,-.5,1.0,-.5,0,-.5
+
+*CENTER,Center ____ _ ____ _ ____ _ ____ _ ____ _ ____
+A,1.25,-.25,.25,-.25
+*CENTER2,Center (.5x) ___ _ ___ _ ___ _ ___ _ ___ _ ___
+A,.75,-.125,.125,-.125
+*CENTERX2,Center (2x) ________  __  ________  __  _____
+A,2.5,-.5,.5,-.5
+
+*DASHDOT,Dash dot __ . __ . __ . __ . __ . __ . __ . __
+A,.5,-.25,0,-.25
+*DASHDOT2,Dash dot (.5x) _._._._._._._._._._._._._._._.
+A,.25,-.125,0,-.125
+*DASHDOTX2,Dash dot (2x) ____  .  ____  .  ____  .  ___
+A,1.0,-.5,0,-.5
+
+*DASHED,Dashed __ __ __ __ __ __ __ __ __ __ __ __ __ _
+A,.5,-.25
+*DASHED2,Dashed (.5x) _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+A,.25,-.125
+*DASHEDX2,Dashed (2x) ____  ____  ____  ____  ____  ___
+A,1.0,-.5
+
+*DIVIDE,Divide ____ . . ____ . . ____ . . ____ . . ____
+A,.5,-.25,0,-.25,0,-.25
+*DIVIDE2,Divide (.5x) __..__..__..__..__..__..__..__.._
+A,.25,-.125,0,-.125,0,-.125
+*DIVIDEX2,Divide (2x) ________  .  .  ________  .  .  _
+A,1.0,-.5,0,-.5,0,-.5
+
+*DOT,Dot . . . . . . . . . . . . . . . . . . . . . . . .
+A,0,-.25
+*DOT2,Dot (.5x) ........................................
+A,0,-.125
+*DOTX2,Dot (2x) .  .  .  .  .  .  .  .  .  .  .  .  .  .
+A,0,-.5
+*SIDEWALK,Dot (.25x) ........................................
+A,0,-.06
+
+*HIDDEN,Hidden __ __ __ __ __ __ __ __ __ __ __ __ __ __
+A,.25,-.125
+*HIDDEN2,Hidden (.5x) _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+A,.125,-.0625
+*HIDDENX2,Hidden (2x) ____ ____ ____ ____ ____ ____ ____ 
+A,.5,-.25
+
+*PHANTOM,Phantom ______  __  __  ______  __  __  ______ 
+A,1.25,-.25,.25,-.25,.25,-.25
+*PHANTOM2,Phantom (.5x) ___ _ _ ___ _ _ ___ _ _ ___ _ _
+A,.625,-.125,.125,-.125,.125,-.125
+*PHANTOMX2,Phantom (2x) ____________    ____    ____   _
+A,2.5,-.5,.5,-.5,.5,-.5
+
+;;
+;;  ISO 128 (ISO/DIS 12011) linetypes
+;;
+;;  The size of the line segments for each defined ISO line, is 
+;;  defined for an usage with a pen width of 1 mm. To use them with 
+;;  the other ISO predefined pen widths, the line has to be scaled 
+;;  with the appropriate value (e.g. pen width 0,5 mm -> ltscale 0.5).
+;;
+;;*ACAD_ISO02W100,ISO dash __ __ __ __ __ __ __ __ __ __ __ __ __
+;;A,12,-3
+;;*ACAD_ISO03W100,ISO dash space __    __    __    __    __    __
+;;A,12,-18
+;;*ACAD_ISO04W100,ISO long-dash dot ____ . ____ . ____ . ____ . _
+;;A,24,-3,0,-3
+;;*ACAD_ISO05W100,ISO long-dash double-dot ____ .. ____ .. ____ . 
+;;A,24,-3,0,-3,0,-3
+;;*ACAD_ISO06W100,ISO long-dash triple-dot ____ ... ____ ... ____
+;;A,24,-3,0,-3,0,-3,0,-3
+;;*ACAD_ISO07W100,ISO dot . . . . . . . . . . . . . . . . . . . . 
+;;A,0,-3
+;;*ACAD_ISO08W100,ISO long-dash short-dash ____ __ ____ __ ____ _
+;;A,24,-3,6,-3
+;;*ACAD_ISO09W100,ISO long-dash double-short-dash ____ __ __ ____
+;;A,24,-3,6,-3,6,-3
+;;*ACAD_ISO10W100,ISO dash dot __ . __ . __ . __ . __ . __ . __ . 
+;;A,12,-3,0,-3
+;;*ACAD_ISO11W100,ISO double-dash dot __ __ . __ __ . __ __ . __ _
+;;A,12,-3,12,-3,0,-3
+;;*ACAD_ISO12W100,ISO dash double-dot __ . . __ . . __ . . __ . . 
+;;A,12,-3,0,-3,0,-3
+;;*ACAD_ISO13W100,ISO double-dash double-dot __ __ . . __ __ . . _
+;;A,12,-3,12,-3,0,-3,0,-3
+;;*ACAD_ISO14W100,ISO dash triple-dot __ . . . __ . . . __ . . . _
+;;A,12,-3,0,-3,0,-3,0,-3
+;;*ACAD_ISO15W100,ISO double-dash triple-dot __ __ . . . __ __ . .
+;;A,12,-3,12,-3,0,-3,0,-3,0,-3
+
+;;  Complex linetypes
+;;
+;;  Complex linetypes have been added to this file.
+;;  These linetypes were defined in LTYPESHP.LIN in
+;;  Release 13, and are incorporated in ACAD.LIN in
+;;  Release 14.
+;;  
+;;  These linetype definitions use LTYPESHP.SHX.
+;;
+*GUARDRAIL,______0______0______0______0______0______0______
+A,.3,[CIRC1,ltypeshp.shx,s=.08,y=-0.08],.3
+*FENCELINE1,Fenceline circle ----0-----0----0-----0----0-----0--
+A,.25,-.1,[CIRC1,ltypeshp.shx,x=-.1,s=.1],-.1,1
+*FENCELINE2,Fenceline square ----[]-----[]----[]-----[]----[]---
+A,.25,-.1,[BOX,ltypeshp.shx,x=-.1,s=.1],-.1,1
+*TRACKS,Tracks -|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-
+A,.15,[TRACK1,ltypeshp.shx,s=.25],.15
+*BATTING,Batting SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+A,.0001,-.1,[BAT,ltypeshp.shx,x=-.1,s=.1],-.2,[BAT,ltypeshp.shx,r=180,x=.1,s=.1],-.1
+*ZIGZAG,Zig zag /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/
+A,.0001,-.2,[ZIG,ltypeshp.shx,x=-.2,s=.2],-.4,[ZIG,ltypeshp.shx,r=180,x=.2,s=.2],-.2
+
+;;  User Defined Linetypes
+;;
+;;  Add any linetypes that you define to this section of
+;;  the file to ensure that they migrate properly when
+;;  upgrading to a future AutoCAD version.  If duplicate
+;;  linetype definitions are found in this file, items
+;;  in the User Defined Linetypes section take precedence
+;;  over definitions that appear earlier in the file.
+;;
+*LEDG_CABLE,Cable ---- C ---- C ---- C ---- C ---- C ---- C -- C ---- C ---- C --
+A,2.1,["C",ROMANS_SHX,x=.1,y=-.1,s=.175],-.4
+*LEDG_ELECTRIC,Electric ---- E ---- E ---- E ---- E ---- E --- ---- E ---- E --- E
+A,2.1,["E",ROMANS_SHX,x=.1,y=-.1,s=.175],-.4
+*LEDG_GAS,Gas ---- G ---- G ---- G ---- G ---- G ---- G --- ---- G ---- G --- G --
+A,2.1,["G",ROMANS_SHX,x=.1,y=-.1,s=.175],-.4
+*LEDG_ORANGE,Orange ---- O ---- O ---- O ---- O ---- O ---- O ---- O ---- O ---- O
+A,2.1,["O",ROMANS_SHX,x=.1,y=-.1,s=.175],-.4
+*LEDG_TELEPHONE,Telephone ---- T ---- T ---- T ---- T ---- T ---- T ---- T ---- T -
+A,2.1,["T",ROMANS_SHX,x=.1,y=-.1,s=.175],-.4
+*LEDG_TELEBELL,Telephone Bell ---- B ---- B ---- B ---- B ---- B ---- B ---- B ---- B -
+A,2.1,["B",ROMANS_SHX,x=.125,y=-.1,s=.175],-.4
+*LEDG_WATER,Water ---- W ---- W ---- W ---- W ---- W ---- W ---- W ---- W ---- W --
+A,2.1,["W",ROMANS_SHX,x=.1,y=-.1,s=.175],-.4
+*LEDG_FIBEROPTIC,Fiber Optic ---- FO ---- FO ---- FO ---- FO ---- FO ---- FO ----
+A,2.1,["FO",ROMANS_SHX,x=.1,y=-.1,s=.175],-.525
+*LEDG_SILTFENCE,Silt Fence ---- X ---- X ---- X ---- X ---- X ---- X ---- X ----  
+A,1.05,["X",ROMAND_SHX,x=0,y=-.175,s=.35],-.3
+*LEDG_FENCE,Fence ---- X ---- X ---- X ---- X ---- X ---- X ---- X ---- X ---- X --
+A,2.1,["X",ROMANS_SHX,x=.075,y=-.09,s=.175],-.3
+*LEDG_FORCEMAIN,Force Main ---- FM ---- FM ---- FM ---- FM ---- FM ---- FM ----
+A,2.1,["FM",ROMANS_SHX,x=.1,y=-.1,s=.175],-.525
+*LEDG_STORM,Storm Sewer ---- ST ---- ST ---- ST ---- ST ---- ST ---- ST ----
+A,2.1,["ST",ROMANS_SHX,x=.1,y=-.09,s=.175],-.525
+*LEDG_SANITARY,Sanitary Sewer ---- SAN ---- SAN ---- SAN ---- SAN ---- SAN ---- SAN ----
+A,2.1,["SAN",ROMANS_SHX,x=.1,y=-.09,s=.175],-.7
+*LEDG_OVERHEADWIRE,Overhead Wire ---- OW ---- OW ---- OW ---- OW ---- OW ---- OW ----
+A,2.1,["OW",ROMANS_SHX,x=.075,y=-.1,s=.175],-.525
+*LEDG_ANR,ANR ---- ANR ---- ANR ---- ANR ---- ANR ---- ANR ---- ANR ---- ANR --- ANR ---
+A,2.1,["ANR",ROMANS_SHX,x=.1,y=-.09,s=.175],-.7
+*LEDG_SEWRPC,SEWERPC
+A,3,-0.15,0.15,-0.15,0.15,-0.15
+*LEDG_CROSSSEWER,Cross Sewer ---- CS ---- CS ---- CS ---- CS ---- CS ---- CS ----
+A,2.1,["CS",ROMANS_SHX,x=.1,y=-.1,s=.175],-.525
+*LEDG_ROW,ROW
+A,1.5,-0.15
+*LEDG_FLOODPLAIN,FLOODPLAIN
+A,1.5,-0.15
+;;
+;;
+*SANITARY,
+A,1.5,-0.2
+*STORM,
+A,0.5,-0.1
+*EDGE OF WATER,
+A,0.5,-0.1,0.02,-0.1,0.02,-0.1,0.02,-0.1
+*LEDG_PR_WATERMAIN,Watermain __ __ __ __ __ __ __ __ __ __ __ __ __ __
+A,.25,-.125
+*LEDG_WETLAND,
+A,0.02,-0.1
+
+
+
+Under Construction
+*FLOWPATH,FLOWPATH ---- > ---- > ---- > ---- > ---- > ---- > -- > ---- > ---- > --
+A,2.1,[">",ROMANS_SHX,x=.0,y=-.15,s=.35],-.3
+*SAWCUT,SAWCUT __x____x____x____x____x____x____x__
+A,.35,["X",ROMANS_SHX,s=.13,x=0.0,y=-.13],.35

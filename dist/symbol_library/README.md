@@ -15,10 +15,11 @@ Plan-view symbols curated from the **Three Pillars – Phase 1C** civil set:
 
 ## DWG blocks (every named BLOCK / symbol DWG)
 
-`dwg_blocks.json` — **221** placeable objects with drawable geometry, merged from:
+`dwg_blocks.json` — **243** placeable objects with drawable geometry, merged from:
 
 1. Project DWG — Google Drive file `1tzP9JiEe1epklN-1jtv18FHxNmZBH6mN`
-2. Symbol folder — Google Drive folder [`1BpM_hSs84FBru9tB-ATBgYA79fkG93NF`](https://drive.google.com/drive/folders/1BpM_hSs84FBru9tB-ATBgYA79fkG93NF) (individual `.dwg` symbol files)
+2. Drive Support folder [`1kpdbjGngmma10Oy4V3BOH01nqnP8bXPz`](https://drive.google.com/drive/folders/1kpdbjGngmma10Oy4V3BOH01nqnP8bXPz) — `Support/BLOCKS.dwg` (+ `hp and kip.dwg`)
+3. Symbol folder — Google Drive folder [`1BpM_hSs84FBru9tB-ATBgYA79fkG93NF`](https://drive.google.com/drive/folders/1BpM_hSs84FBru9tB-ATBgYA79fkG93NF) (individual `.dwg` symbol files)
 
 Pipeline: LibreDWG `dwg2dxf` → ezdxf (modelspace + INSERT explode). Sheet-like files
 (title blocks, stamps, logos, huge detail sheets) were skipped; see inventory.
