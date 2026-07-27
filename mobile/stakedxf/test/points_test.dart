@@ -403,7 +403,39 @@ test('Support BLOCKS merge into DWG block catalog', () {
     expect(names.contains('NORTH ARROW'), isTrue);
   });
 
-  test('composePlotTemplate builds ANSI size × orientation', () {
+  
+  test('engineering scale override is honored', () {
+    final pts = <SurveyPoint>[
+      const SurveyPoint(
+        id: '1',
+        northing: 0,
+        easting: 0,
+        elevation: 0,
+        description: 'A',
+      ),
+      const SurveyPoint(
+        id: '2',
+        northing: 100,
+        easting: 100,
+        elevation: 0,
+        description: 'B',
+      ),
+    ];
+    final forced = chooseEngineeringScale(pts, overrideFtPerInch: 40);
+    expect(forced, 40);
+    final custom = chooseEngineeringScale(pts, overrideFtPerInch: 150);
+    expect(custom, 150);
+  });
+
+  test('full ACI palette covers 1-255', () {
+    for (var i = 1; i <= 255; i++) {
+      final c = aciToArgb(i);
+      expect(c & 0xFF000000, 0xFF000000);
+    }
+    expect((aciToArgb(10) >> 16) & 0xFF, greaterThan(200));
+  });
+
+test('composePlotTemplate builds ANSI size × orientation', () {
     final t = composePlotTemplate(
       size: AnsiSheetSize.b,
       orientation: SheetOrientation.landscape,

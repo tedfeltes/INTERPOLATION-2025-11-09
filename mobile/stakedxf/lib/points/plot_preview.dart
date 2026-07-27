@@ -136,6 +136,7 @@ class _PlotPreviewState extends State<PlotPreview> {
       linework: widget.linework,
       template: widget.options.template,
       showPointList: widget.options.showPointList,
+      overrideFtPerInch: widget.options.scaleFtPerInch,
     );
     _cachedDrags = autoSpreadLabels(
       points: widget.points,
@@ -186,6 +187,7 @@ class _PlotPreviewState extends State<PlotPreview> {
       linework: widget.linework,
       template: tpl,
       showPointList: widget.options.showPointList,
+      overrideFtPerInch: widget.options.scaleFtPerInch,
     );
 
     return LayoutBuilder(
@@ -423,6 +425,7 @@ class _PlotPreviewState extends State<PlotPreview> {
       widget.linework,
       map.toPixel,
       threshold: 18,
+      lockedLayers: widget.options.lockedLayers,
     );
     widget.onSelectLinework?.call(lw);
     if (lw != null) {

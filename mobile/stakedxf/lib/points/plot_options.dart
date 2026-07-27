@@ -86,6 +86,8 @@ class PlotOptions {
     this.titleBlock = const TitleBlockData(),
     this.defaultPointColorArgb,
     this.textStyleId = 'ROMANS_SHX',
+    this.scaleFtPerInch,
+    this.lockedLayers = const {},
   });
 
   final PointMarkerStyle markerStyle;
@@ -137,6 +139,12 @@ class PlotOptions {
   /// Civil DWG text style id for plot labels / text objects.
   final String textStyleId;
 
+  /// Engineering scale override (feet per inch). Null = auto-fit.
+  final double? scaleFtPerInch;
+
+  /// Layers that cannot be selected / hit-tested on the preview.
+  final Set<String> lockedLayers;
+
   PlotOptions copyWith({
     PointMarkerStyle? markerStyle,
     PointLabelFormat? labelFormat,
@@ -155,7 +163,10 @@ class PlotOptions {
     TitleBlockData? titleBlock,
     int? defaultPointColorArgb,
     String? textStyleId,
+    double? scaleFtPerInch,
+    Set<String>? lockedLayers,
     bool clearDefaultPointColor = false,
+    bool clearScaleFtPerInch = false,
   }) {
     return PlotOptions(
       markerStyle: markerStyle ?? this.markerStyle,
@@ -177,6 +188,10 @@ class PlotOptions {
           ? null
           : (defaultPointColorArgb ?? this.defaultPointColorArgb),
       textStyleId: textStyleId ?? this.textStyleId,
+      scaleFtPerInch: clearScaleFtPerInch
+          ? null
+          : (scaleFtPerInch ?? this.scaleFtPerInch),
+      lockedLayers: lockedLayers ?? this.lockedLayers,
     );
   }
 }

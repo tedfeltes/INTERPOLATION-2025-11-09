@@ -29,11 +29,12 @@ void drawPlacedSymbols(
       5.0,
       (symbolPaperInches * 72.0 / 2.0) * sym.scale,
     );
-    final color = PdfColor.fromInt(
-      applyOpacityArgb(sym.colorArgb, sym.opacity),
-    );
+    final color = PdfColor.fromInt(sym.colorArgb | 0xFF000000);
 
     canvas.saveContext();
+    canvas.setGraphicState(
+      PdfGraphicState(opacity: sym.opacity.clamp(0.05, 1.0)),
+    );
     final rad = sym.rotationDeg * math.pi / 180;
     final matrix = Matrix4.identity()
       ..translate(c.x, c.y)

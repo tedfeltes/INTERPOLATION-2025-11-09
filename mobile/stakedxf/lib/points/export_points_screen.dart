@@ -29,6 +29,8 @@ import 'sticky_section.dart';
 import 'survey_point.dart';
 import 'symbol_library_sheet.dart';
 import 'symbol_preview.dart';
+import 'color_picker_sheet.dart';
+import 'plot_ui_theme.dart';
 import 'text_style_catalog.dart';
 import 'text_style_picker_sheet.dart';
 
@@ -143,26 +145,45 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
 
   void _selectLineworkEntity(String? id) {
     setState(() {
-      _selectedLineworkId = id;
       _selectedNodeIndex = null;
       _selectedSegmentIndex = null;
-      if (id != null) {
-        LineworkEntity? ent;
-        for (final e in _linework?.entities ?? const []) {
-          if (e.id == id) {
-            ent = e;
-            break;
-          }
+      if (id == null) {
+        // Empty-canvas / deselect must clear both entity and layer highlight.
+        _selectedLineworkId = null;
+        _selectedLineworkLayer = null;
+        return;
+      }
+      LineworkEntity? ent;
+      for (final e in _linework?.entities ?? const []) {
+        if (e.id == id) {
+          ent = e;
+          break;
         }
-        // Layer-first workflow: selecting a line selects its layer.
-        _selectedLineworkLayer = ent?.layer;
-        _selectedSymbolId = null;
-        _selectedLabelPointId = null;
-        _selectedTextId = null;
-        _lineworkOpen = true;
-        if (!_lineEditMode) {
-          _selectedLineworkId = null; // style by layer, not segment
-        }
+      }
+      // Locked layers are not selectable from the preview.
+      if (ent != null && _options.lockedLayers.contains(ent.layer)) {
+        _selectedLineworkId = null;
+        _selectedLineworkLayer = null;
+        return;
+      }
+      // Layer-first workflow: selecting a line selects its layer.
+      _selectedLineworkLayer = ent?.layer;
+      _selectedSymbolId = null;
+      _selectedLabelPointId = null;
+      _selectedTextId = null;
+      _lineworkOpen = true;
+      _selectedLineworkId = _lineEditMode ? id : null;
+    });
+  }
+
+  void _toggleLayerLock(String layer) {
+    setState(() {
+      final next = Set<String>.from(_options.lockedLayers);
+      if (!next.add(layer)) next.remove(layer);
+      _options = _options.copyWith(lockedLayers: next);
+      if (next.contains(layer) && _selectedLineworkLayer == layer) {
+        _selectedLineworkId = null;
+        _selectedLineworkLayer = null;
       }
     });
   }
@@ -295,6 +316,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       linework: _chosenLinework,
       template: _options.template,
       showPointList: _options.showPointList,
+      overrideFtPerInch: _options.scaleFtPerInch,
     );
     final spread = autoSpreadLabels(
       points: pts,
@@ -621,6 +643,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         symbols: symbols,
         template: _options.template,
         showPointList: _options.showPointList,
+        overrideFtPerInch: _options.scaleFtPerInch,
       ).round();
       final docs = await getApplicationDocumentsDirectory();
       final stem = _jobCtrl.text.trim().isEmpty
@@ -662,7 +685,10 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     final selectedSym = _selectedSymbol;
     final selectedLabel = _selectedLabelPoint;
 
-    return Scaffold(
+    return Theme(
+      data: PlotUi.theme(context),
+      child: Scaffold(
+      backgroundColor: PlotUi.bg,
       appBar: AppBar(
         title: const Text('Export Points'),
         backgroundColor: Colors.transparent,
@@ -712,6 +738,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         if (id != null) {
                           _selectedSymbolId = null;
                           _selectedLineworkId = null;
+                          _selectedLineworkLayer = null;
                           _selectedTextId = null;
                           _selectedNodeIndex = null;
                           _selectedSegmentIndex = null;
@@ -724,6 +751,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                           _selectedSymbolId = null;
                           _selectedLabelPointId = null;
                           _selectedLineworkId = null;
+                          _selectedLineworkLayer = null;
                           _annotationsOpen = true;
                         }
                       }),
@@ -835,40 +863,67 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                 ),
                               ],
                             ),
-                            SizedBox(
-                              height: 28,
-                              child: ListView(
-                                scrollDirection: Axis.horizontal,
-                                children: [
-                                  for (final c in PlotSymbolColor.presets)
-                                    Padding(
-                                      padding: const EdgeInsets.only(right: 6),
-                                      child: GestureDetector(
-                                        onTap: () => _updateSelectedSymbol(
-                                          colorArgb: c.argb,
-                                        ),
-                                        child: Container(
-                                          width: 24,
-                                          height: 24,
-                                          decoration: BoxDecoration(
-                                            color: Color(c.argb),
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: selectedSym.colorArgb ==
-                                                      c.argb
-                                                  ? Colors.white
-                                                  : Colors.white24,
-                                              width: selectedSym.colorArgb ==
-                                                      c.argb
-                                                  ? 2
-                                                  : 1,
-                                            ),
+                            Row(
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: () async {
+                                    final picked = await showPlotColorPicker(
+                                      context: context,
+                                      currentArgb: selectedSym.colorArgb,
+                                      ctb: _ctbPlotStyle,
+                                      title: 'Object color',
+                                    );
+                                    if (picked == null || picked.argb == 0) {
+                                      return;
+                                    }
+                                    _updateSelectedSymbol(
+                                      colorArgb: picked.argb,
+                                    );
+                                  },
+                                  icon: Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: BoxDecoration(
+                                      color: Color(selectedSym.colorArgb),
+                                      borderRadius: BorderRadius.circular(3),
+                                      border: Border.all(color: PlotUi.border),
+                                    ),
+                                  ),
+                                  label: const Text(
+                                    'Color',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                for (final c in PlotSymbolColor.presets.take(6))
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 4),
+                                    child: GestureDetector(
+                                      onTap: () => _updateSelectedSymbol(
+                                        colorArgb: c.argb,
+                                      ),
+                                      child: Container(
+                                        width: 20,
+                                        height: 20,
+                                        decoration: BoxDecoration(
+                                          color: Color(c.argb),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          border: Border.all(
+                                            color: selectedSym.colorArgb ==
+                                                    c.argb
+                                                ? PlotUi.selection
+                                                : PlotUi.border,
+                                            width: selectedSym.colorArgb ==
+                                                    c.argb
+                                                ? 2
+                                                : 1,
                                           ),
                                         ),
                                       ),
                                     ),
-                                ],
-                              ),
+                                  ),
+                              ],
                             ),
                             Row(
                               children: [
@@ -1213,8 +1268,21 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         ),
                         Row(
                           children: [
-                            const Text('Annot.', style: TextStyle(fontSize: 12)),
                             Expanded(
+                              child: OutlinedButton(
+                                onPressed: _busy ? null : _pickEngineeringScale,
+                                child: Text(
+                                  _options.scaleFtPerInch == null
+                                      ? 'Scale: Auto'
+                                      : 'Scale: ${engineeringScaleLabel(_options.scaleFtPerInch!)}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('Annot.', style: TextStyle(fontSize: 12)),
+                            SizedBox(
+                              width: 110,
                               child: Slider(
                                 value: _options.annotationScale.clamp(0.6, 3.0),
                                 min: 0.6,
@@ -1231,17 +1299,14 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                             ),
                             Text(
                               '${_options.annotationScale.toStringAsFixed(1)}×',
-                              style: const TextStyle(fontSize: 11),
+                              style: PlotUi.tiny,
                             ),
                           ],
                         ),
                         Text(
-                          'Annotation scale affects point labels/markers only. '
-                          'Objects and text use their own scale.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: cs.onSurface.withValues(alpha: 0.55),
-                          ),
+                          'Engineering scale sets plan 1"=N\'. Annot. only '
+                          'resizes point labels/markers.',
+                          style: PlotUi.tiny,
                         ),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
@@ -1314,6 +1379,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                               layers: lw.layers,
                               layerStyles: lw.layerStyles,
                               selectedLayers: _selectedLayers,
+                              lockedLayers: _options.lockedLayers,
                               layerOverrides: _options.layerStyleOverrides,
                               catalog: _linetypeCatalog,
                               ctb: _ctbPlotStyle,
@@ -1332,7 +1398,11 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                 _selectedLineworkLayer = layer;
                                 _selectedLineworkId = null;
                               }),
+                              onToggleLock: _toggleLayerLock,
                               onSelectLayer: (layer) => setState(() {
+                                if (_options.lockedLayers.contains(layer)) {
+                                  return;
+                                }
                                 _selectedLineworkLayer = layer;
                                 _selectedLineworkId = null;
                                 _selectedNodeIndex = null;
@@ -1894,7 +1964,106 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
           ],
         ),
       ),
+      ),
     );
+  }
+
+  Future<void> _pickEngineeringScale() async {
+    final current = _options.scaleFtPerInch;
+    final auto = chooseEngineeringScale(
+      _chosen.isNotEmpty ? _chosen : _points,
+      linework: _chosenLinework,
+      symbols: _symbols,
+      template: _options.template,
+      showPointList: _options.showPointList,
+    );
+    final picked = await showModalBottomSheet<double?>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: PlotUi.card,
+      builder: (ctx) {
+        final customCtrl = TextEditingController(
+          text: (current ?? auto).round().toString(),
+        );
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(ctx).height * 0.62,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Text(
+                    'Engineering scale',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                ListTile(
+                  dense: true,
+                  title: Text('Auto (${engineeringScaleLabel(auto)})'),
+                  trailing: current == null
+                      ? const Icon(Icons.check, color: PlotUi.selection)
+                      : null,
+                  onTap: () => Navigator.pop(ctx, -1.0),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      for (final s in kEngineeringScalePresets)
+                        ListTile(
+                          dense: true,
+                          title: Text(engineeringScaleLabel(s)),
+                          trailing: current == s
+                              ? const Icon(Icons.check, color: PlotUi.selection)
+                              : null,
+                          onTap: () => Navigator.pop(ctx, s),
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: customCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Custom ft per inch',
+                            prefixText: '1"= ',
+                            suffixText: "'",
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () {
+                          final v = double.tryParse(customCtrl.text.trim());
+                          if (v == null || v <= 0) return;
+                          Navigator.pop(ctx, v);
+                        },
+                        child: const Text('Apply'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (picked == null) return;
+    setState(() {
+      if (picked < 0) {
+        _options = _options.copyWith(clearScaleFtPerInch: true);
+      } else {
+        _options = _options.copyWith(scaleFtPerInch: picked);
+      }
+    });
   }
 }
 

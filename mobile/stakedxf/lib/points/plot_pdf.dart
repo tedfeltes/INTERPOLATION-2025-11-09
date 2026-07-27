@@ -11,7 +11,6 @@ import 'label_placement.dart';
 import 'leader_geometry.dart';
 import 'linetype_catalog.dart';
 import 'linework_draw.dart';
-import 'hatch_paint.dart';
 import 'plot_annotations.dart';
 import 'plot_options.dart';
 import 'plot_symbols.dart';
@@ -74,6 +73,7 @@ Future<Uint8List> buildStakingPlotPdf({
     symbols: symbols,
     template: template,
     showPointList: options.showPointList,
+    overrideFtPerInch: options.scaleFtPerInch,
   );
   final doc = pw.Document(
     title: '$title — ${jobName.isEmpty ? "FIELD" : jobName}',
@@ -392,14 +392,26 @@ PlanViewBounds computePlanViewBounds(
 
 bool _finite2(double a, double b) => a.isFinite && b.isFinite;
 
+/// Standard engineering scales (feet per inch), including common field values.
+const kEngineeringScaleStandards = <double>[
+  10, 20, 30, 40, 50, 60, 80, 100, 150, 200, 300, 400, 500, 600, 800, 1000,
+  1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000,
+];
+
 /// Pick a standard engineering scale (feet per inch) that fits the content.
+///
+/// When [overrideFtPerInch] is set, that value is used as-is.
 double chooseEngineeringScale(
   List<SurveyPoint> points, {
   List<LineworkEntity> linework = const [],
   List<PlacedPlotSymbol> symbols = const [],
   PlotTemplate template = kDefaultPlotTemplate,
   bool showPointList = false,
+  double? overrideFtPerInch,
 }) {
+  if (overrideFtPerInch != null && overrideFtPerInch > 0) {
+    return overrideFtPerInch;
+  }
   final bounds = computePlanViewBounds(
     points,
     linework: linework,
@@ -412,14 +424,10 @@ double chooseEngineeringScale(
         bounds.rangeN / usable.heightIn,
       ) *
       1.12;
-  const standards = <double>[
-    10, 20, 30, 40, 50, 60, 80, 100, 200, 300, 400, 500, 600, 800, 1000,
-    1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000,
-  ];
-  for (final s in standards) {
+  for (final s in kEngineeringScaleStandards) {
     if (s >= need) return s;
   }
-  return standards.last;
+  return kEngineeringScaleStandards.last;
 }
 
 class _PlanPanel extends pw.StatelessWidget {
@@ -602,10 +610,13 @@ void paintStakingPlan(
     final c = toPage(t.easting, t.northing);
     final fs = t.effectiveFontSizePt;
     canvas
-      ..setFillColor(
-        PdfColor.fromInt(applyOpacityArgb(t.colorArgb, t.opacity)),
+      ..saveContext()
+      ..setGraphicState(
+        PdfGraphicState(opacity: t.opacity.clamp(0.05, 1.0)),
       )
-      ..drawString(labelFont, fs, t.text, c.x, c.y);
+      ..setFillColor(PdfColor.fromInt(t.colorArgb | 0xFF000000))
+      ..drawString(labelFont, fs, t.text, c.x, c.y)
+      ..restoreContext();
   }
 
   final ann = options.annotationScale.clamp(0.6, 3.0);

@@ -63,8 +63,10 @@ void paintLineworkFlutter({
     }
 
     if (layerSelected || ent.id == selectedId) {
+      // Keep highlight translucent so opacity changes remain visible.
       final hi = Paint()
         ..color = const Color(0xFFE4572E)
+            .withValues(alpha: (0.35 + style.opacity * 0.55).clamp(0.25, 0.95))
         ..strokeWidth = style.strokeWidthPt + (layerSelected ? 1.0 : 1.5)
         ..style = PaintingStyle.stroke;
       final path = Path()..moveTo(samples.first.dx, samples.first.dy);
@@ -190,8 +192,11 @@ void paintLineworkPdf({
     if (samples.length < 2) continue;
 
     final argb = style.colorWithOpacity;
+    // PdfColor RGB setters drop alpha — use a graphic state for true opacity.
     canvas
-      ..setStrokeColor(PdfColor.fromInt(argb))
+      ..saveContext()
+      ..setGraphicState(PdfGraphicState(opacity: style.opacity.clamp(0.05, 1.0)))
+      ..setStrokeColor(PdfColor.fromInt(argb | 0xFF000000))
       ..setLineWidth(style.strokeWidthPt);
 
     final dash = style.dashPatternPoints();
@@ -212,6 +217,7 @@ void paintLineworkPdf({
       canvas.closePath();
     }
     canvas.strokePath();
+    canvas.restoreContext();
   }
   canvas.setLineDashPattern();
 }
@@ -222,10 +228,12 @@ String? hitTestLinework(
   List<LineworkEntity> linework,
   Offset Function(double e, double n) toPixel, {
   double threshold = 14,
+  Set<String> lockedLayers = const {},
 }) {
   String? best;
   var bestDist = threshold;
   for (final ent in linework) {
+    if (lockedLayers.contains(ent.layer)) continue;
     final samples = [
       for (final p in ent.samplePoints)
         if (p[0].isFinite && p[1].isFinite) toPixel(p[0], p[1]),

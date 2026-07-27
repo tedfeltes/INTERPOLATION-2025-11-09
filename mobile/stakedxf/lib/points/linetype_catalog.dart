@@ -168,50 +168,85 @@ String normalizeLinetypeName(String name) {
   return n;
 }
 
-/// AutoCAD Color Index → ARGB (common ACI entries + greys).
+/// AutoCAD Color Index → ARGB (full ACI 1–255 for paper plots).
 int aciToArgb(int aci) {
-  final a = aci.abs();
-  const map = <int, int>{
+  final a = aci.abs().clamp(0, 255);
+  // Specials tuned for paper (ACI 7 “white” → near-black ink).
+  const specials = <int, int>{
+    0: 0xFF1A1A1A,
     1: 0xFFFF0000,
     2: 0xFFFFFF00,
     3: 0xFF00FF00,
     4: 0xFF00FFFF,
     5: 0xFF0000FF,
     6: 0xFFFF00FF,
-    7: 0xFF1A1A1A, // "white" on dark CAD → dark for paper plots
+    7: 0xFF1A1A1A,
     8: 0xFF808080,
     9: 0xFFC0C0C0,
-    10: 0xFFFF0000, // ACI 10 — stake points / labels (red)
-    252: 0xFFA0A0A4, // ACI 252 — default linework grey
-
-    30: 0xFFFF7F00,
-    40: 0xFFFF7F7F,
-    50: 0xFFFFFF99,
-    60: 0xFF99FF99,
-    70: 0xFF99FFFF,
-    80: 0xFF7F7FFF,
-    90: 0xFFFF7FFF,
-    92: 0xFFA0A0A4,
-    94: 0xFF808080,
-    96: 0xFFA0A0A0,
-    204: 0xFFB4B4B4,
-    210: 0xFFA0A0FF,
-    235: 0xFF5A5A5A,
+    10: 0xFFFF0000, // stake points / labels
     250: 0xFF333333,
     251: 0xFF505050,
+    252: 0xFFA0A0A4, // default linework grey
     253: 0xFF828282,
     254: 0xFFBEBEBE,
     255: 0xFFE0E0E0,
   };
-  if (map.containsKey(a)) return map[a]!;
-  final h = (a % 250) / 250.0;
-  final r = (0.5 + 0.5 * math.cos(2 * math.pi * h)).clamp(0.0, 1.0);
-  final g = (0.5 + 0.5 * math.cos(2 * math.pi * (h + 0.33))).clamp(0.0, 1.0);
-  final b = (0.5 + 0.5 * math.cos(2 * math.pi * (h + 0.67))).clamp(0.0, 1.0);
-  return (0xFF << 24) |
-      ((r * 255).round() << 16) |
-      ((g * 255).round() << 8) |
-      (b * 255).round();
+  if (specials.containsKey(a)) return specials[a]!;
+
+  // Classic AutoCAD ACI rows 10–249: 24 hues × 10 shades / tints.
+  if (a >= 10 && a <= 249) {
+    final row = (a - 10) ~/ 10; // 0..23
+    final col = (a - 10) % 10; // 0..9
+    final hue = row * 15.0; // degrees
+    // Columns: 0 full, 1–4 darker, 5–9 lighter pastels (approximate CAD).
+    double value;
+    double sat;
+    if (col == 0) {
+      value = 1.0;
+      sat = 1.0;
+    } else if (col <= 4) {
+      value = 1.0 - col * 0.18;
+      sat = 1.0;
+    } else {
+      value = 1.0;
+      sat = 1.0 - (col - 4) * 0.16;
+    }
+    return _hsvArgb(hue, sat.clamp(0.15, 1.0), value.clamp(0.15, 1.0));
+  }
+
+  // Greys 250–255 already handled; fallback.
+  final g = (a * 255 / 255).round().clamp(0, 255);
+  return 0xFF000000 | (g << 16) | (g << 8) | g;
+}
+
+int _hsvArgb(double h, double s, double v) {
+  final c = v * s;
+  final x = c * (1 - (((h / 60) % 2) - 1).abs());
+  final m = v - c;
+  double r = 0, g = 0, b = 0;
+  if (h < 60) {
+    r = c;
+    g = x;
+  } else if (h < 120) {
+    r = x;
+    g = c;
+  } else if (h < 180) {
+    g = c;
+    b = x;
+  } else if (h < 240) {
+    g = x;
+    b = c;
+  } else if (h < 300) {
+    r = x;
+    b = c;
+  } else {
+    r = c;
+    b = x;
+  }
+  final ri = ((r + m) * 255).round().clamp(0, 255);
+  final gi = ((g + m) * 255).round().clamp(0, 255);
+  final bi = ((b + m) * 255).round().clamp(0, 255);
+  return 0xFF000000 | (ri << 16) | (gi << 8) | bi;
 }
 
 /// DXF lineweight (group 370, hundredths of mm) → paper stroke points.

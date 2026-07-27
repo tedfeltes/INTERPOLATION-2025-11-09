@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
+import 'color_picker_sheet.dart';
 import 'ctb_plot_style.dart';
 import 'dxf_linework.dart';
 import 'linetype_catalog.dart';
 import 'linework_style.dart';
+import 'plot_ui_theme.dart';
 
 /// Civil 3D–style Layer Properties Manager.
 ///
-/// Each layer is one row: On · Color · LT · LW · LTS · Name.
+/// Each layer is one row: On · Lock · Color · LT · LW · LTS · Op · Name.
 /// Tap a cell to edit that attribute for the **whole layer**.
 class LayerPropertiesManager extends StatelessWidget {
   const LayerPropertiesManager({
@@ -24,6 +26,8 @@ class LayerPropertiesManager extends StatelessWidget {
     required this.onSelectLayer,
     required this.onApplyLayerOverride,
     required this.onGlobalLinetypeScale,
+    this.lockedLayers = const {},
+    this.onToggleLock,
     this.onSelectAll,
     this.entityCounts = const {},
   });
@@ -31,12 +35,14 @@ class LayerPropertiesManager extends StatelessWidget {
   final List<String> layers;
   final Map<String, DxfLayerStyle> layerStyles;
   final Set<String> selectedLayers;
+  final Set<String> lockedLayers;
   final Map<String, LineworkStyleOverride> layerOverrides;
   final LinetypeCatalog catalog;
   final CtbPlotStyleTable ctb;
   final double globalLinetypeScale;
   final String? selectedLayer;
   final ValueChanged<String> onToggleLayer;
+  final ValueChanged<String>? onToggleLock;
   final ValueChanged<String> onSelectLayer;
   final void Function(String layer, LineworkStyleOverride override)
       onApplyLayerOverride;
@@ -144,16 +150,17 @@ class LayerPropertiesManager extends StatelessWidget {
 
   Widget _headerRow(ColorScheme cs) {
     return Container(
-      color: cs.surfaceContainerHighest.withValues(alpha: 0.65),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+      color: PlotUi.muted,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: const Row(
         children: [
-          SizedBox(width: 28, child: _H('On')),
-          SizedBox(width: 28, child: _H('C')),
-          SizedBox(width: 44, child: _H('LT')),
-          SizedBox(width: 36, child: _H('LW')),
-          SizedBox(width: 36, child: _H('LTS')),
-          SizedBox(width: 36, child: _H('Op')),
+          SizedBox(width: 26, child: _H('On')),
+          SizedBox(width: 26, child: _H('Lk')),
+          SizedBox(width: 26, child: _H('C')),
+          SizedBox(width: 40, child: _H('LT')),
+          SizedBox(width: 32, child: _H('LW')),
+          SizedBox(width: 32, child: _H('LTS')),
+          SizedBox(width: 32, child: _H('Op')),
           Expanded(child: _H('Name')),
         ],
       ),
@@ -162,6 +169,7 @@ class LayerPropertiesManager extends StatelessWidget {
 
   Widget _layerRow(BuildContext context, ColorScheme cs, String layer) {
     final on = selectedLayers.contains(layer);
+    final locked = lockedLayers.contains(layer);
     final resolved = _resolve(layer);
     final ov = layerOverrides[layer] ?? const LineworkStyleOverride();
     final selected = layer == selectedLayer;
@@ -173,17 +181,17 @@ class LayerPropertiesManager extends StatelessWidget {
 
     return Material(
       color: selected
-          ? cs.primary.withValues(alpha: 0.12)
-          : (on ? Colors.transparent : cs.surface.withValues(alpha: 0.35)),
+          ? PlotUi.selection.withValues(alpha: 0.10)
+          : (on ? Colors.transparent : PlotUi.muted.withValues(alpha: 0.55)),
       child: InkWell(
-        onTap: () => onSelectLayer(layer),
+        onTap: locked ? null : () => onSelectLayer(layer),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
           child: Row(
             children: [
               SizedBox(
-                width: 28,
-                height: 28,
+                width: 26,
+                height: 26,
                 child: Checkbox(
                   value: on,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -192,47 +200,75 @@ class LayerPropertiesManager extends StatelessWidget {
                 ),
               ),
               SizedBox(
-                width: 28,
+                width: 26,
+                height: 26,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: locked ? 'Unlock layer' : 'Lock layer',
+                  onPressed: onToggleLock == null
+                      ? null
+                      : () => onToggleLock!(layer),
+                  icon: Icon(
+                    locked ? Icons.lock : Icons.lock_open,
+                    size: 15,
+                    color: locked ? PlotUi.selection : PlotUi.mutedFg,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 26,
                 child: GestureDetector(
-                  onTap: () => _pickColor(context, layer, ov, resolved),
+                  onTap: locked
+                      ? null
+                      : () => _pickColor(context, layer, ov, resolved),
                   child: Container(
-                    width: 18,
-                    height: 18,
+                    width: 16,
+                    height: 16,
                     margin: const EdgeInsets.only(left: 4),
                     decoration: BoxDecoration(
-                      color: Color(resolved.colorArgb),
+                      color: Color(resolved.colorArgb)
+                          .withValues(alpha: resolved.opacity),
                       borderRadius: BorderRadius.circular(3),
-                      border: Border.all(color: Colors.white24),
+                      border: Border.all(color: PlotUi.border),
                     ),
                   ),
                 ),
               ),
               SizedBox(
-                width: 44,
+                width: 40,
                 child: _CellTap(
                   label: ltAbbrev,
-                  onTap: () => _pickLinetype(context, layer, ov),
+                  onTap: locked
+                      ? null
+                      : () => _pickLinetype(context, layer, ov),
                 ),
               ),
               SizedBox(
-                width: 36,
+                width: 32,
                 child: _CellTap(
                   label: lwLabel,
-                  onTap: () => _pickLineweight(context, layer, ov),
+                  onTap: locked
+                      ? null
+                      : () => _pickLineweight(context, layer, ov),
                 ),
               ),
               SizedBox(
-                width: 36,
+                width: 32,
                 child: _CellTap(
                   label: ltsLabel,
-                  onTap: () => _pickLtScale(context, layer, ov, resolved),
+                  onTap: locked
+                      ? null
+                      : () => _pickLtScale(context, layer, ov, resolved),
                 ),
               ),
               SizedBox(
-                width: 36,
+                width: 32,
                 child: _CellTap(
                   label: opLabel,
-                  onTap: () => _pickOpacity(context, layer, ov, resolved),
+                  onTap: locked
+                      ? null
+                      : () => _pickOpacity(context, layer, ov, resolved),
                 ),
               ),
               Expanded(
@@ -241,11 +277,11 @@ class LayerPropertiesManager extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11.5,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     color: on
-                        ? cs.onSurface
-                        : cs.onSurface.withValues(alpha: 0.45),
+                        ? PlotUi.fg
+                        : PlotUi.fg.withValues(alpha: 0.4),
                   ),
                 ),
               ),
@@ -270,71 +306,18 @@ class LayerPropertiesManager extends StatelessWidget {
     LineworkStyleOverride ov,
     ResolvedLineworkStyle resolved,
   ) async {
-    const presets = <int>[
-      0xFFE10600,
-      0xFFFF0000,
-      0xFF1565C0,
-      0xFF2E7D32,
-      0xFFF9A825,
-      0xFF1A1A1A,
-      0xFF989898,
-      0xFF757575,
-      0xFF00838F,
-      0xFF6A1B9A,
-    ];
-    final picked = await showModalBottomSheet<int?>(
+    final picked = await showPlotColorPicker(
       context: context,
-      showDragHandle: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('Layer color — $layer',
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    for (final c in presets)
-                      GestureDetector(
-                        onTap: () => Navigator.pop(ctx, c),
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: Color(c),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: resolved.colorArgb == c
-                                  ? Colors.white
-                                  : Colors.white24,
-                              width: resolved.colorArgb == c ? 2.5 : 1,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, -1),
-                  child: const Text('ByLayer / CTB default'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      currentArgb: resolved.colorArgb,
+      ctb: ctb,
+      allowClear: true,
+      title: 'Layer color — $layer',
     );
     if (picked == null) return;
-    if (picked == -1) {
+    if (picked.argb == 0) {
       onApplyLayerOverride(layer, ov.copyWith(clearColor: true));
     } else {
-      onApplyLayerOverride(layer, ov.copyWith(colorArgb: picked));
+      onApplyLayerOverride(layer, ov.copyWith(colorArgb: picked.argb));
     }
   }
 
@@ -564,13 +547,13 @@ class _H extends StatelessWidget {
 }
 
 class _CellTap extends StatelessWidget {
-  const _CellTap({required this.label, required this.onTap});
+  const _CellTap({required this.label, this.onTap});
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final enabled = onTap != null;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(3),
@@ -583,7 +566,7 @@ class _CellTap extends StatelessWidget {
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: cs.primary,
+            color: enabled ? PlotUi.fg : PlotUi.mutedFg,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
