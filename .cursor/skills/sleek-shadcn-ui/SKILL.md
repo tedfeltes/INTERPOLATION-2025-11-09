@@ -16,7 +16,7 @@ Build polished StakeDXF interfaces by **invoking the shadcn CLI** — never hand
 | `web/src/components/ui/` | Installed components (owned source) |
 | `static/` | Legacy FastAPI HTML — do not replace unless asked |
 
-If `web/` is missing on this branch, restore it from `origin/cursor/integrate-shadcn-ui-4295` or run `pnpm dlx shadcn@latest init` inside a new Vite app under `web/`.
+If `web/` is missing, do not apply shadcn to the legacy static UI or import another branch silently. Determine whether the task authorizes creating the React frontend. Use `origin/cursor/integrate-shadcn-ui-4295` as a reference, or initialize shadcn in a new Vite app under `web/`, only when that choice is in scope.
 
 ## Invoke shadcn (required)
 
@@ -60,11 +60,11 @@ Preserve field-kit branding — not generic dashboard chrome.
 
 1. One job per viewport/section — brand + one headline + one short lede + one CTA group.
 2. Hero/brand must read without the nav; brand name is hero-level.
-3. Atmosphere via gradients / topographic texture — not flat single-color fills.
+3. Add restrained atmosphere through gradients or topographic texture when it supports the composition.
 4. Cards only for interactive containers (forms, job panels). No card chrome in heroes.
 5. No purple-on-white, no cream+serif+terracotta brochure look, no glow stacks, no emoji decoration, no pill-cluster clutter.
 6. Touch-friendly for iPhone / TSC5: large tap targets, clear primary CTA.
-7. At least 2–3 intentional motions (e.g. rise-in, subtle border pulse on dropzone, atmosphere drift) — presence, not noise.
+7. Use intentional motion (for example, rise-in or a subtle dropzone pulse) to explain state and orientation, never to meet an animation quota.
 
 ## Workflow
 
@@ -85,8 +85,3 @@ Preserve field-kit branding — not generic dashboard chrome.
 ## Additional resources
 
 - Component recipes and patterns: [reference.md](reference.md)
----
-
-# Reference companion
-
-See [reference.md](reference.md) for CLI flags, common component sets, and StakeDXF screen patterns.
