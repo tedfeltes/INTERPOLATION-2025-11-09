@@ -331,10 +331,11 @@ def _tick(page, x, y, on=True):
 
 def ui_home(page, r: fitz.Rect):
     y = r.y0 + 16
-    # STAKE + DXF hero
+    # STAKE + DXF hero — width measured against Base 14 as a metric proxy
     page.insert_text((r.x0 + 14, y + 30), "STAKE",
                      fontsize=32, fontname=F_BOLD, color=FG)
-    page.insert_text((r.x0 + 14 + 82, y + 30), "DXF",
+    _stake_w = fitz.get_text_length("STAKE", fontname="hebo", fontsize=32)
+    page.insert_text((r.x0 + 14 + _stake_w + 3, y + 30), "DXF",
                      fontsize=32, fontname=F_BOLD, color=ORANGE)
     page.insert_text((r.x0 + 14, y + 44),
                      "FIELD-KIT / TSC5 / TRIMBLE",
