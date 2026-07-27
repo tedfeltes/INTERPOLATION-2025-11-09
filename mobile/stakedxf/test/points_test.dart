@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart' show FontStyle;
+import 'package:pdf/widgets.dart' as pw;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stakedxf/points/block_catalog.dart';
 import 'package:stakedxf/points/csv_io.dart';
@@ -384,7 +386,16 @@ void main() {
     expect(cat.resolve('SIDEWALK').elements, isNotEmpty);
   });
 
-  test('Support BLOCKS merge into DWG block catalog', () {
+  
+  test('Romans TT includes a real space glyph for plot labels', () {
+    final bytes = File('assets/fonts/RomansTT-Regular.ttf').readAsBytesSync();
+    // Patched Romans TT adds uni0020 so PDF/Flutter do not draw spaces as "U".
+    expect(String.fromCharCodes(bytes).contains('uni0020'), isTrue);
+    final font = pw.Font.ttf(ByteData.sublistView(Uint8List.fromList(bytes)));
+    expect(font, isNotNull);
+  });
+
+test('Support BLOCKS merge into DWG block catalog', () {
     final cat = BlockCatalog.loadFile('assets/symbol_library/dwg_blocks.json');
     expect(cat.blocks.length, greaterThanOrEqualTo(230));
     expect(cat['NORTH_ARROW'], isNotNull);
