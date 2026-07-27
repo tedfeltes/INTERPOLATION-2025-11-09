@@ -20,21 +20,66 @@ class StakeDxfApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const bg = Color(0xFF0C0E0C);
+    const card = Color(0xFF141814);
+    const border = Color(0xFF2E362E);
+    const fg = Color(0xFFE6EBE4);
+    const accent = Color(0xFFE4572E);
     final base = ColorScheme.fromSeed(
-      seedColor: const Color(0xFFE4572E),
+      seedColor: accent,
       brightness: Brightness.dark,
     );
     return MaterialApp(
       title: 'StakeDXF',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: base.copyWith(
-          surface: const Color(0xFF152016),
-          primary: const Color(0xFFE4572E),
-        ),
-        scaffoldBackgroundColor: const Color(0xFF10160F),
         useMaterial3: true,
-        fontFamily: 'Roboto',
+        brightness: Brightness.dark,
+        colorScheme: base.copyWith(
+          surface: card,
+          onSurface: fg,
+          primary: accent,
+          outline: border,
+          surfaceContainerHighest: const Color(0xFF1A1F1A),
+        ),
+        scaffoldBackgroundColor: bg,
+        canvasColor: bg,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: bg,
+          foregroundColor: fg,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+        ),
+        cardTheme: const CardThemeData(
+          color: card,
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.zero,
+            side: BorderSide(color: border),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            elevation: 0,
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            side: const BorderSide(color: border),
+          ),
+        ),
+        dialogTheme: const DialogThemeData(
+          backgroundColor: card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        ),
       ),
       home: const HomePage(),
     );
@@ -375,9 +420,8 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0x598FCE6B)),
-                  borderRadius: BorderRadius.circular(8),
-                  color: const Color(0xBF142412),
+                  border: Border.all(color: const Color(0xFF2E362E)),
+                  color: const Color(0xFF141814),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -546,20 +590,17 @@ class _CardButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xCC162014),
-      borderRadius: BorderRadius.circular(8),
+      color: const Color(0xFF141814),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0x59E4572E)),
+            border: Border.all(color: const Color(0xFF2E362E)),
           ),
           child: Row(
             children: [
-              Icon(icon, color: const Color(0xFFE4572E), size: 28),
+              Icon(icon, color: const Color(0xFFE4572E), size: 26),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -569,7 +610,8 @@ class _CardButton extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
-                        fontSize: 17,
+                        fontSize: 16,
+                        letterSpacing: 0.2,
                       ),
                     ),
                     if (subtitle != null)
@@ -581,14 +623,14 @@ class _CardButton extends StatelessWidget {
                           color: Theme.of(context)
                               .colorScheme
                               .onSurface
-                              .withValues(alpha: 0.65),
+                              .withValues(alpha: 0.6),
                           fontSize: 12,
                         ),
                       ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Color(0x99E4572E)),
+              const Icon(Icons.chevron_right, color: Color(0xFF8A9688)),
             ],
           ),
         ),

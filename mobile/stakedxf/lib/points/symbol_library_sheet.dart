@@ -21,7 +21,8 @@ Future<PlacedPlotSymbol?> showSymbolLibrarySheet({
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    backgroundColor: const Color(0xFF152016),
+    backgroundColor: const Color(0xFF141814),
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
     builder: (ctx) => _SymbolLibrarySheet(
       anchorPoints: anchorPoints,
       existing: existing,
@@ -328,11 +329,11 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
                         for (final kind in kinds)
                           InkWell(
                             onTap: () => setState(() => _kind = kind),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.zero,
                             child: Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.zero,
                                 border: Border.all(
                                   color: _kind == kind
                                       ? cs.primary
@@ -641,11 +642,11 @@ class _SymbolLibrarySheetState extends State<_SymbolLibrarySheet> {
               final selected = _block?.id == block.id;
               return InkWell(
                 onTap: () => setState(() => _block = block),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.zero,
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(
                       color: selected ? cs.primary : const Color(0x59E4572E),
                       width: selected ? 2 : 1,

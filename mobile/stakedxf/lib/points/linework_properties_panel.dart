@@ -304,8 +304,7 @@ class LineworkPropertiesPanel extends StatelessWidget {
             height: 28,
             margin: const EdgeInsets.only(top: 4, bottom: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F4EE),
-              borderRadius: BorderRadius.circular(4),
+              color: const Color(0xFF0C0E0C),
               border: Border.all(color: Colors.white24),
             ),
             child: CustomPaint(

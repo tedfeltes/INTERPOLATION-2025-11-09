@@ -58,9 +58,8 @@ class PointPropertiesPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.45)),
+        color: cs.surfaceContainerHighest,
+        border: Border.all(color: cs.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

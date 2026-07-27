@@ -125,7 +125,7 @@ class LayerPropertiesManager extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.7)),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.zero,
           ),
           child: Column(
             children: [
@@ -229,7 +229,7 @@ class LayerPropertiesManager extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Color(resolved.colorArgb)
                           .withValues(alpha: resolved.opacity),
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: PlotUi.border),
                     ),
                   ),
@@ -563,7 +563,7 @@ class _CellTap extends StatelessWidget {
     final enabled = onTap != null;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(3),
+      borderRadius: BorderRadius.zero,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
         child: Text(

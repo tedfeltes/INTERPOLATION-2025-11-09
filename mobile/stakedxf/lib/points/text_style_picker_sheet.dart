@@ -12,6 +12,8 @@ Future<String?> showTextStylePickerSheet({
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
+    backgroundColor: const Color(0xFF141814),
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
     builder: (ctx) {
       return _TextStylePickerBody(
         catalog: catalog,

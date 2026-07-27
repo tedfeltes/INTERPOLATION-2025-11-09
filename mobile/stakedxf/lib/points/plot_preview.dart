@@ -16,6 +16,7 @@ import 'plot_options.dart';
 import 'plot_pdf.dart';
 import 'plot_symbols.dart';
 import 'plot_templates.dart';
+import 'plot_ui_theme.dart';
 import 'survey_point.dart';
 import 'symbol_preview.dart';
 import 'text_style_catalog.dart';
@@ -169,9 +170,8 @@ class _PlotPreviewState extends State<PlotPreview> {
         height: widget.height ?? 320,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: const Color(0xFFF7F4EE),
-          border: Border.all(color: cs.outline.withValues(alpha: 0.5)),
-          borderRadius: BorderRadius.circular(8),
+          color: PlotUi.muted,
+          border: Border.all(color: cs.outline.withValues(alpha: 0.8)),
         ),
         child: Text(
           'Select points to preview the staking plot',
@@ -222,9 +222,7 @@ class _PlotPreviewState extends State<PlotPreview> {
             const SizedBox(height: 6),
             SizedBox(
               height: h,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: ColoredBox(
+              child: ColoredBox(
                   color: const Color(0xFFE8E4DC),
                   child: LayoutBuilder(
                     builder: (context, c) {
@@ -285,7 +283,6 @@ class _PlotPreviewState extends State<PlotPreview> {
                     },
                   ),
                 ),
-              ),
             ),
           ],
         );

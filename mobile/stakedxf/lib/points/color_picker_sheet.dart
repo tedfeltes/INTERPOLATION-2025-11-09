@@ -24,9 +24,7 @@ Future<PickedColor?> showPlotColorPicker({
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: PlotUi.card,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-    ),
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
     builder: (ctx) => _ColorPickerBody(
       currentArgb: currentArgb,
       ctb: ctb,
@@ -99,7 +97,7 @@ class _ColorPickerBodyState extends State<_ColorPickerBody>
                     height: 28,
                     decoration: BoxDecoration(
                       color: Color(_argb),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.zero,
                       border: Border.all(color: PlotUi.border),
                     ),
                   ),
@@ -212,11 +210,11 @@ class _AciGrid extends StatelessWidget {
           message: 'ACI ${s.aci}',
           child: InkWell(
             onTap: () => onPick(s),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.zero,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: Color(s.argb),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(
                   color: sel ? PlotUi.selection : PlotUi.border,
                   width: sel ? 2 : 0.8,
@@ -285,7 +283,7 @@ class _TrueColorPane extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: Color(c),
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.zero,
                   ),
                 ),
               );

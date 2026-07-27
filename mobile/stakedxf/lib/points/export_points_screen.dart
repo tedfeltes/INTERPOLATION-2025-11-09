@@ -827,9 +827,8 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       Container(
                         padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1B281C),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0x59E4572E)),
+                          color: PlotUi.card,
+                          border: Border.all(color: PlotUi.border),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -885,7 +884,6 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                     height: 14,
                                     decoration: BoxDecoration(
                                       color: Color(selectedSym.colorArgb),
-                                      borderRadius: BorderRadius.circular(3),
                                       border: Border.all(color: PlotUi.border),
                                     ),
                                   ),
@@ -907,8 +905,6 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                         height: 20,
                                         decoration: BoxDecoration(
                                           color: Color(c.argb),
-                                          borderRadius:
-                                              BorderRadius.circular(4),
                                           border: Border.all(
                                             color: selectedSym.colorArgb ==
                                                     c.argb

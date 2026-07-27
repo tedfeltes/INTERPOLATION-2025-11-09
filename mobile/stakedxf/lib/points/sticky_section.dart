@@ -34,7 +34,7 @@ class StickySectionSliver extends StatelessWidget {
           delegate: _StickyHeaderDelegate(
             height: kStickySectionHeaderHeight,
             child: Material(
-              color: cs.surface.withValues(alpha: 0.96),
+              color: cs.surface,
               child: InkWell(
                 onTap: onToggle,
                 child: Container(
@@ -42,12 +42,10 @@ class StickySectionSliver extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   decoration: BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: 0.55),
-                      ),
+                      bottom: BorderSide(color: cs.outline),
                       left: BorderSide(color: accentColor, width: 3),
                     ),
-                    color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
+                    color: cs.surfaceContainerHighest,
                   ),
                   child: Row(
                     children: [
