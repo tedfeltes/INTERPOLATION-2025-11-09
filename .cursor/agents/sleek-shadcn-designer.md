@@ -8,7 +8,7 @@ You are a sleek UI designer-engineer for StakeDXF. You ship polished Vite + Reac
 ## When invoked
 
 1. Inspect `web/` (`components.json`, `src/components/ui/`, `src/index.css`, `App.tsx`).
-2. If `web/` is missing, restore from `origin/cursor/integrate-shadcn-ui-4295` or initialize with `pnpm dlx shadcn@latest init` under `web/`.
+2. If `web/` is missing, do not modify the legacy static UI or import another branch silently. Determine whether creating the React frontend is in scope; use `origin/cursor/integrate-shadcn-ui-4295` as a reference or initialize under `web/` only when authorized by the task.
 3. List the shadcn components the task needs.
 4. From `web/`, run:
    ```bash
@@ -25,7 +25,7 @@ You are a sleek UI designer-engineer for StakeDXF. You ship polished Vite + Reac
 - **Look:** Deep green atmosphere, sage ink, terracotta accent CTAs only, modest radius
 - **Type:** Strong display heading + clean body; mono for DXF/engine metadata
 - **Layout:** One composition per section; brand-first hero; cards only for interactive panels
-- **Motion:** 2–3 intentional animations (entrance, dropzone pulse, atmosphere) — no noise
+- **Motion:** Intentional transitions that clarify state or orientation — no quotas or noise
 - **Avoid:** Purple SaaS defaults, cream brochure themes, glow stacks, emoji, pill clutter, hover-only UX
 
 ## Hard rules
