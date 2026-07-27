@@ -45,16 +45,40 @@ BLACK = (0, 0, 0)
 SLIDE_W, SLIDE_H = 1120, 630
 PHONE_W, PHONE_H = 300, 600  # slightly taller for TSC5 feel
 
+# LiberationSans / LiberationMono TTFs shipped with the app.
+# fitz's Base 14 aliases (helv/hebo/heit/cour/tibo/…) silently drop unicode
+# glyphs like `→` and `—`. Register the TTFs under NON-Base 14 names so our
+# arrows and em-dashes render properly.
+FONT_DIR = ROOT / "mobile" / "stakedxf" / "assets" / "fonts"
+FONT_SANS = FONT_DIR / "LiberationSans-Regular.ttf"
+FONT_SANS_BOLD = FONT_DIR / "LiberationSans-Bold.ttf"
+FONT_MONO = FONT_DIR / "LiberationMono-Regular.ttf"
+FONT_MONO_BOLD = FONT_DIR / "LiberationMono-Bold.ttf"
+
+# NOTE: aliases MUST NOT collide with Base 14 shortcuts. Using distinct names.
+F_BODY = "lsr"
+F_BOLD = "lsb"
+F_MONO = "lmr"
+F_MONO_BOLD = "lmb"
+
+
+def register_fonts(page: fitz.Page) -> None:
+    page.insert_font(fontname=F_BODY, fontfile=str(FONT_SANS))
+    page.insert_font(fontname=F_BOLD, fontfile=str(FONT_SANS_BOLD))
+    page.insert_font(fontname=F_MONO, fontfile=str(FONT_MONO))
+    page.insert_font(fontname=F_MONO_BOLD, fontfile=str(FONT_MONO_BOLD))
+
 
 def new_slide(doc: fitz.Document, title: str | None = None) -> fitz.Page:
     page = doc.new_page(width=SLIDE_W, height=SLIDE_H)
+    register_fonts(page)
     page.draw_rect(page.rect, color=None, fill=BG)
     # Instrument top ribbon
     ribbon = fitz.Rect(0, 0, SLIDE_W, 30)
     page.draw_rect(ribbon, color=None, fill=CARD)
     page.draw_line((0, 30), (SLIDE_W, 30), color=BORDER, width=1)
     page.draw_rect(fitz.Rect(20, 11, 28, 19), color=None, fill=ORANGE)
-    page.insert_text((36, 20), "SDX  ·  v1.22", fontsize=9, fontname="cour", color=DIM)
+    page.insert_text((36, 20), "SDX  ·  v1.22", fontsize=9, fontname=F_MONO, color=DIM)
     # Right-side telemetry pills
     for i, (label, ok) in enumerate([("ONLINE", True), ("LOCAL", False)]):
         x = SLIDE_W - 40 - i * 90
@@ -63,14 +87,14 @@ def new_slide(doc: fitz.Document, title: str | None = None) -> fitz.Page:
         page.draw_rect(fitz.Rect(r.x0 + 6, r.y0 + 6, r.x0 + 12, r.y0 + 12),
                        color=None, fill=OK if ok else MUTED)
         page.insert_text((r.x0 + 18, r.y0 + 12), label, fontsize=8,
-                         fontname="cour", color=OK if ok else MUTED)
+                         fontname=F_MONO, color=OK if ok else MUTED)
 
     if title:
         page.insert_text(
             (36, 74),
             title.upper(),
             fontsize=24,
-            fontname="hebo",
+            fontname=F_BOLD,
             color=FG,
         )
         # Section rule under title
@@ -84,12 +108,12 @@ def footer(page: fitz.Page, n: int, total: int, label="STAKEDXF"):
     page.insert_text(
         (36, y + 4),
         f"{label} / TRIO FIELD OPS",
-        fontsize=8, fontname="cour", color=MUTED,
+        fontsize=8, fontname=F_MONO, color=MUTED,
     )
     page.insert_text(
         (SLIDE_W - 100, y + 4),
         f"{n:02d} / {total:02d}",
-        fontsize=8, fontname="cour", color=MUTED,
+        fontsize=8, fontname=F_MONO, color=MUTED,
     )
 
 
@@ -104,7 +128,7 @@ def bullet_block(page, x, y, lines, size=13, gap=24, color=FG, width=600):
             fitz.Rect(x + 16, y + i * gap, x + width, y + i * gap + gap),
             line,
             fontsize=size,
-            fontname="helv",
+            fontname=F_BODY,
             color=color,
             align=fitz.TEXT_ALIGN_LEFT,
         )
@@ -132,16 +156,16 @@ def draw_phone(page: fitz.Page, x: float, y: float, screen_drawer) -> None:
     page.draw_rect(fitz.Rect(rib.x0 + 8, rib.y0 + 8, rib.x0 + 14, rib.y0 + 14),
                    color=None, fill=ORANGE)
     page.insert_text((rib.x0 + 20, rib.y0 + 15), "SDX · 09:41",
-                     fontsize=7, fontname="cour", color=DIM)
+                     fontsize=7, fontname=F_MONO, color=DIM)
     _pill(page, rib.x1 - 82, rib.y0 + 4, rib.x1 - 32, rib.y0 + 20, "ONLINE", OK, True)
     # Bottom ID bar
     bot = fitz.Rect(screen.x0, screen.y1 - 18, screen.x1, screen.y1)
     page.draw_rect(bot, color=None, fill=CARD)
     page.draw_line((bot.x0, bot.y0), (bot.x1, bot.y0), color=BORDER, width=1)
     page.insert_text((bot.x0 + 8, bot.y0 + 12), "TRIO / FIELD OPS",
-                     fontsize=6, fontname="cour", color=MUTED)
+                     fontsize=6, fontname=F_MONO, color=MUTED)
     page.insert_text((bot.x1 - 96, bot.y0 + 12), "NO CLOUD",
-                     fontsize=6, fontname="cour", color=MUTED)
+                     fontsize=6, fontname=F_MONO, color=MUTED)
     content = fitz.Rect(screen.x0, rib.y1, screen.x1, bot.y0)
     screen_drawer(page, content)
 
@@ -152,13 +176,103 @@ def _pill(page, x0, y0, x1, y1, label, color, ok):
     page.draw_rect(fitz.Rect(r.x0 + 4, r.y0 + 5, r.x0 + 9, r.y0 + 10),
                    color=None, fill=color if ok else MUTED)
     page.insert_text((r.x0 + 13, r.y0 + 12), label, fontsize=6,
-                     fontname="cour", color=color if ok else MUTED)
+                     fontname=F_MONO, color=color if ok else MUTED)
 
 
 def _section_rule(page, x0, y, x1, label):
-    page.insert_text((x0, y), label, fontsize=7, fontname="cour", color=MUTED)
+    page.insert_text((x0, y), label, fontsize=7, fontname=F_MONO, color=MUTED)
     page.draw_line((x0 + len(label) * 5 + 8, y - 3), (x1, y - 3),
                    color=BORDER, width=1)
+
+
+def _corner_brackets(page, rect, color=ORANGE, length=14, stroke=1.6):
+    """Camera-viewfinder brackets on the four corners of `rect`."""
+    L = length
+    for (x, y, dx, dy) in [
+        (rect.x0, rect.y0, L, 0), (rect.x0, rect.y0, 0, L),
+        (rect.x1 - L, rect.y0, L, 0), (rect.x1, rect.y0, 0, L),
+        (rect.x0, rect.y1 - L, 0, L), (rect.x0, rect.y1, L, 0),
+        (rect.x1 - L, rect.y1, L, 0), (rect.x1, rect.y1 - L, 0, L),
+    ]:
+        page.draw_line((x, y), (x + dx, y + dy), color=color, width=stroke)
+
+
+def _before_after_slide(page):
+    """Side-by-side proof-of-change: the retired v1.19 mock vs the v1.22 UI."""
+    # --- BEFORE ---
+    left = fitz.Rect(40, 120, 540, 560)
+    # legacy forest-green palette from earlier generator revisions
+    OLD_BG = (0.063, 0.086, 0.059)
+    OLD_CARD = (0.086, 0.125, 0.078)
+    OLD_TXT = (0.93, 0.93, 0.90)
+    OLD_MUTED = (0.70, 0.72, 0.68)
+    OLD_ACCENT = (0.894, 0.341, 0.180)
+    page.draw_rect(left, color=None, fill=OLD_BG)
+    page.draw_rect(left, color=DANGER, fill=None, width=2)
+    # struck-through indicator
+    page.draw_line((left.x0, left.y0), (left.x1, left.y1),
+                   color=DANGER, width=1.4)
+    page.draw_line((left.x1, left.y0), (left.x0, left.y1),
+                   color=DANGER, width=1.4)
+    page.insert_text((left.x0 + 20, left.y0 + 28), "v1.19  —  retired",
+                     fontsize=12, fontname=F_MONO, color=DANGER)
+    page.insert_text((left.x0 + 20, left.y0 + 90), "StakeDXF",
+                     fontsize=32, fontname=F_BOLD, color=OLD_TXT)
+    old_card = fitz.Rect(left.x0 + 20, left.y0 + 130,
+                          left.x1 - 20, left.y0 + 200)
+    page.draw_rect(old_card, color=OLD_ACCENT, fill=OLD_CARD, width=0.8)
+    page.insert_text((old_card.x0 + 20, old_card.y0 + 28),
+                     "≈  Convert DWG → DXF",
+                     fontsize=13, fontname=F_BOLD, color=OLD_TXT)
+    old_btn = fitz.Rect(left.x0 + 20, left.y0 + 220,
+                         left.x1 - 20, left.y0 + 274)
+    page.draw_rect(old_btn, color=None, fill=OLD_ACCENT)
+    page.insert_text((old_btn.x0 + 60, old_btn.y0 + 34),
+                     "Convert for Trimble Access",
+                     fontsize=13, fontname=F_BOLD, color=BLACK)
+    page.insert_textbox(
+        fitz.Rect(left.x0 + 20, left.y0 + 320, left.x1 - 20, left.y1 - 20),
+        "Soft cards. Rounded chrome. Forest wash. Marketing copy.\n"
+        "Every version prior to v1.22 looked essentially the same.",
+        fontsize=11, fontname=F_BODY, color=OLD_MUTED,
+    )
+
+    # --- AFTER ---
+    right = fitz.Rect(580, 120, 1080, 560)
+    page.draw_rect(right, color=None, fill=BG)
+    _corner_brackets(page, right, color=OK, length=18, stroke=1.8)
+    page.insert_text((right.x0 + 20, right.y0 + 28),
+                     "v1.22  —  shipped",
+                     fontsize=12, fontname=F_MONO, color=OK)
+    # HERO
+    page.insert_text((right.x0 + 20, right.y0 + 100), "STAKE",
+                     fontsize=44, fontname=F_BOLD, color=FG)
+    _sw = fitz.get_text_length("STAKE", fontname="hebo", fontsize=44)
+    page.insert_text((right.x0 + 20 + _sw + 4, right.y0 + 100), "DXF",
+                     fontsize=44, fontname=F_BOLD, color=ORANGE)
+    page.draw_line((right.x0 + 20, right.y0 + 112),
+                   (right.x1 - 20, right.y0 + 112),
+                   color=BORDER, width=1)
+    page.insert_text((right.x0 + 20, right.y0 + 130),
+                     "FIELD-KIT  /  TSC5  /  TRIMBLE",
+                     fontsize=9, fontname=F_MONO, color=MUTED)
+    # action rail (mirrors the app)
+    rail = fitz.Rect(right.x0 + 20, right.y0 + 158,
+                      right.x1 - 20, right.y0 + 218)
+    _action_rail(page, rail, "01", "CONVERT",
+                  "DWG → DXF  ·  Civil 3D linework recovery",
+                  primary=True)
+    # primary button (matches the shipped chrome)
+    btn = fitz.Rect(right.x0 + 20, right.y0 + 234,
+                     right.x1 - 20, right.y0 + 284)
+    _primary_button(page, btn, "RUN CONVERT")
+    page.insert_textbox(
+        fitz.Rect(right.x0 + 20, right.y0 + 300, right.x1 - 20, right.y1 - 20),
+        "Hard 90° corners. Hairline rules. Mono telemetry. Safety-orange "
+        "reserved for commands. Corner brackets frame the active field of "
+        "view. Reads as a piece of ruggedized field kit — not an app.",
+        fontsize=11, fontname=F_BODY, color=DIM,
+    )
 
 
 def _action_rail(page, rect, tag, title, detail, primary=True):
@@ -170,15 +284,15 @@ def _action_rail(page, rect, tag, title, detail, primary=True):
     page.draw_rect(rect, color=BORDER, fill=None, width=0.8)
     # tag column
     page.insert_text((rect.x0 + 14, rect.y0 + 20), tag,
-                     fontsize=8, fontname="cour", color=MUTED)
+                     fontsize=8, fontname=F_MONO, color=MUTED)
     page.draw_line((rect.x0 + 38, rect.y0 + 8),
                    (rect.x0 + 38, rect.y1 - 8), color=BORDER, width=0.8)
     # title
     page.insert_text((rect.x0 + 50, rect.y0 + 24), title,
-                     fontsize=14, fontname="hebo", color=FG)
+                     fontsize=14, fontname=F_BOLD, color=FG)
     page.insert_textbox(
         fitz.Rect(rect.x0 + 50, rect.y0 + 28, rect.x1 - 24, rect.y1 - 6),
-        detail, fontsize=7, fontname="cour", color=DIM,
+        detail, fontsize=7, fontname=F_MONO, color=DIM,
     )
     # arrow
     ar_x = rect.x1 - 16
@@ -191,7 +305,7 @@ def _action_rail(page, rect, tag, title, detail, primary=True):
 def _primary_button(page, rect, label):
     page.draw_rect(rect, color=None, fill=ORANGE)
     page.insert_text((rect.x0 + 14, rect.y0 + rect.height / 2 + 4),
-                     label, fontsize=9, fontname="cour", color=BLACK)
+                     label, fontsize=9, fontname=F_MONO, color=BLACK)
     ax = rect.x1 - 22
     page.draw_line((ax - 6, rect.y0 + rect.height / 2),
                    (ax, rect.y0 + rect.height / 2), color=BLACK, width=1.2)
@@ -219,12 +333,12 @@ def ui_home(page, r: fitz.Rect):
     y = r.y0 + 16
     # STAKE + DXF hero
     page.insert_text((r.x0 + 14, y + 30), "STAKE",
-                     fontsize=32, fontname="hebo", color=FG)
+                     fontsize=32, fontname=F_BOLD, color=FG)
     page.insert_text((r.x0 + 14 + 82, y + 30), "DXF",
-                     fontsize=32, fontname="hebo", color=ORANGE)
+                     fontsize=32, fontname=F_BOLD, color=ORANGE)
     page.insert_text((r.x0 + 14, y + 44),
                      "FIELD-KIT / TSC5 / TRIMBLE",
-                     fontsize=6, fontname="cour", color=MUTED)
+                     fontsize=6, fontname=F_MONO, color=MUTED)
     _section_rule(page, r.x0 + 14, y + 74, r.x1 - 14, "OPERATIONS")
 
     _action_rail(page,
@@ -246,27 +360,27 @@ def ui_home(page, r: fitz.Rect):
         page.draw_rect(fitz.Rect(cx0, cy0, cx1, cy1),
                        color=BORDER, fill=CARD, width=0.8)
         page.insert_text((cx0 + 6, cy0 + 14), lbl,
-                         fontsize=6, fontname="cour", color=MUTED)
+                         fontsize=6, fontname=F_MONO, color=MUTED)
         page.insert_text((cx0 + 6, cy0 + 32), val,
-                         fontsize=9, fontname="cour", color=FG)
+                         fontsize=9, fontname=F_MONO, color=FG)
 
 
 def ui_convert(page, r: fitz.Rect):
     y = r.y0 + 12
     # Header (page title style)
     page.insert_text((r.x0 + 14, y + 12), "◂  CONVERT / DWG → DXF",
-                     fontsize=8, fontname="cour", color=ORANGE)
+                     fontsize=8, fontname=F_MONO, color=ORANGE)
     y += 24
     # Input slot
     slot = fitz.Rect(r.x0 + 14, y, r.x1 - 14, y + 60)
     page.draw_rect(slot, color=ORANGE, fill=CARD, width=1.4)
     page.insert_text((slot.x0 + 12, slot.y0 + 16), "DRAWING",
-                     fontsize=6, fontname="cour", color=MUTED)
+                     fontsize=6, fontname=F_MONO, color=MUTED)
     page.insert_text((slot.x0 + 12, slot.y0 + 32), "ALPINE_HILLS.DWG",
-                     fontsize=9, fontname="cour", color=FG)
+                     fontsize=9, fontname=F_MONO, color=FG)
     page.insert_text((slot.x0 + 12, slot.y0 + 46),
                      "TRIO/PROJECTS/ALPINE/…",
-                     fontsize=6, fontname="cour", color=MUTED)
+                     fontsize=6, fontname=F_MONO, color=MUTED)
     y = slot.y1 + 8
     _primary_button(page, fitz.Rect(r.x0 + 14, y, r.x1 - 14, y + 40),
                     "RUN CONVERT")
@@ -281,29 +395,29 @@ def ui_convert(page, r: fitz.Rect):
                               res.x0 + 20, res.y0 + 20),
                    color=None, fill=OK)
     page.insert_text((res.x0 + 26, res.y0 + 20), "CONVERT / OK",
-                     fontsize=7, fontname="cour", color=OK)
+                     fontsize=7, fontname=F_MONO, color=OK)
     page.insert_text((res.x0 + 12, res.y0 + 40),
                      "RECOVERED 390 ENTITIES · 12 LAYERS",
-                     fontsize=8, fontname="cour", color=FG)
+                     fontsize=8, fontname=F_MONO, color=FG)
     kvs = [("STAKEABLE", "390"), ("LAYERS", "12"),
            ("PROXIES", "148"), ("FILE", "ALPINE_HILLS_TRIMBLE.DXF")]
     for i, (k, v) in enumerate(kvs):
         yy = res.y0 + 56 + i * 12
         page.insert_text((res.x0 + 12, yy), k,
-                         fontsize=6, fontname="cour", color=MUTED)
+                         fontsize=6, fontname=F_MONO, color=MUTED)
         page.insert_text((res.x0 + 68, yy), v,
-                         fontsize=7, fontname="cour", color=FG)
+                         fontsize=7, fontname=F_MONO, color=FG)
     y = res.y1 + 8
     # Layer checklist header
     lch = fitz.Rect(r.x0 + 14, y, r.x1 - 14, y + 24)
     page.draw_rect(lch, color=None, fill=ELEVATED)
     page.draw_rect(lch, color=BORDER, fill=None, width=0.8)
     page.insert_text((lch.x0 + 10, lch.y0 + 15), "LAYERS",
-                     fontsize=7, fontname="cour", color=FG)
+                     fontsize=7, fontname=F_MONO, color=FG)
     page.insert_text((lch.x0 + 60, lch.y0 + 15), "3/12",
-                     fontsize=7, fontname="cour", color=ORANGE)
+                     fontsize=7, fontname=F_MONO, color=ORANGE)
     page.insert_text((lch.x1 - 30, lch.y0 + 15), "ALL",
-                     fontsize=7, fontname="cour", color=ORANGE)
+                     fontsize=7, fontname=F_MONO, color=ORANGE)
     # Layer rows
     layer_rows = [
         ("P-CURB", 390, True),
@@ -318,9 +432,9 @@ def ui_convert(page, r: fitz.Rect):
         page.draw_rect(rr, color=BORDER, fill=CARD, width=0.8)
         _tick(page, rr.x0 + 10, rr.y0 + 5, on=on)
         page.insert_text((rr.x0 + 28, rr.y0 + 13), name,
-                         fontsize=7, fontname="cour", color=FG)
+                         fontsize=7, fontname=F_MONO, color=FG)
         page.insert_text((rr.x1 - 8 - len(str(cnt)) * 4, rr.y0 + 13),
-                         str(cnt), fontsize=7, fontname="cour",
+                         str(cnt), fontsize=7, fontname=F_MONO,
                          color=DIM if on else MUTED)
         rowy = rr.y1
     _primary_button(page,
@@ -331,30 +445,30 @@ def ui_convert(page, r: fitz.Rect):
 def ui_export(page, r: fitz.Rect, mode="loaded"):
     y = r.y0 + 12
     page.insert_text((r.x0 + 14, y + 12), "◂  PLOT / EXPORT POINTS",
-                     fontsize=8, fontname="cour", color=ORANGE)
+                     fontsize=8, fontname=F_MONO, color=ORANGE)
     y += 26
     # Job field slot
     slot = fitz.Rect(r.x0 + 14, y, r.x1 - 14, y + 42)
     page.draw_rect(slot, color=BORDER, fill=CARD, width=0.8)
     page.insert_text((slot.x0 + 12, slot.y0 + 14), "JOB",
-                     fontsize=6, fontname="cour", color=MUTED)
+                     fontsize=6, fontname=F_MONO, color=MUTED)
     page.insert_text((slot.x0 + 12, slot.y0 + 30), "ALPINE_HILLS",
-                     fontsize=10, fontname="cour", color=FG)
+                     fontsize=10, fontname=F_MONO, color=FG)
     y = slot.y1 + 8
     # Import buttons
     for label in ("IMPORT POINTS CSV", "LINK DXF LINEWORK"):
         rr = fitz.Rect(r.x0 + 14, y, r.x1 - 14, y + 30)
         page.draw_rect(rr, color=BORDER_STRONG, fill=CARD, width=0.8)
         page.insert_text((rr.x0 + 14, rr.y0 + 19), label,
-                         fontsize=8, fontname="cour", color=FG)
+                         fontsize=8, fontname=F_MONO, color=FG)
         page.insert_text((rr.x1 - 22, rr.y0 + 19), "▸",
-                         fontsize=9, fontname="hebo", color=ORANGE)
+                         fontsize=9, fontname=F_BOLD, color=ORANGE)
         y = rr.y1 + 6
     if mode == "empty":
         page.insert_textbox(
             fitz.Rect(r.x0 + 14, y + 12, r.x1 - 14, y + 60),
             "IMPORT A PNEZD CSV\nFROM TRIMBLE ACCESS TO BEGIN.",
-            fontsize=7, fontname="cour", color=MUTED,
+            fontsize=7, fontname=F_MONO, color=MUTED,
         )
         return
     # Section: PLOT OPTS
@@ -367,9 +481,9 @@ def ui_export(page, r: fitz.Rect, mode="loaded"):
         rr = fitz.Rect(r.x0 + 14, y, r.x1 - 14, y + 24)
         page.draw_rect(rr, color=BORDER, fill=CARD, width=0.8)
         page.insert_text((rr.x0 + 10, rr.y0 + 15), label,
-                         fontsize=7, fontname="cour", color=MUTED)
+                         fontsize=7, fontname=F_MONO, color=MUTED)
         page.insert_text((rr.x0 + 90, rr.y0 + 15), value,
-                         fontsize=7, fontname="cour", color=FG)
+                         fontsize=7, fontname=F_MONO, color=FG)
         y = rr.y1 + 4
     # Layer toggles (mini)
     y += 4
@@ -378,7 +492,7 @@ def ui_export(page, r: fitz.Rect, mode="loaded"):
     for layer in ("CL", "CURB", "STRUCT"):
         _tick(page, r.x0 + 16, y + 3, on=True)
         page.insert_text((r.x0 + 32, y + 11), layer,
-                         fontsize=7, fontname="cour", color=FG)
+                         fontsize=7, fontname=F_MONO, color=FG)
         y += 14
     # Bottom actions pinned near footer
     btn_y = r.y1 - 78
@@ -389,7 +503,7 @@ def ui_export(page, r: fitz.Rect, mode="loaded"):
     rr = fitz.Rect(r.x0 + 14, y2, r.x1 - 14, y2 + 28)
     page.draw_rect(rr, color=BORDER_STRONG, fill=CARD, width=0.8)
     page.insert_text((rr.x0 + 14, rr.y0 + 18), "EXPORT CSV",
-                     fontsize=8, fontname="cour", color=FG)
+                     fontsize=8, fontname=F_MONO, color=FG)
 
 
 def insert_image_fit(page, rect: fitz.Rect, path: Path):
@@ -412,36 +526,39 @@ def build_slide_deck() -> Path:
 
     # 1 Title
     page = add(new_slide(doc))
-    # split hero title with orange DXF
-    page.insert_text((40, 260), "STAKE", fontsize=110, fontname="hebo", color=FG)
-    page.insert_text((40 + 300, 260), "DXF", fontsize=110, fontname="hebo", color=ORANGE)
+    # split hero title with orange DXF — width measured against LiberationSans
+    stake_w = fitz.get_text_length("STAKE", fontname="hebo", fontsize=110)
+    page.insert_text((40, 260), "STAKE", fontsize=110, fontname=F_BOLD, color=FG)
+    page.insert_text((40 + stake_w + 6, 260), "DXF",
+                     fontsize=110, fontname=F_BOLD, color=ORANGE)
     page.insert_text((40, 300), "UI & CAPABILITIES  ·  v1.22", fontsize=14,
-                     fontname="cour", color=MUTED)
+                     fontname=F_MONO, color=MUTED)
     page.draw_line((40, 320), (SLIDE_W - 40, 320), color=BORDER, width=1)
     page.insert_textbox(
         fitz.Rect(40, 340, 720, 440),
         "Rugged on-device field kit — Civil 3D DWG → Trimble DXF recovery\n"
         "and scaled staking-plot PDFs on the TSC5 handheld.",
-        fontsize=16, color=DIM,
+        fontsize=16, fontname=F_BODY, color=DIM,
     )
     # tech readout
     page.insert_text((40, 500), "ENGINE",
-                     fontsize=8, fontname="cour", color=MUTED)
+                     fontsize=8, fontname=F_MONO, color=MUTED)
     page.insert_text((40, 516), "LIBREDWG · EZDXF · FLUTTER",
-                     fontsize=10, fontname="cour", color=FG)
+                     fontsize=10, fontname=F_MONO, color=FG)
     page.insert_text((260, 500), "OUTPUT",
-                     fontsize=8, fontname="cour", color=MUTED)
+                     fontsize=8, fontname=F_MONO, color=MUTED)
     page.insert_text((260, 516), "DXF R2010 · PDF",
-                     fontsize=10, fontname="cour", color=FG)
+                     fontsize=10, fontname=F_MONO, color=FG)
     page.insert_text((440, 500), "TARGET",
-                     fontsize=8, fontname="cour", color=MUTED)
+                     fontsize=8, fontname=F_MONO, color=MUTED)
     page.insert_text((440, 516), "TRIMBLE TSC5",
-                     fontsize=10, fontname="cour", color=FG)
+                     fontsize=10, fontname=F_MONO, color=FG)
 
     # 2 Agenda
     page = add(new_slide(doc, "AGENDA"))
     bullet_block(page, 40, 120,
-                 ["Design system",
+                 ["Before / after — visible break from v1.19",
+                  "Design system",
                   "Home / operations",
                   "CONVERT · DWG → DXF pipeline",
                   "PLOT · Export points + staking sheet",
@@ -450,6 +567,10 @@ def build_slide_deck() -> Path:
                   "Install on Trimble TSC5",
                   "Field workflow end-to-end"],
                  size=15, gap=30)
+
+    # 2b Before / after — proves the UI actually changed
+    page = add(new_slide(doc, "BEFORE  ·  AFTER"))
+    _before_after_slide(page)
 
     # 3 Design system slide
     page = add(new_slide(doc, "DESIGN SYSTEM"))
@@ -471,16 +592,16 @@ def build_slide_deck() -> Path:
         page.draw_rect(fitz.Rect(cx, cy, cx + 80, cy + 60),
                        color=BORDER_STRONG, fill=col, width=1)
         page.insert_text((cx + 92, cy + 22), name,
-                         fontsize=10, fontname="cour", color=FG)
+                         fontsize=10, fontname=F_MONO, color=FG)
         r = int(col[0] * 255)
         g = int(col[1] * 255)
         b = int(col[2] * 255)
         page.insert_text((cx + 92, cy + 40),
                          f"#{r:02X}{g:02X}{b:02X}",
-                         fontsize=8, fontname="cour", color=MUTED)
+                         fontsize=8, fontname=F_MONO, color=MUTED)
     # Principles
     page.insert_text((40, 380), "PRINCIPLES",
-                     fontsize=10, fontname="cour", color=MUTED)
+                     fontsize=10, fontname=F_MONO, color=MUTED)
     page.draw_line((40, 384), (SLIDE_W - 40, 384), color=BORDER, width=1)
     bullet_block(page, 40, 400,
                  ["Hard 90° corners — no rounded chrome",
@@ -498,7 +619,7 @@ def build_slide_deck() -> Path:
         "Two ops, one screen: CONVERT and PLOT.\n\n"
         "Rugged action rails with a numeric tag, thick left rail, and "
         "arrow — reads like a hardware toggle, not a marketing card.",
-        fontsize=15, color=DIM,
+        fontsize=15, fontname=F_BODY, color=DIM,
     )
     _section_rule(page, 430, 300, 1080, "TELEMETRY")
     bullet_block(page, 430, 320,
@@ -591,7 +712,7 @@ def build_slide_deck() -> Path:
             page.draw_rect(img_rect, color=BORDER, fill=CARD, width=0.8)
             insert_image_fit(page, img_rect, SHOTS / name)
             page.insert_text((rect.x0 + 4, rect.y1 - 6), caption,
-                             fontsize=9, fontname="cour", color=DIM)
+                             fontsize=9, fontname=F_MONO, color=DIM)
 
     # Install
     page = add(new_slide(doc, "INSTALL / TRIMBLE TSC5"))
@@ -627,13 +748,13 @@ def build_slide_deck() -> Path:
     # Close
     page = add(new_slide(doc))
     page.insert_text((40, 260), "READY FOR THE FIELD.",
-                     fontsize=54, fontname="hebo", color=FG)
+                     fontsize=54, fontname=F_BOLD, color=FG)
     page.draw_line((40, 300), (SLIDE_W - 40, 300), color=ORANGE, width=2)
     page.insert_text((40, 340), "STAKEDXF · TSC5",
-                     fontsize=20, fontname="cour", color=ORANGE)
+                     fontsize=20, fontname=F_MONO, color=ORANGE)
     page.insert_text((40, 380),
                      "RECOVER LINEWORK. PLOT POINTS. STAKE WITH CONFIDENCE.",
-                     fontsize=12, fontname="cour", color=MUTED)
+                     fontsize=12, fontname=F_MONO, color=MUTED)
 
     total = len(pages)
     for i in range(total):
@@ -651,35 +772,38 @@ def build_tutorial_pdf() -> Path:
 
     def page_start(title: str) -> fitz.Page:
         page = doc.new_page(width=W, height=H)
+        register_fonts(page)
         page.draw_rect(fitz.Rect(0, 0, W, 44), color=None, fill=BG)
         page.draw_line((0, 44), (W, 44), color=ORANGE, width=2)
         page.insert_text((40, 30), title.upper(),
-                         fontsize=14, fontname="hebo", color=FG)
+                         fontsize=14, fontname=F_BOLD, color=FG)
         return page
 
     # Cover
     page = doc.new_page(width=W, height=H)
+    register_fonts(page)
     page.draw_rect(page.rect, color=None, fill=BG)
     page.draw_rect(fitz.Rect(0, 0, W, 8), color=None, fill=ORANGE)
     page.insert_text((48, 250), "STAKE",
-                     fontsize=42, fontname="hebo", color=FG)
-    page.insert_text((48 + 132, 250), "DXF",
-                     fontsize=42, fontname="hebo", color=ORANGE)
+                     fontsize=42, fontname=F_BOLD, color=FG)
+    _stake_w42 = fitz.get_text_length("STAKE", fontname="hebo", fontsize=42)
+    page.insert_text((48 + _stake_w42 + 4, 250), "DXF",
+                     fontsize=42, fontname=F_BOLD, color=ORANGE)
     page.draw_line((48, 270), (W - 48, 270), color=BORDER, width=1)
     page.insert_text((48, 300), "USER GUIDE  ·  v1.22",
-                     fontsize=16, fontname="cour", color=DIM)
+                     fontsize=16, fontname=F_MONO, color=DIM)
     page.insert_textbox(
         fitz.Rect(48, 340, 520, 460),
         "Install · Usage · Help\nTrimble TSC5 field controller app\nTRIO Engineering",
-        fontsize=13, color=MUTED,
+        fontsize=13, fontname=F_BODY, color=MUTED,
     )
     page.insert_text((48, 720),
                      "Companion to StakeDXF_UI_Slide_Deck.pdf",
-                     fontsize=9, fontname="cour", color=MUTED)
+                     fontsize=9, fontname=F_MONO, color=MUTED)
 
     def body_text(page, text):
         page.insert_textbox(fitz.Rect(40, 68, W - 40, H - 50),
-                            text, fontsize=11, color=(0, 0, 0))
+                            text, fontsize=11, fontname=F_BODY, color=(0, 0, 0))
 
     # Install
     page = page_start("1. Installation (Trimble TSC5)")
