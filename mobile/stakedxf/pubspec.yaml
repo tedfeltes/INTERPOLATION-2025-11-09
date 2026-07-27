@@ -1,0 +1,99 @@
+name: stakedxf
+description: On-device Civil 3D DWG to Trimble Access DXF converter for phone and TSC5
+publish_to: "none"
+version: 1.20.0+22
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ffi: ^2.1.4
+  file_picker: ^10.1.2
+  path_provider: ^2.1.5
+  share_plus: ^11.0.0
+  path: ^1.9.1
+  permission_handler: ^12.0.0+1
+  pdf: ^3.11.3
+  printing: ^5.14.2
+  vector_math: ^2.1.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/symbol_library/dwg_blocks.json
+    - assets/linework/linetype_catalog.json
+    - assets/plot_styles/staking_plot_ctb.json
+    - assets/plot_styles/staking_plot.ctb
+    - assets/plot_styles/text_style_catalog.json
+    - assets/fonts/
+  fonts:
+    - family: PlotSerif
+      fonts:
+        - asset: assets/fonts/LiberationSerif-Regular.ttf
+        - asset: assets/fonts/LiberationSerif-Italic.ttf
+          style: italic
+        - asset: assets/fonts/LiberationSerif-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/LiberationSerif-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: PlotSans
+      fonts:
+        - asset: assets/fonts/LiberationSans-Regular.ttf
+        - asset: assets/fonts/LiberationSans-Italic.ttf
+          style: italic
+        - asset: assets/fonts/LiberationSans-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/LiberationSans-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: PlotMono
+      fonts:
+        - asset: assets/fonts/LiberationMono-Regular.ttf
+        - asset: assets/fonts/LiberationMono-Italic.ttf
+          style: italic
+        - asset: assets/fonts/LiberationMono-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/LiberationMono-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: PlotRomans
+      fonts:
+        - asset: assets/fonts/RomansTT-Regular.ttf
+    - family: PlotSouvenir
+      fonts:
+        - asset: assets/fonts/Souvenir-Regular.ttf
+        - asset: assets/fonts/Souvenir-Italic.ttf
+          style: italic
+        - asset: assets/fonts/Souvenir-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Souvenir-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: PlotPoppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Italic.ttf
+          style: italic
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Poppins-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: PlotRoboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Italic.ttf
+          style: italic
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Roboto-BoldItalic.ttf
+          weight: 700
+          style: italic

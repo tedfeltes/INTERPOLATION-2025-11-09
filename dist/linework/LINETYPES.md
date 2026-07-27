@@ -1,0 +1,60 @@
+# TRIO.lin linetypes
+
+- `BATTING` — Batting SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+- `BORDER` — Border __ __ . __ __ . __ __ . __ __ . __ __ .
+- `BORDER2` — Border (.5x) __.__.__.__.__.__.__.__.__.__.__.
+- `BORDERX2` — Border (2x) ____  ____  .  ____  ____  .  ___
+- `CENTER` — Center ____ _ ____ _ ____ _ ____ _ ____ _ ____
+- `CENTER2` — Center (.5x) ___ _ ___ _ ___ _ ___ _ ___ _ ___
+- `CENTERX2` — Center (2x) ________  __  ________  __  _____
+- `Continuous` — 
+- `DASHDOT` — Dash dot __ . __ . __ . __ . __ . __ . __ . __
+- `DASHDOT2` — Dash dot (.5x) _._._._._._._._._._._._._._._.
+- `DASHDOTX2` — Dash dot (2x) ____  .  ____  .  ____  .  ___
+- `DASHED` — Dashed __ __ __ __ __ __ __ __ __ __ __ __ __ _
+- `DASHED2` — Dashed (.5x) _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+- `DASHEDX2` — Dashed (2x) ____  ____  ____  ____  ____  ___
+- `DIVIDE` — Divide ____ . . ____ . . ____ . . ____ . . ____
+- `DIVIDE2` — Divide (.5x) __..__..__..__..__..__..__..__.._
+- `DIVIDEX2` — Divide (2x) ________  .  .  ________  .  .  _
+- `DOT` — Dot . . . . . . . . . . . . . . . . . . . . . . . .
+- `DOT2` — Dot (.5x) ........................................
+- `DOTX2` — Dot (2x) .  .  .  .  .  .  .  .  .  .  .  .  .  .
+- `EDGE OF WATER` — 
+- `FENCELINE1` — Fenceline circle ----0-----0----0-----0----0-----0--
+- `FENCELINE2` — Fenceline square ----[]-----[]----[]-----[]----[]---
+- `FLOWPATH` — FLOWPATH ---- > ---- > ---- > ---- > ---- > ---- > -- > ---- > ---- > --
+- `GUARDRAIL` — ______0______0______0______0______0______0______
+- `HIDDEN` — Hidden __ __ __ __ __ __ __ __ __ __ __ __ __ __
+- `HIDDEN2` — Hidden (.5x) _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+- `HIDDENX2` — Hidden (2x) ____ ____ ____ ____ ____ ____ ____
+- `LEDG_ANR` — ANR ---- ANR ---- ANR ---- ANR ---- ANR ---- ANR ---- ANR ---- ANR --- ANR ---
+- `LEDG_CABLE` — Cable ---- C ---- C ---- C ---- C ---- C ---- C -- C ---- C ---- C --
+- `LEDG_CROSSSEWER` — Cross Sewer ---- CS ---- CS ---- CS ---- CS ---- CS ---- CS ----
+- `LEDG_ELECTRIC` — Electric ---- E ---- E ---- E ---- E ---- E --- ---- E ---- E --- E
+- `LEDG_FENCE` — Fence ---- X ---- X ---- X ---- X ---- X ---- X ---- X ---- X ---- X --
+- `LEDG_FIBEROPTIC` — Fiber Optic ---- FO ---- FO ---- FO ---- FO ---- FO ---- FO ----
+- `LEDG_FLOODPLAIN` — FLOODPLAIN
+- `LEDG_FORCEMAIN` — Force Main ---- FM ---- FM ---- FM ---- FM ---- FM ---- FM ----
+- `LEDG_GAS` — Gas ---- G ---- G ---- G ---- G ---- G ---- G --- ---- G ---- G --- G --
+- `LEDG_ORANGE` — Orange ---- O ---- O ---- O ---- O ---- O ---- O ---- O ---- O ---- O
+- `LEDG_OVERHEADWIRE` — Overhead Wire ---- OW ---- OW ---- OW ---- OW ---- OW ---- OW ----
+- `LEDG_PR_WATERMAIN` — Watermain __ __ __ __ __ __ __ __ __ __ __ __ __ __
+- `LEDG_ROW` — ROW
+- `LEDG_SANITARY` — Sanitary Sewer ---- SAN ---- SAN ---- SAN ---- SAN ---- SAN ---- SAN ----
+- `LEDG_SEWRPC` — SEWERPC
+- `LEDG_SILTFENCE` — Silt Fence ---- X ---- X ---- X ---- X ---- X ---- X ---- X ----
+- `LEDG_STORM` — Storm Sewer ---- ST ---- ST ---- ST ---- ST ---- ST ---- ST ----
+- `LEDG_TELEBELL` — Telephone Bell ---- B ---- B ---- B ---- B ---- B ---- B ---- B ---- B -
+- `LEDG_TELEPHONE` — Telephone ---- T ---- T ---- T ---- T ---- T ---- T ---- T ---- T -
+- `LEDG_WATER` — Water ---- W ---- W ---- W ---- W ---- W ---- W ---- W ---- W ---- W --
+- `LEDG_WETLAND` — 
+- `PHANTOM` — Phantom ______  __  __  ______  __  __  ______
+- `PHANTOM2` — Phantom (.5x) ___ _ _ ___ _ _ ___ _ _ ___ _ _
+- `PHANTOMX2` — Phantom (2x) ____________    ____    ____   _
+- `SANITARY` — 
+- `SAWCUT` — SAWCUT __x____x____x____x____x____x____x__
+- `SIDEWALK` — Dot (.25x) ........................................
+- `STORM` — 
+- `TRACKS` — Tracks -|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-
+- `ZIGZAG` — Zig zag /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/

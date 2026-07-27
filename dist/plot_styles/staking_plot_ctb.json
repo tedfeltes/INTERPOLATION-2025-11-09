@@ -1,0 +1,2033 @@
+{
+  "sourceFile": "staking_plot.ctb",
+  "source": "User CTB from Drive (PIAFILEVERSION_2.0 CTBVER1)",
+  "note": "Project CTB: ACI 10 uses object color (reddish); ACI 252 grey linework.",
+  "lineweightTableMm": {
+    "0": 0.0762,
+    "1": 0.1524,
+    "2": 0.1524,
+    "3": 0.2286,
+    "4": 0.254,
+    "5": 0.3556,
+    "6": 0.381,
+    "7": 0.508,
+    "8": 0.635,
+    "9": 0.65,
+    "10": 0.7,
+    "11": 0.7112,
+    "12": 0.7874,
+    "13": 0.8,
+    "14": 0.9,
+    "15": 1.0,
+    "16": 1.06,
+    "17": 1.0668,
+    "18": 1.0922,
+    "19": 1.2,
+    "20": 1.3462,
+    "21": 1.397,
+    "22": 1.4,
+    "23": 1.58,
+    "24": 1.6256,
+    "25": 2.0,
+    "26": 2.54
+  },
+  "styles": {
+    "1": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "2": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.508,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "3": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.635,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "4": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "5": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.7874,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "6": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "7": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "8": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "9": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "10": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "11": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "12": {
+      "useObjectColor": false,
+      "rgb": [
+        255,
+        0,
+        0
+      ],
+      "lineweightMm": 0.8,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "13": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.635,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "14": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "15": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "16": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.2286,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "17": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "18": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "19": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "20": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "21": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "22": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "23": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "24": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.1524,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "25": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "26": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "27": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "28": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "29": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "30": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "31": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "32": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "33": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "34": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "35": {
+      "useObjectColor": false,
+      "rgb": [
+        184,
+        138,
+        92
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "36": {
+      "useObjectColor": false,
+      "rgb": [
+        149,
+        74,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "37": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.508,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "38": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "39": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "40": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "41": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "42": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.65,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "43": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "44": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "45": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "46": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "47": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "48": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "49": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "50": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "51": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "52": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "53": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "54": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "55": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "56": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "57": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "58": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "59": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "60": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 1.06,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "61": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "62": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "63": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "64": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "65": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "66": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "67": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "68": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "69": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "70": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "71": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "72": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "73": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "74": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "75": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "76": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "77": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "78": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "79": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "80": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "81": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "82": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "83": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "84": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.508,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "85": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "86": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "87": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "88": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "89": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "90": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        255,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "91": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "92": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        221,
+        0
+      ],
+      "lineweightMm": 0.508,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "93": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "94": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "95": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "96": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "97": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.635,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "98": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 1.0,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "99": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.1524,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "100": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.7874,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "101": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "102": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.508,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "103": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "104": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "105": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "106": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        114,
+        28
+      ],
+      "lineweightMm": 0.7874,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "107": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "108": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "109": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "110": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "111": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "112": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "113": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "114": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "115": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "116": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "117": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "118": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "119": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "120": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.7874,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "121": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "122": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "123": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "124": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "125": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "126": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "127": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "128": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "129": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "130": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.1524,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "131": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "132": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "133": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.1524,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "134": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "135": {
+      "useObjectColor": false,
+      "rgb": [
+        152,
+        152,
+        152
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "136": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "137": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "138": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "139": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "140": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "141": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "142": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "143": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "144": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "145": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "146": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "147": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "148": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "149": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "150": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        255
+      ],
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "151": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "152": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "153": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.508,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "154": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "155": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "156": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "157": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "158": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "159": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "160": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.7112,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "161": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "162": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "163": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "164": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "165": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "166": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "167": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "168": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "169": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "170": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.8,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "171": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "172": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "173": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "174": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "175": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "176": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "177": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "178": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "179": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "180": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "181": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "182": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.9,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "183": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "184": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "185": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "186": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "187": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "188": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "189": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "190": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "191": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "192": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "193": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "194": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "195": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "196": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "197": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "198": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "199": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "200": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "201": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "202": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "203": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "204": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.8,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "205": {
+      "useObjectColor": false,
+      "rgb": [
+        138,
+        0,
+        184
+      ],
+      "lineweightMm": 0.508,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "206": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "207": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "208": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 1.4,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "209": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "210": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.2286,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "211": {
+      "useObjectColor": false,
+      "rgb": [
+        255,
+        0,
+        255
+      ],
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "212": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "213": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "214": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.1524,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "215": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "216": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.1524,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "217": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "218": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "219": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "220": {
+      "useObjectColor": false,
+      "rgb": [
+        255,
+        0,
+        255
+      ],
+      "lineweightMm": 1.0,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "221": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.2286,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "222": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "223": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "224": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "225": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "226": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "227": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "228": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "229": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "230": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.7874,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "231": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "232": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "233": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "234": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "235": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "236": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "237": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "238": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "239": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "240": {
+      "useObjectColor": false,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "lineweightMm": 0.381,
+      "screening": 100,
+      "colorPolicy": 1
+    },
+    "241": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "242": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "243": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "244": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "245": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "246": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "247": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "248": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "249": {
+      "useObjectColor": true,
+      "rgb": null,
+      "lineweightMm": 0.3556,
+      "screening": 100,
+      "colorPolicy": 5
+    },
+    "250": {
+      "useObjectColor": false,
+      "rgb": [
+        84,
+        84,
+        84
+      ],
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 3
+    },
+    "251": {
+      "useObjectColor": false,
+      "rgb": [
+        118,
+        118,
+        118
+      ],
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 3
+    },
+    "252": {
+      "useObjectColor": false,
+      "rgb": [
+        152,
+        152,
+        152
+      ],
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 3
+    },
+    "253": {
+      "useObjectColor": false,
+      "rgb": [
+        186,
+        186,
+        186
+      ],
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 3
+    },
+    "254": {
+      "useObjectColor": false,
+      "rgb": [
+        219,
+        219,
+        219
+      ],
+      "lineweightMm": 0.254,
+      "screening": 100,
+      "colorPolicy": 3
+    },
+    "255": {
+      "useObjectColor": false,
+      "rgb": [
+        250,
+        250,
+        250
+      ],
+      "lineweightMm": 0.2286,
+      "screening": 100,
+      "colorPolicy": 3
+    }
+  }
+}

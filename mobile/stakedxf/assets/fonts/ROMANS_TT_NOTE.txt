@@ -1,0 +1,7 @@
+Romans TT.ttf (from project Support Fonts) ships with glyph 0 named "space"
+but U+0020 is absent from the cmap. PDF embedding then substitutes a wrong
+glyph (often "U") for every space in stake labels.
+
+StakeDXF patches this file by adding an empty `uni0020` glyph and mapping
+U+0020 → uni0020. Do not replace with the raw Drive file without re-applying
+the patch.

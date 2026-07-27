@@ -1,0 +1,674 @@
+import 'dart:io';
+import 'dart:math' as math;
+
+import 'linetype_catalog.dart';
+
+/// Soft cap for plot drawing — full converted Civil DXFs can be 30k+ entities.
+const int kMaxPlotLineworkEntities = 12000;
+
+/// Layer table entry from DXF TABLES (color / linetype / weight).
+class DxfLayerStyle {
+  const DxfLayerStyle({
+    required this.name,
+    this.colorAci = 7,
+    this.linetypeName = 'Continuous',
+    this.lineweight370 = -1,
+  });
+
+  final String name;
+  final int colorAci;
+  final String linetypeName;
+  final int lineweight370;
+}
+
+/// One plan-view polyline / segment / arc from a DXF ENTITIES section.
+class LineworkEntity {
+  const LineworkEntity({
+    this.id = '',
+    required this.layer,
+    required this.type,
+    required this.vertices,
+    this.closed = false,
+    this.bulge = 0,
+    this.radius,
+    this.startAngleDeg,
+    this.endAngleDeg,
+    this.colorAci,
+    this.linetypeName,
+    this.lineweight370,
+    this.linetypeScale,
+    this.opacity,
+  });
+
+  /// Stable id for selection / explode / style overrides.
+  final String id;
+  final String layer;
+  final String type; // LINE, LWPOLYLINE, POLYLINE, ARC, CIRCLE
+  /// Vertices as (easting, northing) — DXF X=E, Y=N for plan survey drawings.
+  final List<List<double>> vertices;
+  final bool closed;
+  final double bulge;
+  final double? radius;
+  final double? startAngleDeg;
+  final double? endAngleDeg;
+
+  /// Entity color ACI (group 62); null = ByLayer.
+  final int? colorAci;
+
+  /// Entity linetype (group 6); null = ByLayer.
+  final String? linetypeName;
+
+  /// Entity lineweight hundredths-mm (group 370); null = ByLayer.
+  final int? lineweight370;
+
+  /// Entity linetype scale (group 48).
+  final double? linetypeScale;
+
+  /// Optional display opacity 0–1 (app override; not from DXF).
+  final double? opacity;
+
+  LineworkEntity copyWith({
+    String? id,
+    String? layer,
+    String? type,
+    List<List<double>>? vertices,
+    bool? closed,
+    double? bulge,
+    double? radius,
+    double? startAngleDeg,
+    double? endAngleDeg,
+    int? colorAci,
+    String? linetypeName,
+    int? lineweight370,
+    double? linetypeScale,
+    double? opacity,
+    bool clearColorAci = false,
+    bool clearLinetypeName = false,
+    bool clearLineweight = false,
+    bool clearLinetypeScale = false,
+    bool clearOpacity = false,
+  }) {
+    return LineworkEntity(
+      id: id ?? this.id,
+      layer: layer ?? this.layer,
+      type: type ?? this.type,
+      vertices: vertices ?? this.vertices,
+      closed: closed ?? this.closed,
+      bulge: bulge ?? this.bulge,
+      radius: radius ?? this.radius,
+      startAngleDeg: startAngleDeg ?? this.startAngleDeg,
+      endAngleDeg: endAngleDeg ?? this.endAngleDeg,
+      colorAci: clearColorAci ? null : (colorAci ?? this.colorAci),
+      linetypeName:
+          clearLinetypeName ? null : (linetypeName ?? this.linetypeName),
+      lineweight370:
+          clearLineweight ? null : (lineweight370 ?? this.lineweight370),
+      linetypeScale:
+          clearLinetypeScale ? null : (linetypeScale ?? this.linetypeScale),
+      opacity: clearOpacity ? null : (opacity ?? this.opacity),
+    );
+  }
+
+  Iterable<List<double>> get samplePoints sync* {
+    if (type == 'CIRCLE' && vertices.isNotEmpty && radius != null) {
+      final c = vertices.first;
+      for (var i = 0; i <= 48; i++) {
+        final a = i * 2 * math.pi / 48;
+        yield [c[0] + radius! * math.cos(a), c[1] + radius! * math.sin(a)];
+      }
+      return;
+    }
+    if (type == 'ARC' &&
+        vertices.isNotEmpty &&
+        radius != null &&
+        startAngleDeg != null &&
+        endAngleDeg != null) {
+      final c = vertices.first;
+      var a0 = startAngleDeg! * math.pi / 180;
+      var a1 = endAngleDeg! * math.pi / 180;
+      if (a1 < a0) a1 += 2 * math.pi;
+      final steps = math.max(8, ((a1 - a0) / (math.pi / 24)).ceil());
+      for (var i = 0; i <= steps; i++) {
+        final a = a0 + (a1 - a0) * i / steps;
+        yield [c[0] + radius! * math.cos(a), c[1] + radius! * math.sin(a)];
+      }
+      return;
+    }
+    for (final v in vertices) {
+      yield v;
+    }
+  }
+}
+
+class DxfLinework {
+  const DxfLinework({
+    required this.entities,
+    required this.layers,
+    this.layerCounts = const {},
+    this.layerStyles = const {},
+  });
+
+  final List<LineworkEntity> entities;
+  final List<String> layers;
+
+  /// Precomputed entity counts per layer (avoid O(layers×entities) in the UI).
+  final Map<String, int> layerCounts;
+
+  /// LAYER table styles (ACI / linetype / weight).
+  final Map<String, DxfLayerStyle> layerStyles;
+
+  int countForLayer(String layer) => layerCounts[layer] ?? 0;
+
+  List<LineworkEntity> forLayers(Set<String> selected) {
+    if (selected.isEmpty) return const [];
+    return entities.where((e) => selected.contains(e.layer)).toList();
+  }
+
+  /// Entities for selected layers, capped for safe on-device plot drawing.
+  List<LineworkEntity> forLayersCapped(
+    Set<String> selected, {
+    int maxEntities = kMaxPlotLineworkEntities,
+  }) {
+    final all = forLayers(selected);
+    if (all.length <= maxEntities) return all;
+    return all.sublist(0, maxEntities);
+  }
+
+  /// Prefer linework near [points] so a large DXF does not steal the view.
+  List<LineworkEntity> forLayersNear(
+    Set<String> selected, {
+    required List<({double easting, double northing})> points,
+    int maxEntities = kMaxPlotLineworkEntities,
+  }) {
+    final all = forLayers(selected);
+    if (all.isEmpty || points.isEmpty) {
+      return forLayersCapped(selected, maxEntities: maxEntities);
+    }
+    if (all.length <= maxEntities) return all;
+
+    var midE = 0.0;
+    var midN = 0.0;
+    for (final p in points) {
+      midE += p.easting;
+      midN += p.northing;
+    }
+    midE /= points.length;
+    midN /= points.length;
+
+    double score(LineworkEntity e) {
+      for (final p in e.samplePoints) {
+        final dx = p[0] - midE;
+        final dy = p[1] - midN;
+        return dx * dx + dy * dy;
+      }
+      return double.infinity;
+    }
+
+    final ranked = [...all]..sort((a, b) => score(a).compareTo(score(b)));
+    return ranked.sublist(0, maxEntities);
+  }
+
+  /// Bounding box of selected layers as [minE, minN, maxE, maxN], or null.
+  List<double>? boundsFor(Set<String> selected) {
+    final ents = forLayers(selected);
+    if (ents.isEmpty) return null;
+    var minE = double.infinity;
+    var minN = double.infinity;
+    var maxE = -double.infinity;
+    var maxN = -double.infinity;
+    var any = false;
+    for (final e in ents) {
+      for (final p in e.samplePoints) {
+        any = true;
+        minE = math.min(minE, p[0]);
+        maxE = math.max(maxE, p[0]);
+        minN = math.min(minN, p[1]);
+        maxN = math.max(maxN, p[1]);
+      }
+    }
+    if (!any) return null;
+    return [minE, minN, maxE, maxN];
+  }
+
+  DxfLinework copyWithEntities(List<LineworkEntity> next) {
+    final counts = <String, int>{};
+    for (final e in next) {
+      counts[e.layer] = (counts[e.layer] ?? 0) + 1;
+    }
+    final layers = counts.keys.toList()..sort();
+    return DxfLinework(
+      entities: next,
+      layers: layers,
+      layerCounts: Map<String, int>.unmodifiable(counts),
+      layerStyles: layerStyles,
+    );
+  }
+}
+
+/// Read an ASCII DXF from disk and parse linework (safe for large converted files).
+DxfLinework parseDxfLineworkFile(String path) {
+  final file = File(path);
+  if (!file.existsSync()) {
+    throw FileSystemException('DXF not found', path);
+  }
+  final raf = file.openSync();
+  try {
+    final head = raf.readSync(22);
+    final headStr = String.fromCharCodes(head);
+    if (headStr.startsWith('AutoCAD Binary DXF')) {
+      throw const FormatException(
+        'Binary DXF is not supported — re-export / convert to ASCII DXF.',
+      );
+    }
+  } finally {
+    raf.closeSync();
+  }
+  return parseDxfLinework(file.readAsStringSync());
+}
+
+/// Parse ASCII DXF stakeable linework (LINE / LWPOLYLINE / POLYLINE / ARC / CIRCLE).
+DxfLinework parseDxfLinework(String text) {
+  final pairs = _dxfPairs(text);
+  final layerStyles = _parseLayerTable(pairs);
+  final entities = <LineworkEntity>[];
+  final layerCounts = <String, int>{};
+  var seq = 0;
+
+  String nextId(String type) {
+    seq += 1;
+    return '${type.toLowerCase()}_$seq';
+  }
+
+  var i = 0;
+  var inEntities = false;
+  while (i < pairs.length) {
+    final code = pairs[i][0];
+    final value = pairs[i][1];
+    i++;
+
+    if (!inEntities) {
+      if (code == '2' && value.toUpperCase() == 'ENTITIES') {
+        inEntities = true;
+      }
+      continue;
+    }
+
+    if (code == '0' && value.toUpperCase() == 'ENDSEC') break;
+    if (code != '0') continue;
+
+    final etype = value.toUpperCase();
+    if (etype == 'LINE') {
+      final ent = _readUntilNext0(pairs, i);
+      i = ent.next;
+      final layer = (ent.map['8'] ?? '0').trim();
+      final x0 = _d(ent.map, '10');
+      final y0 = _d(ent.map, '20');
+      final x1 = _d(ent.map, '11');
+      final y1 = _d(ent.map, '21');
+      if (x0 == null || y0 == null || x1 == null || y1 == null) continue;
+      layerCounts[layer] = (layerCounts[layer] ?? 0) + 1;
+      entities.add(LineworkEntity(
+        id: nextId('LINE'),
+        layer: layer,
+        type: 'LINE',
+        vertices: [
+          [x0, y0],
+          [x1, y1],
+        ],
+        colorAci: _aci(ent.map),
+        linetypeName: _lt(ent.map),
+        lineweight370: _lw(ent.map),
+        linetypeScale: _d(ent.map, '48'),
+      ));
+    } else if (etype == 'LWPOLYLINE') {
+      final ent = _readLwPolyline(pairs, i);
+      i = ent.next;
+      if (ent.vertices.length < 2) continue;
+      layerCounts[ent.layer] = (layerCounts[ent.layer] ?? 0) + 1;
+      entities.add(LineworkEntity(
+        id: nextId('LWPOLYLINE'),
+        layer: ent.layer,
+        type: 'LWPOLYLINE',
+        vertices: ent.vertices,
+        closed: ent.closed,
+        colorAci: ent.colorAci,
+        linetypeName: ent.linetypeName,
+        lineweight370: ent.lineweight370,
+        linetypeScale: ent.linetypeScale,
+      ));
+    } else if (etype == 'POLYLINE') {
+      final ent = _readPolyline(pairs, i);
+      i = ent.next;
+      if (ent.vertices.length < 2) continue;
+      layerCounts[ent.layer] = (layerCounts[ent.layer] ?? 0) + 1;
+      entities.add(LineworkEntity(
+        id: nextId('POLYLINE'),
+        layer: ent.layer,
+        type: 'POLYLINE',
+        vertices: ent.vertices,
+        closed: ent.closed,
+        colorAci: ent.colorAci,
+        linetypeName: ent.linetypeName,
+        lineweight370: ent.lineweight370,
+        linetypeScale: ent.linetypeScale,
+      ));
+    } else if (etype == 'ARC') {
+      final ent = _readUntilNext0(pairs, i);
+      i = ent.next;
+      final layer = (ent.map['8'] ?? '0').trim();
+      final cx = _d(ent.map, '10');
+      final cy = _d(ent.map, '20');
+      final r = _d(ent.map, '40');
+      final a0 = _d(ent.map, '50');
+      final a1 = _d(ent.map, '51');
+      if (cx == null || cy == null || r == null || a0 == null || a1 == null) {
+        continue;
+      }
+      layerCounts[layer] = (layerCounts[layer] ?? 0) + 1;
+      entities.add(LineworkEntity(
+        id: nextId('ARC'),
+        layer: layer,
+        type: 'ARC',
+        vertices: [
+          [cx, cy],
+        ],
+        radius: r,
+        startAngleDeg: a0,
+        endAngleDeg: a1,
+        colorAci: _aci(ent.map),
+        linetypeName: _lt(ent.map),
+        lineweight370: _lw(ent.map),
+        linetypeScale: _d(ent.map, '48'),
+      ));
+    } else if (etype == 'CIRCLE') {
+      final ent = _readUntilNext0(pairs, i);
+      i = ent.next;
+      final layer = (ent.map['8'] ?? '0').trim();
+      final cx = _d(ent.map, '10');
+      final cy = _d(ent.map, '20');
+      final r = _d(ent.map, '40');
+      if (cx == null || cy == null || r == null) continue;
+      layerCounts[layer] = (layerCounts[layer] ?? 0) + 1;
+      entities.add(LineworkEntity(
+        id: nextId('CIRCLE'),
+        layer: layer,
+        type: 'CIRCLE',
+        vertices: [
+          [cx, cy],
+        ],
+        radius: r,
+        colorAci: _aci(ent.map),
+        linetypeName: _lt(ent.map),
+        lineweight370: _lw(ent.map),
+        linetypeScale: _d(ent.map, '48'),
+      ));
+    } else {
+      final ent = _readUntilNext0(pairs, i);
+      i = ent.next;
+    }
+  }
+
+  final layers = layerCounts.keys.toList()..sort();
+  return DxfLinework(
+    entities: entities,
+    layers: layers,
+    layerCounts: Map<String, int>.unmodifiable(layerCounts),
+    layerStyles: Map<String, DxfLayerStyle>.unmodifiable(layerStyles),
+  );
+}
+
+Map<String, DxfLayerStyle> _parseLayerTable(List<List<String>> pairs) {
+  final out = <String, DxfLayerStyle>{};
+  var i = 0;
+  var inTables = false;
+  var inLayerTable = false;
+  while (i < pairs.length) {
+    final code = pairs[i][0];
+    final value = pairs[i][1];
+    if (!inTables) {
+      if (code == '0' && value == 'SECTION') {
+        if (i + 1 < pairs.length &&
+            pairs[i + 1][0] == '2' &&
+            pairs[i + 1][1].toUpperCase() == 'TABLES') {
+          inTables = true;
+          i += 2;
+          continue;
+        }
+      }
+      i++;
+      continue;
+    }
+    if (code == '0' && value == 'ENDSEC') break;
+    if (code == '0' && value == 'TABLE') {
+      inLayerTable = i + 1 < pairs.length &&
+          pairs[i + 1][0] == '2' &&
+          pairs[i + 1][1].toUpperCase() == 'LAYER';
+      i++;
+      continue;
+    }
+    if (code == '0' && value == 'ENDTAB') {
+      inLayerTable = false;
+      i++;
+      continue;
+    }
+    if (inLayerTable && code == '0' && value.toUpperCase() == 'LAYER') {
+      i++;
+      String? name;
+      var aci = 7;
+      var lt = 'Continuous';
+      var lw = -1;
+      while (i < pairs.length && pairs[i][0] != '0') {
+        final c = pairs[i][0];
+        final v = pairs[i][1];
+        if (c == '2') name = v.trim();
+        if (c == '62') aci = int.tryParse(v.trim()) ?? 7;
+        if (c == '6') lt = normalizeLinetypeName(v.trim());
+        if (c == '370') lw = int.tryParse(v.trim()) ?? -1;
+        i++;
+      }
+      if (name != null && name.isNotEmpty) {
+        out[name] = DxfLayerStyle(
+          name: name,
+          colorAci: aci,
+          linetypeName: lt,
+          lineweight370: lw,
+        );
+      }
+      continue;
+    }
+    i++;
+  }
+  return out;
+}
+
+List<List<String>> _dxfPairs(String text) {
+  final lines = text
+      .replaceAll('\r\n', '\n')
+      .replaceAll('\r', '\n')
+      .split('\n');
+  final pairs = <List<String>>[];
+  for (var i = 0; i + 1 < lines.length; i += 2) {
+    pairs.add([lines[i].trim(), lines[i + 1].trimRight()]);
+  }
+  return pairs;
+}
+
+double? _d(Map<String, String> map, String code) {
+  final v = map[code];
+  if (v == null) return null;
+  return double.tryParse(v.trim());
+}
+
+int? _aci(Map<String, String> map) {
+  final v = map['62'];
+  if (v == null) return null;
+  return int.tryParse(v.trim());
+}
+
+String? _lt(Map<String, String> map) {
+  final v = map['6']?.trim();
+  if (v == null || v.isEmpty) return null;
+  if (v.toUpperCase() == 'BYLAYER' || v.toUpperCase() == 'BYBLOCK') {
+    return null;
+  }
+  return normalizeLinetypeName(v);
+}
+
+int? _lw(Map<String, String> map) {
+  final v = map['370'];
+  if (v == null) return null;
+  return int.tryParse(v.trim());
+}
+
+class _EntityRead {
+  _EntityRead(this.map, this.next);
+  final Map<String, String> map;
+  final int next;
+}
+
+_EntityRead _readUntilNext0(List<List<String>> pairs, int start) {
+  final map = <String, String>{};
+  var i = start;
+  while (i < pairs.length) {
+    if (pairs[i][0] == '0') break;
+    map[pairs[i][0]] = pairs[i][1];
+    i++;
+  }
+  return _EntityRead(map, i);
+}
+
+class _LwRead {
+  _LwRead(
+    this.layer,
+    this.vertices,
+    this.closed,
+    this.next, {
+    this.colorAci,
+    this.linetypeName,
+    this.lineweight370,
+    this.linetypeScale,
+  });
+  final String layer;
+  final List<List<double>> vertices;
+  final bool closed;
+  final int next;
+  final int? colorAci;
+  final String? linetypeName;
+  final int? lineweight370;
+  final double? linetypeScale;
+}
+
+_LwRead _readLwPolyline(List<List<String>> pairs, int start) {
+  var layer = '0';
+  var closed = false;
+  final verts = <List<double>>[];
+  double? pendingX;
+  int? colorAci;
+  String? linetypeName;
+  int? lineweight370;
+  double? linetypeScale;
+  var i = start;
+  while (i < pairs.length) {
+    final code = pairs[i][0];
+    final value = pairs[i][1];
+    if (code == '0') break;
+    if (code == '8') layer = value.trim();
+    if (code == '62') colorAci = int.tryParse(value.trim());
+    if (code == '6') {
+      final t = value.trim();
+      if (t.isNotEmpty &&
+          t.toUpperCase() != 'BYLAYER' &&
+          t.toUpperCase() != 'BYBLOCK') {
+        linetypeName = normalizeLinetypeName(t);
+      }
+    }
+    if (code == '370') lineweight370 = int.tryParse(value.trim());
+    if (code == '48') linetypeScale = double.tryParse(value.trim());
+    if (code == '70') {
+      final flags = int.tryParse(value.trim()) ?? 0;
+      closed = (flags & 1) != 0;
+    }
+    if (code == '10') {
+      pendingX = double.tryParse(value.trim());
+    } else if (code == '20') {
+      final x = pendingX;
+      if (x != null) {
+        final y = double.tryParse(value.trim());
+        if (y != null) verts.add([x, y]);
+        pendingX = null;
+      }
+    }
+    i++;
+  }
+  return _LwRead(
+    layer,
+    verts,
+    closed,
+    i,
+    colorAci: colorAci,
+    linetypeName: linetypeName,
+    lineweight370: lineweight370,
+    linetypeScale: linetypeScale,
+  );
+}
+
+_LwRead _readPolyline(List<List<String>> pairs, int start) {
+  var layer = '0';
+  var closed = false;
+  final verts = <List<double>>[];
+  int? colorAci;
+  String? linetypeName;
+  int? lineweight370;
+  double? linetypeScale;
+  var i = start;
+  while (i < pairs.length) {
+    final code = pairs[i][0];
+    final value = pairs[i][1];
+    if (code == '0') break;
+    if (code == '8') layer = value.trim();
+    if (code == '62') colorAci = int.tryParse(value.trim());
+    if (code == '6') {
+      final t = value.trim();
+      if (t.isNotEmpty &&
+          t.toUpperCase() != 'BYLAYER' &&
+          t.toUpperCase() != 'BYBLOCK') {
+        linetypeName = normalizeLinetypeName(t);
+      }
+    }
+    if (code == '370') lineweight370 = int.tryParse(value.trim());
+    if (code == '48') linetypeScale = double.tryParse(value.trim());
+    if (code == '70') {
+      final flags = int.tryParse(value.trim()) ?? 0;
+      closed = (flags & 1) != 0;
+    }
+    i++;
+  }
+  while (i < pairs.length) {
+    if (pairs[i][0] != '0') {
+      i++;
+      continue;
+    }
+    final etype = pairs[i][1].toUpperCase();
+    i++;
+    if (etype == 'SEQEND') break;
+    if (etype != 'VERTEX') break;
+    final ent = _readUntilNext0(pairs, i);
+    i = ent.next;
+    final x = _d(ent.map, '10');
+    final y = _d(ent.map, '20');
+    if (x != null && y != null) verts.add([x, y]);
+    if ((ent.map['8'] ?? '').trim().isNotEmpty) {
+      layer = ent.map['8']!.trim();
+    }
+  }
+  return _LwRead(
+    layer,
+    verts,
+    closed,
+    i,
+    colorAci: colorAci,
+    linetypeName: linetypeName,
+    lineweight370: lineweight370,
+    linetypeScale: linetypeScale,
+  );
+}
