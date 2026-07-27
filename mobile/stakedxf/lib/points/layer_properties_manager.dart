@@ -440,7 +440,14 @@ class LayerPropertiesManager extends StatelessWidget {
                       value: value,
                       min: 0.05,
                       max: 1.0,
-                      onChanged: (v) => setLocal(() => value = v),
+                      onChanged: (v) {
+                        setLocal(() => value = v);
+                        // Live-update the plot so opacity is never a no-op.
+                        onApplyLayerOverride(
+                          layer,
+                          ov.copyWith(opacity: v),
+                        );
+                      },
                     ),
                     Text('${(value * 100).round()}%'),
                     Row(
@@ -452,7 +459,7 @@ class LayerPropertiesManager extends StatelessWidget {
                         const Spacer(),
                         FilledButton(
                           onPressed: () => Navigator.pop(ctx, value),
-                          child: const Text('Apply'),
+                          child: const Text('Done'),
                         ),
                       ],
                     ),
