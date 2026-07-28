@@ -291,10 +291,19 @@ class NativeConverter {
         final proxyExploded =
             (recovered['proxy_exploded'] as num?)?.toInt() ?? 0;
         final layers = parseLayersJson(recovered['layers_json']?.toString());
+        final err = recovered['error']?.toString() ?? '';
         final message = recovered['message']?.toString() ??
             (stakeable > 0
                 ? 'Recovered $stakeable stakeable entities on ${layers.length} layer(s)'
                 : 'No stakeable linework found in this drawing.');
+        final ok = recovered['ok'] == true ||
+            recovered['ok']?.toString().toLowerCase() == 'true';
+        // Soft-failed recover used to return ok:false after writing nothing (or
+        // an empty shell). Surface that as a hard error so CONVERT does not
+        // look "done" with a blank DXF.
+        if (!ok || stakeable <= 0) {
+          throw Exception(err.isNotEmpty ? err : message);
+        }
         await notify('done', 100, message);
         return ConvertResult(
           outputPath: outputPath,

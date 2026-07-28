@@ -149,7 +149,7 @@ class _InstrumentRibbon extends StatelessWidget {
           const SizedBox(width: 8),
           Text('·', style: PlotUi.monoLabel),
           const SizedBox(width: 8),
-          Text('v1.26', style: PlotUi.mono),
+          Text('v1.26.1', style: PlotUi.mono),
           const Spacer(),
           _TelemetryChip(label: 'ONLINE', ok: true),
           const SizedBox(width: 8),

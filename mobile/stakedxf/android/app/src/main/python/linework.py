@@ -359,27 +359,44 @@ def _copy_units(source, out) -> None:
         pass
 
 
-def _save_trimble(doc, output_path: str, progress: Any = None) -> int | None:
+def _save_trimble(doc, output_path: str, progress: Any = None) -> int:
     """
     Save as R2010 Trimble-friendly DXF.
 
-    Fast path: in-place save when already R2010 after strip (returns None —
-    caller keeps its entity count). Slow path: Importer rebuild into a new
-    R2010 doc (returns imported count).
-    """
-    version = str(getattr(doc, "dxfversion", "") or "")
-    if version.upper() in _R2010 or version in _R2010:
-        _report(progress, "write", 90, "Writing Trimble DXF…")
-        doc.saveas(output_path)
-        return None
+    Always rebuild into a fresh R2010 drawing via Importer. LibreDWG round-trips
+    often leave TABLES (especially MATERIALS) populated with bare strings /
+    tuples — ezdxf ``Drawing.saveas`` then crashes in ``_update_header_vars``::
 
-    _report(progress, "write", 88, "Normalizing to R2010 DXF…")
+        AttributeError: 'str' object has no attribute 'dxf'
+        # at self.materials.get("ByLayer").dxf.handle
+
+    Copying stakeable entities into a clean ``ezdxf.new("R2010")`` avoids that
+    and guarantees Trimble-compatible output.
+    """
+    _report(progress, "write", 88, "Writing Trimble DXF…")
     out = ezdxf.new("R2010")
     _copy_units(doc, out)
     kept, _ = _import_stakeable(doc, out)
     _purge_empty_layers(out)
+    # Fresh docs have intact MATERIALS/ByLayer — saveas is safe here.
     out.saveas(output_path)
     return kept
+
+
+def _safe_saveas(doc, output_path: str) -> None:
+    """Save *doc*, rebuilding into R2010 if LibreDWG tables would crash saveas."""
+    try:
+        # Probe the MATERIALS table the same way ezdxf.saveas will.
+        mat = doc.materials.get("ByLayer") if hasattr(doc, "materials") else None
+        if mat is not None and not hasattr(mat, "dxf"):
+            raise TypeError("corrupt MATERIALS table")
+        doc.saveas(output_path)
+    except Exception:
+        out = ezdxf.new("R2010")
+        _copy_units(doc, out)
+        _import_stakeable(doc, out)
+        _purge_empty_layers(out)
+        out.saveas(output_path)
 
 
 def recover_linework(
@@ -423,15 +440,12 @@ def _recover_linework_impl(
 
     _report(progress, "purge", 82, "Purging empty layers…")
     purged = _purge_empty_layers(doc)
-    layers = _layer_stats(doc)
 
-    imported = _save_trimble(doc, output_path, progress)
-    if imported is not None:
-        kept = imported
-        try:
-            layers = _layer_stats(ezdxf.readfile(output_path))
-        except Exception:
-            layers = _layer_stats(doc)
+    kept = _save_trimble(doc, output_path, progress)
+    try:
+        layers = _layer_stats(ezdxf.readfile(output_path))
+    except Exception:
+        layers = _layer_stats(doc)
 
     _report(progress, "done", 100, "Conversion complete")
 
@@ -452,7 +466,8 @@ def _recover_linework_impl(
                 else ""
             )
             if kept > 0
-            else "No stakeable linework found — drawing may lack proxy graphics"
+            else "No stakeable linework found — drawing may lack proxy graphics "
+            "(ask office to re-save with PROXYGRAPHICS=1)"
         ),
     }
 
@@ -545,18 +560,14 @@ def filter_layers(input_path: str, output_path: str, layers_json: str) -> dict:
     )
     _purge_empty_layers(source)
 
-    version = str(getattr(source, "dxfversion", "") or "")
     try:
-        if version.upper() in _R2010 or version in _R2010:
-            source.saveas(output_path)
-            layers = _layer_stats(source)
-        else:
-            out = ezdxf.new("R2010")
-            _copy_units(source, out)
-            kept, _ = _import_stakeable(source, out, include_layers=include)
-            _purge_empty_layers(out)
-            out.saveas(output_path)
-            layers = _layer_stats(out)
+        # Always prefer clean rebuild — source may have LibreDWG MATERIALS junk.
+        out = ezdxf.new("R2010")
+        _copy_units(source, out)
+        kept, _ = _import_stakeable(source, out, include_layers=include)
+        _purge_empty_layers(out)
+        out.saveas(output_path)
+        layers = _layer_stats(out)
     except Exception as exc:
         return _fail(f"DXF write failed: {type(exc).__name__}: {exc}")
 
