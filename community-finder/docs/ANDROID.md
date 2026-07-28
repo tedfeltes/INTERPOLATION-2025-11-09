@@ -26,21 +26,46 @@ termux-setup-storage
 
 This maps phone storage under `~/storage/` (e.g. `~/storage/downloads`).
 
-## 4. Install Community Finder
+## 4. Get the project onto the phone
 
-From this repo (or copy the `community-finder` folder onto the device):
+**Option A — download zip into Downloads, then unzip in Termux:**
 
 ```bash
-cd community-finder
+termux-setup-storage
+cd ~
+unzip -o ~/storage/downloads/community-finder.zip
+cd ~/community-finder
+pwd
+ls
+```
+
+You should see `community_finder/`, `samples/`, `requirements.txt`, and `README.md`.  
+If `cd ~/community-finder` says “No such file or directory”, list what unzipped:
+
+```bash
+ls ~
+ls ~/storage/downloads
+```
+
+**Option B — clone from GitHub (no zip needed):**
+
+```bash
+pkg install git
+cd ~
+git clone -b cursor/subreddit-keyword-finder-675f --depth 1 \
+  https://github.com/tedfeltes/INTERPOLATION-2025-11-09.git
+cd ~/INTERPOLATION-2025-11-09/community-finder
+```
+
+## 5. Install Community Finder
+
+From inside the `community-finder` folder (the one that contains `requirements.txt`):
+
+```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp samples/config.example.yaml config.yaml
-```
-
-Edit credentials and keywords:
-
-```bash
 nano config.yaml
 ```
 
@@ -64,7 +89,7 @@ export:
 
 If you use Dropbox / Google Drive / OneDrive Android apps, point `cloud_sync_dir` at a folder those apps sync (or copy exports into them after a run).
 
-## 5. Run
+## 6. Run
 
 ```bash
 source .venv/bin/activate
@@ -77,7 +102,7 @@ Plain name list only:
 python -m community_finder -c config.yaml --format names --no-export
 ```
 
-## 6. Optional: schedule with Termux
+## 7. Optional: schedule with Termux
 
 Install a cron-like job with `termux-job-scheduler` or run manually when needed. Example wrapper:
 
