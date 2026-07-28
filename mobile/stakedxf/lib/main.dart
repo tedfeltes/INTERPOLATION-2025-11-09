@@ -101,6 +101,18 @@ class HomePage extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  _ActionRail(
+                    tag: '03',
+                    title: 'BASE',
+                    detail: 'Combine project DWGs → one base DXF',
+                    icon: Icons.merge_type,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const BaseDwgPage(),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 28),
                   _SectionRule(label: 'STATUS'),
                   const SizedBox(height: 10),
@@ -137,7 +149,7 @@ class _InstrumentRibbon extends StatelessWidget {
           const SizedBox(width: 8),
           Text('·', style: PlotUi.monoLabel),
           const SizedBox(width: 8),
-          Text('v1.22', style: PlotUi.mono),
+          Text('v1.26', style: PlotUi.mono),
           const Spacer(),
           _TelemetryChip(label: 'ONLINE', ok: true),
           const SizedBox(width: 8),
@@ -347,6 +359,430 @@ class _BottomIdBar extends StatelessWidget {
         children: [
           Text('TRIO / FIELD OPS', style: PlotUi.monoLabel),
           Text('NO CLOUD · NO TRACKING', style: PlotUi.monoLabel),
+        ],
+      ),
+    );
+  }
+}
+
+class BaseDwgPage extends StatefulWidget {
+  const BaseDwgPage({super.key});
+
+  @override
+  State<BaseDwgPage> createState() => _BaseDwgPageState();
+}
+
+class _BaseDwgPageState extends State<BaseDwgPage> {
+  final _converter = NativeConverter();
+  final List<({String path, String name})> _inputs = [];
+  ConvertResult? _result;
+  String? _error;
+  bool _busy = false;
+  String? _progressMessage;
+  int _progressPercent = 0;
+  final Set<String> _selectedLayers = {};
+
+  Future<void> _pick() async {
+    setState(() {
+      _error = null;
+      _result = null;
+      _selectedLayers.clear();
+    });
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      allowMultiple: true,
+      withData: false,
+    );
+    if (picked == null || picked.files.isEmpty) return;
+
+    final next = <({String path, String name})>[];
+    for (final file in picked.files) {
+      final path = file.path;
+      if (path == null) continue;
+      final lower = path.toLowerCase();
+      if (!lower.endsWith('.dwg') && !lower.endsWith('.dxf')) {
+        setState(() => _error = 'Only .dwg / .dxf files: ${file.name}');
+        return;
+      }
+      next.add((path: path, name: file.name));
+    }
+    if (next.isEmpty) {
+      setState(() => _error = 'Could not access those file paths.');
+      return;
+    }
+    setState(() {
+      // Replace selection with this multi-pick (project set).
+      _inputs
+        ..clear()
+        ..addAll(next);
+    });
+  }
+
+  void _removeAt(int index) {
+    setState(() {
+      _inputs.removeAt(index);
+      _result = null;
+      _selectedLayers.clear();
+    });
+  }
+
+  Future<void> _buildBase() async {
+    if (_inputs.length < 2) {
+      setState(() => _error = 'Pick at least two project drawings.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+      _result = null;
+      _progressMessage = 'Starting base combine…';
+      _progressPercent = 0;
+      _selectedLayers.clear();
+    });
+    try {
+      if (Platform.isAndroid) {
+        await Permission.notification.request();
+      }
+      final dir = await getTemporaryDirectory();
+      final output = p.join(dir.path, 'project_base_trimble.dxf');
+      final result = await _converter.combineBaseDrawings(
+        inputPaths: _inputs.map((e) => e.path).toList(),
+        outputPath: output,
+        onProgress: (stage, percent, message) {
+          if (!mounted) return;
+          setState(() {
+            _progressPercent = percent;
+            _progressMessage = message.isEmpty ? stage : message;
+          });
+        },
+      );
+      final outFile = File(result.outputPath);
+      if (!outFile.existsSync()) {
+        throw Exception(
+          result.message.isNotEmpty
+              ? result.message
+              : 'Base combine produced no DXF',
+        );
+      }
+      final docs = await getApplicationDocumentsDirectory();
+      final durable = p.join(docs.path, p.basename(output));
+      await outFile.copy(durable);
+
+      var layers = result.layers;
+      if (layers.isEmpty && File(durable).existsSync()) {
+        layers = await _converter.listLayers(durable);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _result = result.copyWith(outputPath: durable, layers: layers);
+        _selectedLayers
+          ..clear()
+          ..addAll(layers.map((l) => l.name));
+        _progressMessage = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _progressMessage = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _exportSelected() async {
+    final result = _result;
+    if (result == null) return;
+    if (_selectedLayers.isEmpty) {
+      setState(() => _error = 'Select at least one layer to export.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final dir = await getTemporaryDirectory();
+      final stem = p.basenameWithoutExtension(result.outputPath);
+      final filteredPath = p.join(
+        dir.path,
+        '${stem}_${_selectedLayers.length}layers.dxf',
+      );
+      final filtered = await _converter.filterLayers(
+        inputPath: result.outputPath,
+        outputPath: filteredPath,
+        layerNames: _selectedLayers,
+      );
+      final docs = await getApplicationDocumentsDirectory();
+      final durable = p.join(docs.path, p.basename(filteredPath));
+      await File(filtered.outputPath).copy(durable);
+      await Share.shareXFiles(
+        [XFile(durable, mimeType: 'application/dxf')],
+        text: 'Base DXF — ${_selectedLayers.length} selected layer(s)',
+      );
+      if (!mounted) return;
+      setState(() {
+        _result = filtered.copyWith(
+          outputPath: durable,
+          sourceCount: result.sourceCount,
+          sourcesMerged: result.sourcesMerged,
+        );
+        _selectedLayers
+          ..clear()
+          ..addAll(filtered.layers.map((l) => l.name));
+      });
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _shareAll() async {
+    final result = _result;
+    if (result == null) return;
+    await Share.shareXFiles(
+      [XFile(result.outputPath, mimeType: 'application/dxf')],
+      text: 'Project base drawing (Trimble R2010 DXF)',
+    );
+  }
+
+  void _selectAllLayers(bool select) {
+    final layers = _result?.layers ?? const <LayerInfo>[];
+    setState(() {
+      _selectedLayers
+        ..clear()
+        ..addAll(select ? layers.map((l) => l.name) : const <String>[]);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final layers = _result?.layers ?? const <LayerInfo>[];
+    final selectedCount = _selectedLayers.length;
+    final allSelected =
+        layers.isNotEmpty && selectedCount == layers.length;
+
+    return Scaffold(
+      backgroundColor: PlotUi.bg,
+      appBar: AppBar(
+        title: const Text('BASE / COMBINE DWG'),
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.arrow_back, color: PlotUi.accent),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            _MultiInputSlot(
+              files: _inputs,
+              onPick: _busy ? null : _pick,
+              onRemove: _busy ? null : _removeAt,
+            ),
+            const SizedBox(height: 10),
+            _PrimaryActionButton(
+              label: 'BUILD BASE DXF',
+              icon: Icons.merge_type,
+              busy: _busy && _result == null,
+              onPressed: _busy || _inputs.length < 2 ? null : _buildBase,
+            ),
+            if (_busy && _result == null) ...[
+              const SizedBox(height: 14),
+              LinearProgressIndicator(
+                value: _progressPercent > 0 ? _progressPercent / 100.0 : null,
+                minHeight: 4,
+                backgroundColor: PlotUi.border,
+                color: PlotUi.accent,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _progressMessage == null
+                    ? 'RUNNING…'
+                    : '${_progressPercent > 0 ? '${_progressPercent.toString().padLeft(3, '0')}%  ·  ' : ''}'
+                        '${_progressMessage!.toUpperCase()}',
+                style: PlotUi.mono.copyWith(color: PlotUi.fg),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'BACKGROUND: SAFE TO SWITCH APPS',
+                style: PlotUi.monoLabel,
+              ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 14),
+              _ErrorBlock(message: _error!),
+            ],
+            if (_result != null) ...[
+              const SizedBox(height: 18),
+              _ResultReadout(
+                result: _result!,
+                filename: p.basename(_result!.outputPath),
+                title: 'BASE / OK',
+              ),
+              if (layers.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                _LayerChecklist(
+                  layers: layers,
+                  selected: _selectedLayers,
+                  allSelected: allSelected,
+                  onToggle: _busy
+                      ? null
+                      : (name, on) => setState(() {
+                            if (on) {
+                              _selectedLayers.add(name);
+                            } else {
+                              _selectedLayers.remove(name);
+                            }
+                          }),
+                  onSelectAll: _busy
+                      ? null
+                      : () => _selectAllLayers(!allSelected),
+                ),
+                const SizedBox(height: 10),
+                _PrimaryActionButton(
+                  label: selectedCount == layers.length
+                      ? 'SAVE BASE · ALL LAYERS'
+                      : 'SAVE BASE · $selectedCount LAYER${selectedCount == 1 ? '' : 'S'}',
+                  icon: Icons.save_alt,
+                  busy: _busy,
+                  onPressed:
+                      _busy || _selectedLayers.isEmpty ? null : _exportSelected,
+                ),
+                const SizedBox(height: 8),
+                _SecondaryActionButton(
+                  label: 'SHARE FULL BASE DXF',
+                  icon: Icons.ios_share,
+                  onPressed: _busy ? null : _shareAll,
+                ),
+              ] else ...[
+                const SizedBox(height: 12),
+                _PrimaryActionButton(
+                  label: 'SHARE BASE DXF',
+                  icon: Icons.ios_share,
+                  onPressed: _shareAll,
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Multi-file picker for project DWGs that feed the base combiner.
+class _MultiInputSlot extends StatelessWidget {
+  const _MultiInputSlot({
+    required this.files,
+    required this.onPick,
+    required this.onRemove,
+  });
+  final List<({String path, String name})> files;
+  final VoidCallback? onPick;
+  final void Function(int index)? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final loaded = files.isNotEmpty;
+    return Container(
+      decoration: BoxDecoration(
+        color: PlotUi.card,
+        border: Border.all(
+          color: loaded ? PlotUi.accent : PlotUi.border,
+          width: loaded ? 1.4 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onPick,
+              splashFactory: NoSplash.splashFactory,
+              highlightColor: PlotUi.accentDim,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                child: Row(
+                  children: [
+                    Icon(
+                      loaded ? Icons.layers : Icons.folder_open,
+                      color: loaded ? PlotUi.accent : PlotUi.mutedFg,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            loaded
+                                ? 'PROJECT DRAWINGS · ${files.length}'
+                                : 'NO DRAWINGS LOADED',
+                            style: PlotUi.monoLabel,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            loaded
+                                ? 'TAP TO REPLACE SELECTION'
+                                : 'TAP TO PICK MULTIPLE .DWG / .DXF',
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.4,
+                              color: loaded ? PlotUi.fg : PlotUi.dim,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, color: PlotUi.accent),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (loaded)
+            for (var i = 0; i < files.length; i++)
+              Container(
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: PlotUi.border)),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    Text(
+                      '${(i + 1).toString().padLeft(2, '0')}',
+                      style: PlotUi.monoLabel,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        files[i].name,
+                        style: PlotUi.mono.copyWith(color: PlotUi.fg),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (onRemove != null)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => onRemove!(i),
+                        icon: const Icon(Icons.close, size: 18),
+                        color: PlotUi.mutedFg,
+                      ),
+                  ],
+                ),
+              ),
         ],
       ),
     );
@@ -850,9 +1286,14 @@ class _SecondaryActionButton extends StatelessWidget {
 }
 
 class _ResultReadout extends StatelessWidget {
-  const _ResultReadout({required this.result, required this.filename});
+  const _ResultReadout({
+    required this.result,
+    required this.filename,
+    this.title = 'CONVERT / OK',
+  });
   final ConvertResult result;
   final String filename;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -874,7 +1315,7 @@ class _ResultReadout extends StatelessWidget {
             children: [
               Container(width: 8, height: 8, color: PlotUi.ok),
               const SizedBox(width: 8),
-              Text('CONVERT / OK', style: PlotUi.monoLabel.copyWith(color: PlotUi.ok)),
+              Text(title, style: PlotUi.monoLabel.copyWith(color: PlotUi.ok)),
             ],
           ),
           const SizedBox(height: 8),
@@ -891,6 +1332,13 @@ class _ResultReadout extends StatelessWidget {
           const SizedBox(height: 10),
           _KV('STAKEABLE', result.stakeableCount.toString()),
           _KV('LAYERS', '${result.layers.length}'),
+          if (result.sourceCount > 0)
+            _KV(
+              'SOURCES',
+              result.sourcesMerged > 0
+                  ? '${result.sourcesMerged}/${result.sourceCount}'
+                  : '${result.sourceCount}',
+            ),
           if (result.proxyExploded > 0)
             _KV('PROXIES', result.proxyExploded.toString()),
           _KV('FILE', filename),

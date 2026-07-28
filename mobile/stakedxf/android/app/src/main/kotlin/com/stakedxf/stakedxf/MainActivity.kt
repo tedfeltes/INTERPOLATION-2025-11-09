@@ -139,6 +139,35 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
+                    "combineBaseDrawings" -> {
+                        val inputsJson = call.argument<String>("inputs_json")
+                        val output = call.argument<String>("output")
+                        if (inputsJson.isNullOrBlank() || output.isNullOrBlank()) {
+                            result.error("bad_args", "inputs_json/output required", null)
+                            return@setMethodCallHandler
+                        }
+                        worker.execute {
+                            try {
+                                val combined = callCombineBase(inputsJson, output)
+                                runOnUiThread { result.success(combined) }
+                            } catch (e: Exception) {
+                                ConvertProgressBus.emitError("combine_failed", e.message)
+                                val soft = hashMapOf<String, Any?>(
+                                    "stakeable_count" to 0,
+                                    "proxy_exploded" to 0,
+                                    "proxy_primitives" to 0,
+                                    "ok" to false,
+                                    "message" to "Base combine failed: ${e.message ?: e.javaClass.simpleName}",
+                                    "error" to (e.message ?: e.javaClass.simpleName),
+                                    "layers_json" to "[]",
+                                    "empty_layers_removed" to 0,
+                                    "source_count" to 0,
+                                    "sources_merged" to 0,
+                                )
+                                runOnUiThread { result.success(soft) }
+                            }
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -175,6 +204,29 @@ class MainActivity : FlutterActivity() {
         return map
     }
 
+    private fun callCombineBase(inputsJson: String, output: String): HashMap<String, Any?> {
+        ensurePython()
+        ConvertProgressBus.emit("merge", 10, "Building base drawing…")
+        ConvertForegroundService.update(
+            applicationContext,
+            "Building base drawing…",
+            10,
+        )
+        val py = Python.getInstance()
+        val module = py.getModule("linework")
+        val bridge = PythonProgressBridge { stage, percent, message ->
+            ConvertProgressBus.emit(stage, percent, message)
+            ConvertForegroundService.update(applicationContext, message, percent)
+        }
+        val recovered: PyObject = module.callAttr(
+            "combine_base_drawings",
+            inputsJson,
+            output,
+            bridge,
+        )
+        return pyMapToFlutter(recovered.asMap())
+    }
+
     private fun pyMapToFlutter(map: Map<*, *>): HashMap<String, Any?> {
         fun lookup(key: String): String? =
             map.entries.firstOrNull { it.key.toString() == key }
@@ -189,6 +241,10 @@ class MainActivity : FlutterActivity() {
             "error" to (lookup("error") ?: ""),
             "layers_json" to (lookup("layers_json") ?: "[]"),
             "empty_layers_removed" to (lookup("empty_layers_removed")?.toIntOrNull() ?: 0),
+            "source_count" to (lookup("source_count")?.toIntOrNull() ?: 0),
+            "sources_merged" to (lookup("sources_merged")?.toIntOrNull() ?: 0),
+            "sources_skipped" to (lookup("sources_skipped")?.toIntOrNull() ?: 0),
+            "sources_json" to (lookup("sources_json") ?: "[]"),
         )
     }
 }

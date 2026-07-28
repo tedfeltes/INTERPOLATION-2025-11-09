@@ -65,6 +65,8 @@ class ConvertResult {
     this.proxyExploded = 0,
     this.layers = const [],
     this.emptyLayersRemoved = 0,
+    this.sourceCount = 0,
+    this.sourcesMerged = 0,
   });
 
   final String outputPath;
@@ -73,6 +75,8 @@ class ConvertResult {
   final int proxyExploded;
   final List<LayerInfo> layers;
   final int emptyLayersRemoved;
+  final int sourceCount;
+  final int sourcesMerged;
 
   ConvertResult copyWith({
     String? outputPath,
@@ -81,6 +85,8 @@ class ConvertResult {
     int? proxyExploded,
     List<LayerInfo>? layers,
     int? emptyLayersRemoved,
+    int? sourceCount,
+    int? sourcesMerged,
   }) {
     return ConvertResult(
       outputPath: outputPath ?? this.outputPath,
@@ -89,6 +95,8 @@ class ConvertResult {
       proxyExploded: proxyExploded ?? this.proxyExploded,
       layers: layers ?? this.layers,
       emptyLayersRemoved: emptyLayersRemoved ?? this.emptyLayersRemoved,
+      sourceCount: sourceCount ?? this.sourceCount,
+      sourcesMerged: sourcesMerged ?? this.sourcesMerged,
     );
   }
 }
@@ -346,6 +354,172 @@ class NativeConverter {
     return listLayersFromDxfText(File(dxfPath).readAsStringSync());
   }
 
+  /// Combine multiple project DWG/DXF files into one base drawing.
+  ///
+  /// Each DWG is decoded with LibreDWG; Civil 3D proxies are recovered;
+  /// stakeable entities from every file are merged into a single R2010 DXF.
+  /// Empty layers are omitted from the result.
+  Future<ConvertResult> combineBaseDrawings({
+    required List<String> inputPaths,
+    required String outputPath,
+    ConvertProgressCallback? onProgress,
+  }) async {
+    final paths = inputPaths
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (paths.length < 2) {
+      throw Exception('Select at least two project drawings to build a base');
+    }
+
+    StreamSubscription? progressSub;
+    final temps = <String>[];
+
+    Future<void> notify(String stage, int percent, String message) async {
+      onProgress?.call(stage, percent, message);
+      if (Platform.isAndroid) {
+        try {
+          await _linework.invokeMethod<dynamic>('updateConvertGuard', {
+            'stage': stage,
+            'percent': percent,
+            'message': message,
+          });
+        } catch (_) {}
+      }
+    }
+
+    if (Platform.isAndroid) {
+      try {
+        await _linework.invokeMethod<dynamic>('startConvertGuard', {
+          'message': 'Building base drawing…',
+        });
+      } catch (_) {}
+      progressSub = _progress.receiveBroadcastStream().listen((event) {
+        if (event is Map && event['type']?.toString() == 'progress') {
+          onProgress?.call(
+            event['stage']?.toString() ?? 'merge',
+            (event['percent'] as num?)?.toInt() ?? 0,
+            event['message']?.toString() ?? '',
+          );
+        }
+      });
+    }
+
+    try {
+      final dxfInputs = <String>[];
+      for (var i = 0; i < paths.length; i++) {
+        final input = paths[i];
+        final lower = input.toLowerCase();
+        final pct = 2 + ((28 * i) / paths.length).floor();
+        await notify(
+          'decode',
+          pct,
+          'Decoding ${p.basename(input)} (${i + 1}/${paths.length})…',
+        );
+
+        if (lower.endsWith('.dwg')) {
+          final raw = '$outputPath.part$i.raw.dxf';
+          temps.add(raw);
+          await compute(_dwgToDxfWorker, <String, String>{
+            'input': input,
+            'output': raw,
+          });
+          dxfInputs.add(raw);
+        } else if (lower.endsWith('.dxf')) {
+          dxfInputs.add(input);
+        } else {
+          throw Exception('Only .dwg / .dxf supported: ${p.basename(input)}');
+        }
+      }
+
+      await notify('merge', 32, 'Merging recovered linework…');
+
+      if (Platform.isAndroid) {
+        final raw = await _linework.invokeMethod<dynamic>('combineBaseDrawings', {
+          'inputs_json': jsonEncode(dxfInputs),
+          'output': outputPath,
+        });
+        if (raw is! Map) {
+          throw Exception('Base combine returned nothing');
+        }
+        final recovered = Map<String, dynamic>.from(raw);
+        final ok = recovered['ok'] == true ||
+            recovered['ok']?.toString().toLowerCase() == 'true';
+        final stakeable = (recovered['stakeable_count'] as num?)?.toInt() ?? 0;
+        final layers = parseLayersJson(recovered['layers_json']?.toString());
+        final message = recovered['message']?.toString() ??
+            (ok
+                ? 'Base drawing ready — ${layers.length} layer(s) with data'
+                : 'No stakeable linework found across the selected drawings');
+        if (!ok && stakeable == 0) {
+          throw Exception(message);
+        }
+        await notify('done', 100, message);
+        return ConvertResult(
+          outputPath: outputPath,
+          stakeableCount: stakeable,
+          proxyExploded:
+              (recovered['proxy_exploded'] as num?)?.toInt() ?? 0,
+          message: message,
+          layers: layers,
+          emptyLayersRemoved:
+              (recovered['empty_layers_removed'] as num?)?.toInt() ?? 0,
+          sourceCount: (recovered['source_count'] as num?)?.toInt() ?? paths.length,
+          sourcesMerged:
+              (recovered['sources_merged'] as num?)?.toInt() ?? 0,
+        );
+      }
+
+      // Host fallback: text-filter each DXF then concatenate ENTITIES
+      // (no Civil 3D proxy explode). Prefer Android for field use.
+      await notify('filter', 50, 'Filtering stakeable entities…');
+      final filteredParts = <String>[];
+      var total = 0;
+      for (var i = 0; i < dxfInputs.length; i++) {
+        final partOut = '$outputPath.part$i.filt.dxf';
+        temps.add(partOut);
+        total += await compute(_filterWorker, <String, String>{
+          'input': dxfInputs[i],
+          'output': partOut,
+        });
+        filteredParts.add(partOut);
+      }
+      await compute(_mergeDxfWorker, <String, dynamic>{
+        'inputs': filteredParts,
+        'output': outputPath,
+      });
+      final layers = listLayersFromDxfText(File(outputPath).readAsStringSync());
+      final message = total > 0
+          ? 'Base drawing: $total entities on ${layers.length} layer(s) '
+              'from ${paths.length} files'
+          : 'No stakeable linework found across the selected drawings';
+      await notify('done', 100, message);
+      if (total == 0) {
+        throw Exception(message);
+      }
+      return ConvertResult(
+        outputPath: outputPath,
+        stakeableCount: total,
+        message: message,
+        layers: layers,
+        sourceCount: paths.length,
+        sourcesMerged: paths.length,
+      );
+    } finally {
+      await progressSub?.cancel();
+      if (Platform.isAndroid) {
+        try {
+          await _linework.invokeMethod<dynamic>('stopConvertGuard');
+        } catch (_) {}
+      }
+      for (final t in temps) {
+        try {
+          File(t).deleteSync();
+        } catch (_) {}
+      }
+    }
+  }
+
   /// Rewrite [inputPath] keeping only [layerNames], writing [outputPath].
   Future<ConvertResult> filterLayers({
     required String inputPath,
@@ -441,6 +615,57 @@ int _filterLayersWorker(Map<String, dynamic> args) {
     args['output'] as String,
     layers,
   );
+}
+
+/// Host-only: concatenate ENTITIES from already-filtered DXFs into one file.
+void _mergeDxfWorker(Map<String, dynamic> args) {
+  final inputs = (args['inputs'] as List).map((e) => '$e').toList();
+  final output = args['output'] as String;
+  if (inputs.isEmpty) {
+    throw Exception('No DXF parts to merge');
+  }
+
+  final header = StringBuffer();
+  final entities = StringBuffer();
+  var trailer = '';
+  var headerDone = false;
+
+  for (final path in inputs) {
+    final lines = File(path).readAsLinesSync();
+    var inEntities = false;
+    String? code;
+    for (final raw in lines) {
+      final trimmed = raw.trimRight();
+      final value = trimmed.trim();
+      if (!inEntities) {
+        if (!headerDone) {
+          header.writeln(trimmed);
+        }
+        if (code == '2' && value == 'ENTITIES') {
+          inEntities = true;
+        }
+        code = int.tryParse(value) != null ? value : null;
+        continue;
+      }
+      if (code == '0' && value == 'ENDSEC') {
+        inEntities = false;
+        // Capture from ENDSEC onward once (OBJECTS + EOF).
+        if (trailer.isEmpty) {
+          final idx = lines.indexOf(raw);
+          trailer = '${lines.sublist(idx).join('\n')}\n';
+        }
+        break;
+      }
+      entities.writeln(trimmed);
+      code = int.tryParse(value) != null ? value : null;
+    }
+    headerDone = true;
+  }
+
+  if (trailer.isEmpty) {
+    trailer = '  0\nENDSEC\n  0\nEOF\n';
+  }
+  File(output).writeAsStringSync('$header$entities$trailer');
 }
 
 const stakeableTypes = {

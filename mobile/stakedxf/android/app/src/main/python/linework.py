@@ -571,3 +571,182 @@ def filter_layers(input_path: str, output_path: str, layers_json: str) -> dict:
             else "No entities on the selected layers"
         ),
     }
+
+
+def combine_base_drawings(
+    inputs_json: str,
+    output_path: str,
+    progress: Any = None,
+) -> dict:
+    """Merge project drawings into one base DXF (layers with data only).
+
+    [inputs_json] is a JSON list of DXF paths (LibreDWG output or existing
+    DXF). Each file is recovered (Civil 3D proxy explode + stakeable strip),
+    then entities are imported into a single R2010 document. Empty layer
+    table entries are purged so the base only lists layers that contain data.
+
+    Never raises — failures return ``ok: False``.
+    """
+    try:
+        return _combine_base_drawings_impl(inputs_json, output_path, progress)
+    except Exception as exc:
+        detail = f"{type(exc).__name__}: {exc}"
+        _report(progress, "error", 100, f"Base combine failed: {detail}")
+        return _fail(
+            f"Base combine failed: {detail}",
+            traceback=traceback.format_exc()[-1500:],
+            source_count=0,
+        )
+
+
+def _prepare_part_doc(path: str) -> tuple[Any, dict]:
+    """Recover one drawing to an in-memory stakeable doc + stats."""
+    import os
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix="_base_part.dxf", delete=False) as tmp:
+        part_path = tmp.name
+    try:
+        part = recover_linework(path, part_path, progress=None)
+        if part.get("ok") and os.path.isfile(part_path):
+            return _load_dxf(part_path), part
+    finally:
+        try:
+            os.unlink(part_path)
+        except Exception:
+            pass
+
+    # Soft fallback: load + explode + strip without a written recover file.
+    src = _load_dxf(path)
+    exploded, primitives = _explode_proxies(src)
+    kept, skipped = _strip_non_stakeable(src)
+    _purge_empty_layers(src)
+    return src, {
+        "ok": kept > 0,
+        "stakeable_count": kept,
+        "proxy_exploded": exploded,
+        "proxy_primitives": primitives,
+        "skipped": dict(skipped),
+    }
+
+
+def _combine_base_drawings_impl(
+    inputs_json: str,
+    output_path: str,
+    progress: Any = None,
+) -> dict:
+    try:
+        raw = json.loads(inputs_json)
+    except Exception:
+        raw = []
+    if isinstance(raw, str):
+        raw = [raw]
+    paths = [str(p).strip() for p in (raw or []) if str(p).strip()]
+    if len(paths) < 2:
+        return _fail(
+            "Select at least two project drawings to build a base",
+            source_count=len(paths),
+        )
+
+    _report(progress, "merge", 5, f"Building base from {len(paths)} drawings…")
+    out = ezdxf.new("R2010")
+    total_kept = 0
+    total_exploded = 0
+    total_primitives = 0
+    sources: list[dict] = []
+    skipped_files = 0
+    units_copied = False
+
+    for idx, path in enumerate(paths):
+        pct = 5 + int(75 * idx / max(len(paths), 1))
+        label = path.rsplit("/", 1)[-1]
+        _report(
+            progress,
+            "merge",
+            pct,
+            f"Merging {label} ({idx + 1}/{len(paths)})…",
+        )
+        try:
+            part_doc, part = _prepare_part_doc(path)
+            part_exploded = int(part.get("proxy_exploded") or 0)
+            part_primitives = int(part.get("proxy_primitives") or 0)
+
+            stakeable_here = sum(
+                1
+                for e in part_doc.modelspace()
+                if (_safe_dxftype(e) or "") in STAKEABLE
+            )
+            if stakeable_here <= 0:
+                skipped_files += 1
+                sources.append(
+                    {
+                        "path": path,
+                        "name": label,
+                        "stakeable_count": 0,
+                        "ok": False,
+                    }
+                )
+                continue
+
+            if not units_copied:
+                _copy_units(part_doc, out)
+                units_copied = True
+
+            imported, _ = _import_stakeable(part_doc, out)
+            total_kept += imported
+            total_exploded += part_exploded
+            total_primitives += part_primitives
+            sources.append(
+                {
+                    "path": path,
+                    "name": label,
+                    "stakeable_count": imported,
+                    "ok": imported > 0,
+                }
+            )
+        except Exception as exc:
+            skipped_files += 1
+            sources.append(
+                {
+                    "path": path,
+                    "name": label,
+                    "stakeable_count": 0,
+                    "ok": False,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+
+    _report(progress, "purge", 88, "Purging empty layers…")
+    purged = _purge_empty_layers(out)
+    layers = _layer_stats(out)
+
+    _report(progress, "write", 94, "Writing base DXF…")
+    out.saveas(output_path)
+
+    merged = sum(1 for s in sources if s.get("ok"))
+    ok = total_kept > 0 and len(layers) > 0
+    message = (
+        f"Base drawing: {total_kept} entities on {len(layers)} layer(s) "
+        f"from {merged}/{len(paths)} files"
+        + (f" (exploded {total_exploded} proxies)" if total_exploded else "")
+        if ok
+        else "No stakeable linework found across the selected drawings"
+    )
+    _report(progress, "done", 100, message)
+
+    return {
+        "ok": ok,
+        "stakeable_count": total_kept,
+        "proxy_exploded": total_exploded,
+        "proxy_primitives": total_primitives,
+        "empty_layers_removed": purged,
+        "source_count": len(paths),
+        "sources_merged": merged,
+        "sources_skipped": skipped_files,
+        "sources": sources,
+        "sources_json": json.dumps(sources),
+        "layers": layers,
+        "layers_json": json.dumps(layers),
+        "skipped": {},
+        "message": message,
+    }
