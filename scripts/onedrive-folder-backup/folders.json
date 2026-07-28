@@ -1,0 +1,24 @@
+{
+  "oneDriveRoot": "",
+  "defaults": {
+    "mirror": false,
+    "changelog": true,
+    "changelogMaxFiles": 500,
+    "excludeDirs": [".git", "node_modules", ".vs", "__pycache__"],
+    "excludeFiles": ["Thumbs.db", "desktop.ini", "~$*", "*.tmp"]
+  },
+  "folders": [
+    {
+      "name": "ExampleProjects",
+      "source": "D:\\Projects",
+      "dest": "Backups\\Projects",
+      "enabled": false
+    },
+    {
+      "name": "ExamplePhotos",
+      "source": "E:\\Photos",
+      "dest": "Backups\\Photos",
+      "enabled": false
+    }
+  ]
+}
