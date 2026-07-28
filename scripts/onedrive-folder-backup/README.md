@@ -37,6 +37,8 @@ powershell -ExecutionPolicy Bypass -File .\Install-BackupTask.ps1 -IntervalMinut
   "oneDriveRoot": "",
   "defaults": {
     "mirror": false,
+    "changelog": true,
+    "changelogMaxFiles": 500,
     "excludeDirs": [".git", "node_modules", ".vs", "__pycache__"],
     "excludeFiles": ["Thumbs.db", "desktop.ini", "~$*", "*.tmp"]
   },
@@ -64,9 +66,23 @@ powershell -ExecutionPolicy Bypass -File .\Install-BackupTask.ps1 -IntervalMinut
 | `mirror: true` | Exact mirror — files removed locally are removed from the OneDrive backup folder |
 | `dest` | Relative to OneDrive root unless it is an absolute path |
 
-## Logs
+## Logs and changelog
 
-Written under `logs\backup-YYYYMMDD.log` next to the scripts.
+| Path | Contents |
+|------|----------|
+| `logs\backup-YYYYMMDD.log` | Robocopy / script run log |
+| `logs\changelog.md` | Human-readable change history since each last successful backup |
+| `state\<FolderName>.json` | File snapshot used to compute the next diff |
+
+Each changelog entry lists **added**, **modified** (size or last-write time changed), and **removed from source** files. The snapshot updates only after a successful robocopy, so a failed run does not lose the pending diff.
+
+Turn off globally with `"changelog": false` in `defaults`, or per folder with `"changelog": false` on that entry. Cap listed paths with `"changelogMaxFiles"` (default 500; summary counts still include everything).
+
+Preview the diff without copying:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Backup-FoldersToOneDrive.ps1 -WhatIf
+```
 
 ## Uninstall task
 
