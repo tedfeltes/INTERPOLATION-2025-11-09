@@ -722,7 +722,7 @@ class _LayerPropertiesManagerState extends State<LayerPropertiesManager> {
                     height: 14,
                     decoration: BoxDecoration(
                       color: Color(resolved.colorArgb).withValues(
-                        alpha: resolved.opacity.clamp(0.05, 1.0),
+                        alpha: resolved.opacity.clamp(0.0, 1.0),
                       ),
                       border: Border.all(color: PlotUi.borderStrong),
                       borderRadius: BorderRadius.zero,

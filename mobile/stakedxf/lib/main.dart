@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'converter.dart';
+import 'cogo/cogo_screen.dart';
 import 'points/export_points_screen.dart';
 import 'points/plot_ui_theme.dart';
 
@@ -113,6 +114,18 @@ class HomePage extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  _ActionRail(
+                    tag: '04',
+                    title: 'COGO',
+                    detail: 'Inverse · station/offset on DXF linework',
+                    icon: Icons.straighten,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const CogoScreen(),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 28),
                   _SectionRule(label: 'STATUS'),
                   const SizedBox(height: 10),
@@ -149,7 +162,7 @@ class _InstrumentRibbon extends StatelessWidget {
           const SizedBox(width: 8),
           Text('·', style: PlotUi.monoLabel),
           const SizedBox(width: 8),
-          Text('v1.26.2', style: PlotUi.mono),
+          Text('v1.27.0', style: PlotUi.mono),
           const Spacer(),
           _TelemetryChip(label: 'ONLINE', ok: true),
           const SizedBox(width: 8),
