@@ -59,7 +59,7 @@ $defaultMirror = [bool]$defaults.mirror
 $defaultExcludeDirs = @($defaults.excludeDirs)
 $defaultExcludeFiles = @($defaults.excludeFiles)
 
-$folders = @($config.folders | Where-Object { $_.enabled -ne $false })
+$folders = @($config.folders | Where-Object { $_.enabled -eq $true })
 if ($folders.Count -eq 0) {
     Write-Log "No enabled folders in config. Edit folders.json and set enabled: true." $logFile
     exit 0
