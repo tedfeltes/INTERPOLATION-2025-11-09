@@ -921,12 +921,24 @@ def ui_color_picker(page, r: fitz.Rect):
                 page.draw_rect(fitz.Rect(rx + 1, ry + 1, rx + sw - 1, ry + sh - 1),
                                color=ORANGE, width=1.4)
 
-    # bottom cta
-    bt = fitz.Rect(x + 8, r.y1 - 34, r.x1 - 8, r.y1 - 10)
+    # Numeric ACI input + Set/Apply CTAs — matches v1.25 color picker.
+    bt = fitz.Rect(x + 8, r.y1 - 42, r.x1 - 8, r.y1 - 10)
     page.draw_rect(bt, color=BORDER_STRONG, fill=CARD, width=0.8)
-    page.insert_text((bt.x0 + 10, bt.y0 + 15),
-                     "BYLAYER  /  CTB DEFAULT",
-                     fontsize=7, fontname=F_MONO, color=DIM)
+    label_x = bt.x0 + 8
+    page.insert_text((label_x, bt.y0 + 10), "ACI NUMBER",
+                     fontsize=5.5, fontname=F_MONO, color=MUTED)
+    page.insert_text((label_x, bt.y0 + 24), "34",
+                     fontsize=10, fontname=F_MONO_BOLD, color=FG)
+    # SET pill
+    set_pill = fitz.Rect(bt.x1 - 96, bt.y0 + 6, bt.x1 - 56, bt.y0 + 26)
+    page.draw_rect(set_pill, color=None, fill=ORANGE)
+    page.insert_text((set_pill.x0 + 12, set_pill.y0 + 14), "SET",
+                     fontsize=7, fontname=F_MONO_BOLD, color=BLACK)
+    # APPLY pill
+    apply_pill = fitz.Rect(bt.x1 - 48, bt.y0 + 6, bt.x1 - 8, bt.y0 + 26)
+    page.draw_rect(apply_pill, color=ORANGE, fill=None, width=1.2)
+    page.insert_text((apply_pill.x0 + 6, apply_pill.y0 + 14), "APPLY",
+                     fontsize=7, fontname=F_MONO_BOLD, color=ORANGE)
 
 
 def ui_truecolor(page, r: fitz.Rect):

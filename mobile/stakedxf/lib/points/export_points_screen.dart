@@ -24,7 +24,7 @@ import 'plot_pdf.dart';
 import 'plot_preview.dart';
 import 'point_properties_panel.dart';
 import 'plot_symbols.dart';
-import 'plot_templates.dart';
+import 'plot_template_picker.dart';
 import 'sticky_section.dart';
 import 'survey_point.dart';
 import 'symbol_library_sheet.dart';
@@ -1068,67 +1068,23 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         () => _plotOptionsOpen = !_plotOptionsOpen,
                       ),
                       children: [
-                        DropdownButtonFormField<AnsiSheetSize>(
-                          value: _options.template.size,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Sheet size',
-                            border: OutlineInputBorder(),
-                            isDense: true,
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Text(
+                            'Sheet template',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(letterSpacing: 0.6),
                           ),
-                          items: [
-                            for (final s in AnsiSheetSize.values)
-                              DropdownMenuItem(
-                                value: s,
-                                child: Text(s.pickerLabel),
-                              ),
-                          ],
-                          onChanged: _busy
-                              ? null
-                              : (v) {
-                                  if (v == null) return;
-                                  setState(() {
-                                    _options = _options.copyWith(
-                                      template: composePlotTemplate(
-                                        size: v,
-                                        orientation:
-                                            _options.template.orientation,
-                                        layout: _options.template.layout,
-                                      ),
-                                    );
-                                  });
-                                },
                         ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<SheetOrientation>(
-                          value: _options.template.orientation,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Orientation',
-                            border: OutlineInputBorder(),
-                            isDense: true,
+                        PlotTemplatePicker(
+                          selected: _options.template,
+                          enabled: !_busy,
+                          onSelected: (t) => setState(
+                            () => _options =
+                                _options.copyWith(template: t),
                           ),
-                          items: [
-                            for (final o in SheetOrientation.values)
-                              DropdownMenuItem(
-                                value: o,
-                                child: Text(o.label),
-                              ),
-                          ],
-                          onChanged: _busy
-                              ? null
-                              : (v) {
-                                  if (v == null) return;
-                                  setState(() {
-                                    _options = _options.copyWith(
-                                      template: composePlotTemplate(
-                                        size: _options.template.size,
-                                        orientation: v,
-                                        layout: _options.template.layout,
-                                      ),
-                                    );
-                                  });
-                                },
                         ),
                         const SizedBox(height: 8),
                         Builder(

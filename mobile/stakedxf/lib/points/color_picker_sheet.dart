@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'aci_palette.dart';
 import 'ctb_plot_style.dart';
+import 'linetype_catalog.dart' show aciToArgb;
 import 'plot_ui_theme.dart';
 
 /// Result of a color pick: ARGB, optionally tagged with ACI.
@@ -11,7 +13,14 @@ class PickedColor {
   final int? aci;
 }
 
-/// Professional color picker: CTB/ACI swatches + true-color grid.
+/// Professional color picker: CTB/ACI swatches + true-color HSV grid.
+///
+/// Mirrors the slide-deck "COLOR PICKER · ACI + CTB" mockup: a dense
+/// 10-column palette of all 255 ACI colors up top, a live "current"
+/// swatch + hex readout beside the title, and numeric input fields —
+/// **ACI 1–255** on the palette tab and **#RRGGBB hex** on the
+/// true-color tab — so surveyors can type the exact value they want
+/// instead of hunting for it visually.
 Future<PickedColor?> showPlotColorPicker({
   required BuildContext context,
   required int currentArgb,
@@ -27,7 +36,7 @@ Future<PickedColor?> showPlotColorPicker({
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
     // Cap sheet height so the plot preview stays visible above it.
     constraints: BoxConstraints(
-      maxHeight: MediaQuery.of(context).size.height * 0.62,
+      maxHeight: MediaQuery.of(context).size.height * 0.68,
     ),
     builder: (ctx) => _ColorPickerBody(
       currentArgb: currentArgb,
@@ -59,6 +68,7 @@ class _ColorPickerBodyState extends State<_ColorPickerBody>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
   late int _argb;
+  int? _aci;
   double _hue = 0;
   double _sat = 0.85;
   double _val = 0.95;
@@ -68,6 +78,7 @@ class _ColorPickerBodyState extends State<_ColorPickerBody>
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
     _argb = widget.currentArgb | 0xFF000000;
+    _aci = argbToAci(_argb, ctb: widget.ctb);
     final hsv = HSVColor.fromColor(Color(_argb));
     _hue = hsv.hue;
     _sat = hsv.saturation;
@@ -80,164 +91,284 @@ class _ColorPickerBodyState extends State<_ColorPickerBody>
     super.dispose();
   }
 
+  void _selectAci(int aci) {
+    final swatch = widget.ctb?.resolve(aci).colorArgb ?? aciToArgb(aci);
+    setState(() {
+      _argb = swatch | 0xFF000000;
+      _aci = aci;
+      final hsv = HSVColor.fromColor(Color(_argb));
+      _hue = hsv.hue;
+      _sat = hsv.saturation;
+      _val = hsv.value;
+    });
+  }
+
+  void _selectHex(int rgb) {
+    setState(() {
+      _argb = (rgb & 0x00FFFFFF) | 0xFF000000;
+      _aci = argbToAci(_argb, ctb: widget.ctb);
+      final hsv = HSVColor.fromColor(Color(_argb));
+      _hue = hsv.hue;
+      _sat = hsv.saturation;
+      _val = hsv.value;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Fill the whole allowed sheet area — the outer constraints cap total
-    // height at ~62% so the preview above the sheet stays visible.
-    final height = MediaQuery.sizeOf(context).height * 0.6;
     final ctb = widget.ctb;
     final aciSwatches = buildAciSwatches(ctb);
     return SafeArea(
-      child: SizedBox(
-        height: height,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Row(
-                children: [
-                  Text(widget.title, style: Theme.of(context).textTheme.titleMedium),
-                  const Spacer(),
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: Color(_argb),
-                      borderRadius: BorderRadius.zero,
-                      border: Border.all(color: PlotUi.border),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            TabBar(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _headerBar(),
+          TabBar(
+            controller: _tabs,
+            labelColor: PlotUi.fg,
+            unselectedLabelColor: PlotUi.mutedFg,
+            indicatorColor: PlotUi.accent,
+            tabs: const [
+              Tab(text: 'ACI / CTB'),
+              Tab(text: 'True color'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
               controller: _tabs,
-              labelColor: PlotUi.fg,
-              unselectedLabelColor: PlotUi.mutedFg,
-              indicatorColor: PlotUi.accent,
-              tabs: const [
-                Tab(text: 'ACI / CTB'),
-                Tab(text: 'True color'),
-              ],
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabs,
-                children: [
-                  _AciGrid(
-                    swatches: aciSwatches,
-                    selected: _argb,
-                    onPick: (s) => Navigator.pop(
-                      context,
-                      PickedColor(s.argb, aci: s.aci),
-                    ),
-                  ),
-                  _TrueColorPane(
-                    hue: _hue,
-                    sat: _sat,
-                    val: _val,
-                    argb: _argb,
-                    onHue: (v) => setState(() {
-                      _hue = v;
-                      _argb = HSVColor.fromAHSV(1, _hue, _sat, _val)
-                          .toColor()
-                          .toARGB32();
-                    }),
-                    onSat: (v) => setState(() {
-                      _sat = v;
-                      _argb = HSVColor.fromAHSV(1, _hue, _sat, _val)
-                          .toColor()
-                          .toARGB32();
-                    }),
-                    onVal: (v) => setState(() {
-                      _val = v;
-                      _argb = HSVColor.fromAHSV(1, _hue, _sat, _val)
-                          .toColor()
-                          .toARGB32();
-                    }),
-                    onGridPick: (c) => setState(() {
-                      _argb = c;
-                      final hsv = HSVColor.fromColor(Color(c));
-                      _hue = hsv.hue;
-                      _sat = hsv.saturation;
-                      _val = hsv.value;
-                    }),
-                    onApply: () => Navigator.pop(context, PickedColor(_argb)),
-                  ),
-                ],
-              ),
-            ),
-            if (widget.allowClear)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(
-                      context,
-                      const PickedColor(0), // sentinel clear handled by caller
-                    ),
-                    child: const Text('ByLayer / CTB default'),
+              children: [
+                _AciPane(
+                  swatches: aciSwatches,
+                  selected: _argb,
+                  onPreviewAci: _selectAci,
+                  onApply: () => Navigator.pop(
+                    context,
+                    PickedColor(_argb, aci: _aci),
                   ),
                 ),
+                _TrueColorPane(
+                  hue: _hue,
+                  sat: _sat,
+                  val: _val,
+                  argb: _argb,
+                  onHue: (v) => setState(() {
+                    _hue = v;
+                    _argb = HSVColor.fromAHSV(1, _hue, _sat, _val)
+                            .toColor()
+                            .toARGB32() |
+                        0xFF000000;
+                    _aci = argbToAci(_argb, ctb: widget.ctb);
+                  }),
+                  onSat: (v) => setState(() {
+                    _sat = v;
+                    _argb = HSVColor.fromAHSV(1, _hue, _sat, _val)
+                            .toColor()
+                            .toARGB32() |
+                        0xFF000000;
+                    _aci = argbToAci(_argb, ctb: widget.ctb);
+                  }),
+                  onVal: (v) => setState(() {
+                    _val = v;
+                    _argb = HSVColor.fromAHSV(1, _hue, _sat, _val)
+                            .toColor()
+                            .toARGB32() |
+                        0xFF000000;
+                    _aci = argbToAci(_argb, ctb: widget.ctb);
+                  }),
+                  onGridPick: (c) => _selectHex(c),
+                  onHexApply: (rgb) => _selectHex(rgb),
+                  onApply: () => Navigator.pop(
+                    context,
+                    PickedColor(_argb, aci: _aci),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (widget.allowClear)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(
+                    context,
+                    const PickedColor(0), // sentinel clear handled by caller
+                  ),
+                  child: const Text('ByLayer / CTB default'),
+                ),
               ),
-          ],
-        ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerBar() {
+    final hex = (_argb & 0x00FFFFFF)
+        .toRadixString(16)
+        .toUpperCase()
+        .padLeft(6, '0');
+    final aciTag = _aci != null ? 'ACI $_aci' : 'True color';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 12, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$aciTag  ·  #$hex',
+                  style: PlotUi.mono.copyWith(
+                    fontSize: 11,
+                    color: PlotUi.mutedFg,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Color(_argb),
+              borderRadius: BorderRadius.zero,
+              border: Border.all(color: PlotUi.border),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _AciGrid extends StatelessWidget {
-  const _AciGrid({
+class _AciPane extends StatefulWidget {
+  const _AciPane({
     required this.swatches,
     required this.selected,
-    required this.onPick,
+    required this.onPreviewAci,
+    required this.onApply,
   });
 
   final List<AciSwatch> swatches;
   final int selected;
-  final ValueChanged<AciSwatch> onPick;
+  final ValueChanged<int> onPreviewAci;
+  final VoidCallback onApply;
+
+  @override
+  State<_AciPane> createState() => _AciPaneState();
+}
+
+class _AciPaneState extends State<_AciPane> {
+  final _aciCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _aciCtrl.dispose();
+    super.dispose();
+  }
+
+  void _applyTypedAci() {
+    final raw = _aciCtrl.text.trim();
+    final n = int.tryParse(raw);
+    if (n == null || n < 1 || n > 255) return;
+    widget.onPreviewAci(n);
+    _aciCtrl.clear();
+    FocusScope.of(context).unfocus();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 10,
-        mainAxisSpacing: 4,
-        crossAxisSpacing: 4,
-      ),
-      itemCount: swatches.length,
-      itemBuilder: (context, i) {
-        final s = swatches[i];
-        final sel = (selected & 0x00FFFFFF) == (s.argb & 0x00FFFFFF);
-        return Tooltip(
-          message: 'ACI ${s.aci}',
-          child: InkWell(
-            onTap: () => onPick(s),
-            borderRadius: BorderRadius.zero,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Color(s.argb),
-                borderRadius: BorderRadius.zero,
-                border: Border.all(
-                  color: sel ? PlotUi.selection : PlotUi.border,
-                  width: sel ? 2 : 0.8,
+    return Column(
+      children: [
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 10,
+              mainAxisSpacing: 2,
+              crossAxisSpacing: 2,
+            ),
+            itemCount: widget.swatches.length,
+            itemBuilder: (context, i) {
+              final s = widget.swatches[i];
+              final sel =
+                  (widget.selected & 0x00FFFFFF) == (s.argb & 0x00FFFFFF);
+              return Tooltip(
+                message: 'ACI ${s.aci}',
+                child: InkWell(
+                  onTap: () => widget.onPreviewAci(s.aci),
+                  onDoubleTap: () {
+                    widget.onPreviewAci(s.aci);
+                    widget.onApply();
+                  },
+                  borderRadius: BorderRadius.zero,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Color(s.argb),
+                      borderRadius: BorderRadius.zero,
+                      border: Border.all(
+                        color: sel ? PlotUi.selection : PlotUi.border,
+                        width: sel ? 2 : 0.5,
+                      ),
+                    ),
+                    child: sel
+                        ? const Icon(Icons.check,
+                            size: 12, color: Colors.white)
+                        : null,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _aciCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(3),
+                  ],
+                  onSubmitted: (_) => _applyTypedAci(),
+                  decoration: const InputDecoration(
+                    labelText: 'ACI number (1–255)',
+                    isDense: true,
+                    hintText: 'e.g. 34',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
               ),
-              child: sel
-                  ? const Icon(Icons.check, size: 14, color: Colors.white)
-                  : null,
-            ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _applyTypedAci,
+                child: const Text('Set'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.tonal(
+                onPressed: widget.onApply,
+                child: const Text('Apply'),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
 
-class _TrueColorPane extends StatelessWidget {
+class _TrueColorPane extends StatefulWidget {
   const _TrueColorPane({
     required this.hue,
     required this.sat,
@@ -247,6 +378,7 @@ class _TrueColorPane extends StatelessWidget {
     required this.onSat,
     required this.onVal,
     required this.onGridPick,
+    required this.onHexApply,
     required this.onApply,
   });
 
@@ -258,12 +390,40 @@ class _TrueColorPane extends StatelessWidget {
   final ValueChanged<double> onSat;
   final ValueChanged<double> onVal;
   final ValueChanged<int> onGridPick;
+  final ValueChanged<int> onHexApply;
   final VoidCallback onApply;
+
+  @override
+  State<_TrueColorPane> createState() => _TrueColorPaneState();
+}
+
+class _TrueColorPaneState extends State<_TrueColorPane> {
+  final _hexCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _hexCtrl.dispose();
+    super.dispose();
+  }
+
+  void _applyTypedHex() {
+    var raw = _hexCtrl.text.trim();
+    if (raw.startsWith('#')) raw = raw.substring(1);
+    if (raw.length == 3) {
+      raw = raw.split('').map((c) => '$c$c').join();
+    }
+    if (raw.length != 6) return;
+    final n = int.tryParse(raw, radix: 16);
+    if (n == null) return;
+    widget.onHexApply(n);
+    _hexCtrl.clear();
+    FocusScope.of(context).unfocus();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       children: [
         SizedBox(
           height: 160,
@@ -285,7 +445,7 @@ class _TrueColorPane extends StatelessWidget {
                   .toColor()
                   .toARGB32();
               return GestureDetector(
-                onTap: () => onGridPick(c),
+                onTap: () => widget.onGridPick(c),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: Color(c),
@@ -298,13 +458,43 @@ class _TrueColorPane extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text('Hue', style: PlotUi.tiny),
-        Slider(value: hue, max: 360, onChanged: onHue),
+        Slider(value: widget.hue, max: 360, onChanged: widget.onHue),
         Text('Saturation', style: PlotUi.tiny),
-        Slider(value: sat, onChanged: onSat),
+        Slider(value: widget.sat, onChanged: widget.onSat),
         Text('Value', style: PlotUi.tiny),
-        Slider(value: val, onChanged: onVal),
-        const SizedBox(height: 4),
-        FilledButton(onPressed: onApply, child: const Text('Use true color')),
+        Slider(value: widget.val, onChanged: widget.onVal),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _hexCtrl,
+                textCapitalization: TextCapitalization.characters,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9a-fA-F#]')),
+                  LengthLimitingTextInputFormatter(7),
+                ],
+                onSubmitted: (_) => _applyTypedHex(),
+                decoration: const InputDecoration(
+                  labelText: 'Hex (#RRGGBB)',
+                  isDense: true,
+                  hintText: 'e.g. FFA800',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _applyTypedHex,
+              child: const Text('Set'),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.tonal(
+              onPressed: widget.onApply,
+              child: const Text('Apply'),
+            ),
+          ],
+        ),
       ],
     );
   }

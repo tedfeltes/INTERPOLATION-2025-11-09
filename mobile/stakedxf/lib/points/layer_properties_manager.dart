@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'aci_palette.dart';
 import 'color_picker_sheet.dart';
 import 'ctb_plot_style.dart';
 import 'dxf_linework.dart';
@@ -388,7 +389,9 @@ class _LayerPropertiesManagerState extends State<LayerPropertiesManager> {
   static const double _colOn = 40;
   static const double _colFrz = 40;
   static const double _colLock = 40;
-  static const double _colColor = 46;
+  // Wider than the other cells so the ACI number ("ACI 34") / true-color
+  // hex ("#FFA800") text fits beside the swatch, Civil 3D style.
+  static const double _colColor = 96;
   static const double _colLinetype = 82;
   static const double _colWeight = 46;
   static const double _colTrans = 46;
@@ -709,14 +712,38 @@ class _LayerPropertiesManagerState extends State<LayerPropertiesManager> {
             onTap: locked
                 ? null
                 : () => _pickColor(context, layer, ov, resolved),
-            child: Container(
-              width: 22,
-              height: 14,
-              decoration: BoxDecoration(
-                color: Color(resolved.colorArgb)
-                    .withValues(alpha: resolved.opacity.clamp(0.05, 1.0)),
-                border: Border.all(color: PlotUi.borderStrong),
-                borderRadius: BorderRadius.zero,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 22,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: Color(resolved.colorArgb).withValues(
+                        alpha: resolved.opacity.clamp(0.05, 1.0),
+                      ),
+                      border: Border.all(color: PlotUi.borderStrong),
+                      borderRadius: BorderRadius.zero,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      // Civil 3D–style read-out: "ACI 34" for palette
+                      // matches, "#FFA800" hex for true-color overrides.
+                      aciLabelFor(resolved.colorArgb, ctb: widget.ctb),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: PlotUi.mono.copyWith(
+                        fontSize: 9.5,
+                        color: on ? PlotUi.fg : PlotUi.mutedFg,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

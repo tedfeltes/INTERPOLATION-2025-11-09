@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stakedxf/points/ctb_plot_style.dart';
 import 'package:stakedxf/points/layer_properties_manager.dart';
 import 'package:stakedxf/points/linetype_catalog.dart';
-import 'package:stakedxf/points/linework_style.dart';
 
 /// Regression test for the OLDE_HIGHLANDER field bug where the
 /// "GLOBAL LTS" slider footer painted on top of the layer rows and
