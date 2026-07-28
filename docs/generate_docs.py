@@ -78,7 +78,7 @@ def new_slide(doc: fitz.Document, title: str | None = None) -> fitz.Page:
     page.draw_rect(ribbon, color=None, fill=CARD)
     page.draw_line((0, 30), (SLIDE_W, 30), color=BORDER, width=1)
     page.draw_rect(fitz.Rect(20, 11, 28, 19), color=None, fill=ORANGE)
-    page.insert_text((36, 20), "SDX  ·  v1.23", fontsize=9, fontname=F_MONO, color=DIM)
+    page.insert_text((36, 20), "SDX  ·  v1.24", fontsize=9, fontname=F_MONO, color=DIM)
     # Right-side telemetry pills
     for i, (label, ok) in enumerate([("ONLINE", True), ("LOCAL", False)]):
         x = SLIDE_W - 40 - i * 90
@@ -244,7 +244,7 @@ def _before_after_slide(page):
     page.draw_rect(right, color=None, fill=BG)
     _corner_brackets(page, right, color=OK, length=18, stroke=1.8)
     page.insert_text((right.x0 + 20, right.y0 + 28),
-                     "v1.23  —  shipped",
+                     "v1.24  —  shipped",
                      fontsize=12, fontname=F_MONO, color=OK)
     # HERO
     page.insert_text((right.x0 + 20, right.y0 + 100), "STAKE",
@@ -480,7 +480,7 @@ def ui_export(page, r: fitz.Rect, mode="loaded"):
     for label, value in (("MARKER", "LARGE X"),
                         ("LABEL", "NUM + ELEV"),
                         ("SCALE", "1\"=40'"),
-                        ("SHEET", "ANSI B  17×11 LAND.")):
+                        ("SHEET", "ANSI B  11×17 LAND.")):
         rr = fitz.Rect(r.x0 + 14, y, r.x1 - 14, y + 24)
         page.draw_rect(rr, color=BORDER, fill=CARD, width=0.8)
         page.insert_text((rr.x0 + 10, rr.y0 + 15), label,
@@ -1317,63 +1317,108 @@ def ui_symbol_library(page, r):
 
 
 def ui_plot_preview(page, r):
+    """
+    ANSI full-bleed staking plot preview:
+      * No border, no cream panel, no grid, no title block band.
+      * Corner block (bottom-right) carries name + date + scale bar + north.
+    """
     x = r.x0
     yy = r.y0 + 8
     page.insert_text((x + 14, yy + 12), "◂  PLOT PREVIEW",
                      fontsize=8, fontname=F_MONO, color=ORANGE)
     yy += 20
-    # Sheet border with template outline
+    # Full-bleed sheet: white paper, hairline outline only.
     sheet = fitz.Rect(x + 10, yy, r.x1 - 10, r.y1 - 46)
-    page.draw_rect(sheet, color=BORDER_STRONG, fill=(0.02, 0.02, 0.03), width=1)
-    # title block band
-    tb = fitz.Rect(sheet.x0, sheet.y1 - 34, sheet.x1, sheet.y1)
-    page.draw_rect(tb, color=None, fill=CARD)
-    page.draw_line((tb.x0, tb.y0), (tb.x1, tb.y0), color=BORDER, width=0.8)
-    page.insert_text((tb.x0 + 8, tb.y0 + 12), "STAKING PLOT",
-                     fontsize=7, fontname=F_BOLD, color=FG)
-    page.insert_text((tb.x0 + 8, tb.y0 + 24),
-                     "ALPINE_HILLS   1\"=40'   ANSI B",
-                     fontsize=6, fontname=F_MONO, color=DIM)
-    page.insert_text((tb.x1 - 46, tb.y0 + 24),
-                     "SDX v1.23",
-                     fontsize=6, fontname=F_MONO, color=MUTED)
-    # simple linework
-    plan = fitz.Rect(sheet.x0 + 10, sheet.y0 + 10,
-                     sheet.x1 - 10, tb.y0 - 8)
-    # some polylines
-    curbs = [
-        (plan.x0 + 30, plan.y0 + 60, plan.x0 + 130, plan.y0 + 68),
-        (plan.x0 + 130, plan.y0 + 68, plan.x0 + 200, plan.y0 + 40),
-        (plan.x0 + 200, plan.y0 + 40, plan.x1 - 20, plan.y0 + 30),
+    page.draw_rect(sheet, color=BORDER, fill=(0.97, 0.97, 0.98), width=0.6)
+
+    # Layer-colored linework (parcel lines, curbs) — thin, edge-to-edge.
+    parcels = [
+        (sheet.x0 + 6,  sheet.y0 + 12, sheet.x1 - 6,  sheet.y0 + 20),
+        (sheet.x0 + 6,  sheet.y0 + 40, sheet.x1 - 6,  sheet.y0 + 42),
+        (sheet.x0 + 6,  sheet.y0 + 66, sheet.x1 - 6,  sheet.y0 + 60),
+        (sheet.x0 + 60, sheet.y0 + 12, sheet.x0 + 62, sheet.y1 - 8),
+        (sheet.x0 + 130, sheet.y0 + 12, sheet.x0 + 134, sheet.y1 - 8),
+        (sheet.x0 + 200, sheet.y0 + 12, sheet.x0 + 204, sheet.y1 - 8),
     ]
-    for x0, y0, x1, y1 in curbs:
-        page.draw_line((x0, y0), (x1, y1), color=(1, 0.2, 0.2), width=0.8)
-    # crosses for staking points
+    for x0, y0, x1, y1 in parcels:
+        page.draw_line((x0, y0), (x1, y1), color=(0.35, 0.35, 0.40), width=0.4)
+
+    curb = [
+        (sheet.x0 + 20, sheet.y0 + 90, sheet.x0 + 120, sheet.y0 + 95),
+        (sheet.x0 + 120, sheet.y0 + 95, sheet.x0 + 190, sheet.y0 + 78),
+        (sheet.x0 + 190, sheet.y0 + 78, sheet.x1 - 30, sheet.y0 + 62),
+    ]
+    for x0, y0, x1, y1 in curb:
+        page.draw_line((x0, y0), (x1, y1), color=(0.10, 0.10, 0.10), width=0.9)
+
+    # Red stake crosses with numbered leaders — matches PDF output.
     pts = [
-        (plan.x0 + 60, plan.y0 + 66, "101"),
-        (plan.x0 + 110, plan.y0 + 68, "102"),
-        (plan.x0 + 170, plan.y0 + 52, "103"),
-        (plan.x0 + 220, plan.y0 + 40, "104"),
-        (plan.x1 - 40, plan.y0 + 30, "105"),
+        (sheet.x0 + 55, sheet.y0 + 92, "101"),
+        (sheet.x0 + 100, sheet.y0 + 94, "102"),
+        (sheet.x0 + 155, sheet.y0 + 86, "103"),
+        (sheet.x0 + 205, sheet.y0 + 76, "104"),
+        (sheet.x1 - 40, sheet.y0 + 66, "105"),
     ]
+    red = (0.82, 0.13, 0.15)
     for px, py, lbl in pts:
-        page.draw_line((px - 4, py - 4), (px + 4, py + 4),
-                       color=ORANGE, width=1.2)
-        page.draw_line((px - 4, py + 4), (px + 4, py - 4),
-                       color=ORANGE, width=1.2)
-        page.insert_text((px + 6, py + 2), lbl,
-                         fontsize=5, fontname=F_MONO, color=DIM)
-    # scale bar
-    sb = fitz.Rect(plan.x0 + 10, plan.y1 - 12, plan.x0 + 90, plan.y1 - 4)
-    page.draw_line((sb.x0, sb.y0 + 4), (sb.x1, sb.y0 + 4),
-                   color=DIM, width=0.8)
-    for i in range(5):
-        px = sb.x0 + (sb.width / 4) * i
-        page.draw_line((px, sb.y0 + 2), (px, sb.y0 + 6),
-                       color=DIM, width=0.8)
-    page.insert_text((sb.x0, sb.y1 + 6), "0    40    80 ft",
-                     fontsize=5, fontname=F_MONO, color=MUTED)
-    # bottom action bar
+        page.draw_line((px - 3.5, py - 3.5), (px + 3.5, py + 3.5),
+                       color=red, width=0.9)
+        page.draw_line((px - 3.5, py + 3.5), (px + 3.5, py - 3.5),
+                       color=red, width=0.9)
+        page.insert_text((px + 5, py - 3), lbl,
+                         fontsize=5, fontname=F_MONO, color=red)
+
+    # Corner block (bottom-right) — name + date + scale bar + N.
+    cb_w, cb_h = 130, 62
+    cb = fitz.Rect(sheet.x1 - cb_w - 6, sheet.y1 - cb_h - 6,
+                   sheet.x1 - 6, sheet.y1 - 6)
+    page.draw_rect(cb, color=(0.05, 0.05, 0.05),
+                   fill=(1, 1, 1), width=0.5)
+    page.insert_text((cb.x0 + 8, cb.y0 + 14), "ALPINE HILLS",
+                     fontsize=9, fontname=F_BOLD, color=(0.06, 0.07, 0.09))
+    page.insert_text((cb.x0 + 8, cb.y0 + 24), "JUL 15, 2026",
+                     fontsize=6.5, fontname=F_MONO, color=(0.20, 0.22, 0.25))
+
+    # North arrow (small filled triangle + tail + "N")
+    nx = cb.x0 + 20
+    ny = cb.y0 + 36
+    page.draw_polyline([(nx, ny),
+                        (nx - 4, ny + 8),
+                        (nx, ny + 6),
+                        (nx + 4, ny + 8)],
+                       color=(0.05, 0.05, 0.05),
+                       fill=(0.05, 0.05, 0.05),
+                       width=0.5, closePath=True)
+    page.draw_line((nx, ny + 6), (nx, ny + 18),
+                   color=(0.05, 0.05, 0.05), width=0.7)
+    page.insert_text((nx - 2, ny + 26), "N",
+                     fontsize=6, fontname=F_BOLD, color=(0.05, 0.05, 0.05))
+
+    # Graphic scale bar
+    sb_left = cb.x0 + 36
+    sb_right = cb.x1 - 8
+    sb_y = cb.y0 + 40
+    page.draw_line((sb_left, sb_y), (sb_right, sb_y),
+                   color=(0.05, 0.05, 0.05), width=0.7)
+    page.draw_line((sb_left, sb_y - 3), (sb_left, sb_y + 3),
+                   color=(0.05, 0.05, 0.05), width=0.7)
+    page.draw_line(((sb_left + sb_right) / 2, sb_y - 2),
+                   ((sb_left + sb_right) / 2, sb_y + 2),
+                   color=(0.05, 0.05, 0.05), width=0.7)
+    page.draw_line((sb_right, sb_y - 3), (sb_right, sb_y + 3),
+                   color=(0.05, 0.05, 0.05), width=0.7)
+    page.insert_text((sb_left - 2, sb_y + 9), "0",
+                     fontsize=4.5, fontname=F_MONO, color=(0.05, 0.05, 0.05))
+    page.insert_text(((sb_left + sb_right) / 2 - 3, sb_y + 9), "40",
+                     fontsize=4.5, fontname=F_MONO, color=(0.05, 0.05, 0.05))
+    page.insert_text((sb_right - 5, sb_y + 9), "80",
+                     fontsize=4.5, fontname=F_MONO, color=(0.05, 0.05, 0.05))
+    page.insert_text((cb.x0 + 36, cb.y0 + 55),
+                     "SCALE: 1\" = 40'  (11\"×17\")",
+                     fontsize=5.5, fontname=F_MONO_BOLD,
+                     color=(0.05, 0.05, 0.05))
+
+    # Bottom action bar (save)
     ba = fitz.Rect(x + 10, r.y1 - 38, r.x1 - 10, r.y1 - 14)
     page.draw_rect(ba, color=None, fill=ORANGE)
     page.insert_text((ba.x0 + 10, ba.y0 + 16), "SAVE PLOT PDF",
@@ -1381,6 +1426,10 @@ def ui_plot_preview(page, r):
 
 
 def ui_templates(page, r):
+    """
+    Sheet template picker — every entry is ANSI full-bleed. The picker only
+    selects size (A/B/C/D) × orientation (portrait/landscape).
+    """
     x = r.x0
     yy = r.y0
     hd = fitz.Rect(x, yy, r.x1, yy + 24)
@@ -1389,36 +1438,53 @@ def ui_templates(page, r):
                    color=None, fill=ORANGE)
     page.insert_text((x + 16, yy + 15), "SHEET TEMPLATE",
                      fontsize=7, fontname=F_MONO_BOLD, color=FG)
-    yy = hd.y1 + 6
+    yy = hd.y1 + 4
+    # Layout header banner — reminds the user there's only one layout.
+    lb = fitz.Rect(x + 8, yy, r.x1 - 8, yy + 18)
+    page.draw_rect(lb, color=BORDER, fill=ELEVATED, width=0.6)
+    page.insert_text((lb.x0 + 8, lb.y0 + 12),
+                     "LAYOUT · ANSI FULL BLEED",
+                     fontsize=6.5, fontname=F_MONO_BOLD, color=DIM)
+    page.insert_text((lb.x1 - 82, lb.y0 + 12),
+                     "NO BORDER · NO PANEL",
+                     fontsize=6, fontname=F_MONO, color=MUTED)
+    yy = lb.y1 + 6
+
     templates = [
-        ("ANSI A", "8.5 × 11",  "P", False),
-        ("ANSI A", "11 × 8.5",  "L", True),
-        ("ANSI B", "11 × 17",   "L", False),
-        ("ANSI B", "17 × 11",   "L", False),
-        ("ANSI C", "22 × 17",   "L", False),
-        ("ANSI D", "34 × 22",   "L", False),
-        ("FIELD MAP", "8×5.25", "L", False),
-        ("FIELD MAP", "4×3",    "L", False),
+        # (name, size, orient-letter, portrait-icon?, active?)
+        ("ANSI A", "8.5 × 11",  "P", True,  False),
+        ("ANSI A", "11 × 8.5",  "L", False, False),
+        ("ANSI B", "11 × 17",   "P", True,  False),
+        ("ANSI B", "17 × 11",   "L", False, True),
+        ("ANSI C", "22 × 17",   "L", False, False),
+        ("ANSI C", "17 × 22",   "P", True,  False),
+        ("ANSI D", "34 × 22",   "L", False, False),
+        ("ANSI D", "22 × 34",   "P", True,  False),
     ]
     grid_w = (r.x1 - r.x0 - 16) / 2
-    for i, (name, size, orient, active) in enumerate(templates):
+    for i, (name, size, orient, portrait, active) in enumerate(templates):
         col = i % 2
         row = i // 2
         cx0 = x + 8 + col * grid_w
-        cy0 = yy + row * 58
-        card = fitz.Rect(cx0 + 2, cy0, cx0 + grid_w - 2, cy0 + 52)
+        cy0 = yy + row * 48
+        card = fitz.Rect(cx0 + 2, cy0, cx0 + grid_w - 2, cy0 + 44)
         page.draw_rect(card, color=ORANGE if active else BORDER,
-                       fill=ORANGE_DIM if active else CARD, width=1 if active else 0.6)
+                       fill=ORANGE_DIM if active else CARD,
+                       width=1 if active else 0.6)
         # mini sheet icon (portrait/landscape ratio)
-        if orient == "L":
-            sh = fitz.Rect(card.x0 + 8, card.y0 + 8, card.x0 + 40, card.y0 + 30)
+        if portrait:
+            sh = fitz.Rect(card.x0 + 10, card.y0 + 6, card.x0 + 30, card.y0 + 36)
         else:
-            sh = fitz.Rect(card.x0 + 12, card.y0 + 8, card.x0 + 36, card.y0 + 40)
-        page.draw_rect(sh, color=DIM, width=0.8)
-        page.insert_text((card.x0 + 50, card.y0 + 20), name,
-                         fontsize=7.5, fontname=F_MONO_BOLD,
+            sh = fitz.Rect(card.x0 + 6, card.y0 + 10, card.x0 + 36, card.y0 + 30)
+        page.draw_rect(sh, color=DIM, width=0.7)
+        # Corner block dot to hint at the legend position.
+        page.draw_rect(
+            fitz.Rect(sh.x1 - 5, sh.y1 - 4, sh.x1 - 1, sh.y1 - 1),
+            color=None, fill=(1.0, 0.35, 0.12))
+        page.insert_text((card.x0 + 48, card.y0 + 20), name,
+                         fontsize=8, fontname=F_MONO_BOLD,
                          color=ORANGE if active else FG)
-        page.insert_text((card.x0 + 50, card.y0 + 34), f"{size}  {orient}",
+        page.insert_text((card.x0 + 48, card.y0 + 34), f"{size} in  ·  {orient}",
                          fontsize=6, fontname=F_MONO, color=MUTED)
 
 
@@ -1447,7 +1513,7 @@ def build_slide_deck() -> Path:
     page.insert_text((40, 260), "STAKE", fontsize=110, fontname=F_BOLD, color=FG)
     page.insert_text((40 + stake_w + 6, 260), "DXF",
                      fontsize=110, fontname=F_BOLD, color=ORANGE)
-    page.insert_text((40, 300), "UI & CAPABILITIES  ·  v1.23", fontsize=14,
+    page.insert_text((40, 300), "UI & CAPABILITIES  ·  v1.24", fontsize=14,
                      fontname=F_MONO, color=MUTED)
     page.draw_line((40, 320), (SLIDE_W - 40, 320), color=BORDER, width=1)
     page.insert_textbox(
@@ -1712,24 +1778,26 @@ def build_slide_deck() -> Path:
                  size=13, gap=26, width=640)
 
     # 7m Plot preview
-    page = add(new_slide(doc, "PLOT PREVIEW"))
+    page = add(new_slide(doc, "PLOT PREVIEW · ANSI FULL BLEED"))
     draw_phone(page, 60, 100, ui_plot_preview, content_height=500)
     bullet_block(page, 430, 150,
-                 ["Live sheet preview — points, labels, linework, title block",
-                  "Pinch-to-zoom on the phone; tap segments for edits",
-                  "Scale bar renders inside the plan window",
+                 ["Full-bleed sheet — linework runs edge-to-edge",
+                  "No border, no cream panel, no title block band",
+                  "Corner block: plot name, date, scale bar, north arrow",
+                  "Red X stake markers with numbered leader labels",
                   "SAVE PLOT PDF writes the final Trimble-ready sheet"],
-                 size=13, gap=26, width=640)
+                 size=13, gap=24, width=640)
 
     # 7n Sheet template picker
     page = add(new_slide(doc, "SHEET TEMPLATE PICKER"))
     draw_phone(page, 60, 100, ui_templates, content_height=500)
     bullet_block(page, 430, 150,
-                 ["ANSI A / B / C / D + portrait or landscape",
-                  "Compact FIELD MAP presets for handheld staking",
+                 ["Single layout — ANSI FULL BLEED",
+                  "Pick ANSI A / B / C / D",
+                  "Portrait or landscape",
                   "Active template highlighted in safety-orange",
-                  "Sheet drives scale bar, title block, and usable area"],
-                 size=13, gap=26, width=640)
+                  "Corner block position tracks the sheet's active corner"],
+                 size=13, gap=24, width=640)
 
     # 8 Plot options matrix
     page = add(new_slide(doc, "PLOT CUSTOMIZATION"))
@@ -1747,9 +1815,10 @@ def build_slide_deck() -> Path:
                   "Number + description + elevation",
                   "No labels"],
                  size=13, gap=24, width=520)
-    _section_rule(page, 40, 310, SLIDE_W - 40, "LAYOUT & LINEWORK")
+    _section_rule(page, 40, 310, SLIDE_W - 40, "SHEET & LINEWORK")
     bullet_block(page, 40, 330,
-                 ["Point list table optional (off by default for staking)",
+                 ["Corner block: plot name + date only (auto scale + N)",
+                  "No hatch fills on solid objects — clean outlines",
                   "Linked DXF: LINE / LWPOLYLINE / ARC / CIRCLE by layer",
                   "Auto engineering scale or hard-set 1\"=N'",
                   "Layer LOCK column prevents accidental drag-selection",
@@ -1859,7 +1928,7 @@ def build_tutorial_pdf() -> Path:
     page.insert_text((48 + _stake_w42 + 4, 250), "DXF",
                      fontsize=42, fontname=F_BOLD, color=ORANGE)
     page.draw_line((48, 270), (W - 48, 270), color=BORDER, width=1)
-    page.insert_text((48, 300), "USER GUIDE  ·  v1.23",
+    page.insert_text((48, 300), "USER GUIDE  ·  v1.24",
                      fontsize=16, fontname=F_MONO, color=DIM)
     page.insert_textbox(
         fitz.Rect(48, 340, 520, 460),
@@ -1942,10 +2011,11 @@ def build_tutorial_pdf() -> Path:
         "Labels\n"
         "Point number · Number + description · Number + elevation ·\n"
         "Number + description + elevation · No labels\n\n"
-        "Layout\n"
-        "• Point list table off by default — more plan area for staking.\n"
-        "• Turn the table on for a control-note style coordinate list.\n"
-        "• Sheet: ANSI A–D, portrait/landscape, auto or fixed engineering scale.\n\n"
+        "Sheet\n"
+        "• Layout is always ANSI FULL BLEED — no border, no title-block band.\n"
+        "• Corner block carries: plot name, date, scale bar, north arrow.\n"
+        "• Sheet size: ANSI A–D, portrait or landscape; auto or fixed 1\"=N'.\n"
+        "• Solid civil symbols draw as clean outlines — no hatch fills.\n\n"
         "Colors\n"
         "• Full ACI 1–255, CTB-resolved swatches, and true-color HSV picker.\n\n"
         "Examples\n"
@@ -2099,10 +2169,10 @@ Selected layer shows an orange left bar; overridden layers show a yellow bar.
 | --- | --- |
 | Markers | Filled triangle, triangle outline, cross (+), X, large X, circle, dot, large dot |
 | Labels | Number · number+description · number+elevation · number+description+elevation · none |
-| Point list table | Off by default; optional on |
+| Corner block | Plot name + date (scale bar + north arrow drawn automatically) |
 | Linework | Optional linked DXF layers |
 | Scale | Auto engineering scale, or fixed `1"=N'` |
-| Sheet | ANSI A–D, portrait or landscape |
+| Sheet | ANSI A–D, portrait or landscape · always ANSI full bleed |
 | Colors | Full ACI, CTB, HSV true-color |
 
 Examples: `dist/plot_examples/`  
@@ -2160,7 +2230,7 @@ python3 docs/generate_docs.py
 ```
 
 ## Slides
-1. Title — STAKE·DXF · UI & Capabilities · v1.23
+1. Title — STAKE·DXF · UI & Capabilities · v1.24
 2. Agenda
 3. Before / after
 4. Design system (tokens + principles)

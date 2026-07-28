@@ -9,7 +9,7 @@ python3 docs/generate_docs.py
 ```
 
 ## Slides
-1. Title — STAKE·DXF · UI & Capabilities · v1.23
+1. Title — STAKE·DXF · UI & Capabilities · v1.24
 2. Agenda
 3. Before / after
 4. Design system (tokens + principles)

@@ -99,10 +99,10 @@ Selected layer shows an orange left bar; overridden layers show a yellow bar.
 | --- | --- |
 | Markers | Filled triangle, triangle outline, cross (+), X, large X, circle, dot, large dot |
 | Labels | Number · number+description · number+elevation · number+description+elevation · none |
-| Point list table | Off by default; optional on |
+| Corner block | Plot name + date (scale bar + north arrow drawn automatically) |
 | Linework | Optional linked DXF layers |
 | Scale | Auto engineering scale, or fixed `1"=N'` |
-| Sheet | ANSI A–D, portrait or landscape |
+| Sheet | ANSI A–D, portrait or landscape · always ANSI full bleed |
 | Colors | Full ACI, CTB, HSV true-color |
 
 Examples: `dist/plot_examples/`  

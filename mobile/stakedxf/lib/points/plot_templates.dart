@@ -96,8 +96,10 @@ class PlotTemplate {
         marginAll: 0,
       );
 
+  /// Field-standard "short × long" callout (e.g. `11"×17"`) — orientation
+  /// independent, matching the convention on the TRIO staking plots.
   String get sizeCallout =>
-      '${_fmt(widthIn)}"×${_fmt(heightIn)}"';
+      '${_fmt(size.shortIn)}"×${_fmt(size.longIn)}"';
 
   String get subtitle =>
       '${size.label} $sizeCallout ${orientation.label}';
