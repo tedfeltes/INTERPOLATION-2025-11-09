@@ -64,34 +64,55 @@ class PlotTextObject {
   }
 }
 
-/// Corner-block fields drawn on the ANSI full-bleed sheet.
+/// Optional draggable plot title drawn on the ANSI full-bleed sheet.
 ///
-/// StakeDXF ships a single, compact staking-plot layout: a full-sheet
-/// plan plus a corner block that carries the plot **name** and **date**
-/// (the scale line and north arrow are drawn automatically). No side
-/// panels, no title blocks, no point-list tables.
+/// This is the **only** thing StakeDXF now draws on top of the plan — no
+/// bounding box, no scale text, no north arrow, no sheet-size callout.
+/// The title is off by default; when the user enables it they get a
+/// draggable, resizable text label anchored in **paper space** (its
+/// position tracks the sheet, not the survey coordinates).
 class TitleBlockData {
   const TitleBlockData({
+    this.enabled = false,
     this.name = '',
-    this.date = '',
+    this.paperFracX = 0.5,
+    this.paperFracY = 0.06,
+    this.fontSizePt = 22,
   });
 
-  /// The plot's display name — appears in the corner block as the top line.
-  ///
-  /// Empty by default; the export screen prompts the user to enter a name
-  /// before creating the PDF.
+  /// When false the title is not drawn (and does not affect layout).
+  final bool enabled;
+
+  /// The title text (blank ⇒ nothing drawn).
   final String name;
 
-  /// Optional date string. Empty → today's date at PDF-build time.
-  final String date;
+  /// Paper-space X anchor as a fraction of sheet width (0 = left,
+  /// 0.5 = center, 1 = right). Anchor point of the text baseline is
+  /// horizontally centred on this value.
+  final double paperFracX;
+
+  /// Paper-space Y anchor as a fraction of sheet height, measured from the
+  /// top of the sheet (0 = top edge, 1 = bottom edge). The text sits just
+  /// below this point.
+  final double paperFracY;
+
+  /// Font size in PDF points (paper space). Scales the on-screen preview
+  /// proportionally so what you see is what prints.
+  final double fontSizePt;
 
   TitleBlockData copyWith({
+    bool? enabled,
     String? name,
-    String? date,
+    double? paperFracX,
+    double? paperFracY,
+    double? fontSizePt,
   }) {
     return TitleBlockData(
+      enabled: enabled ?? this.enabled,
       name: name ?? this.name,
-      date: date ?? this.date,
+      paperFracX: paperFracX ?? this.paperFracX,
+      paperFracY: paperFracY ?? this.paperFracY,
+      fontSizePt: fontSizePt ?? this.fontSizePt,
     );
   }
 }

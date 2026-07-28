@@ -14,6 +14,9 @@ Future<String?> showTextStylePickerSheet({
     showDragHandle: true,
     backgroundColor: const Color(0xFF141814),
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.of(context).size.height * 0.62,
+    ),
     builder: (ctx) {
       return _TextStylePickerBody(
         catalog: catalog,

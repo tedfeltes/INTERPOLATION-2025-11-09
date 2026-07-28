@@ -939,6 +939,9 @@ class _LayerPropertiesManagerState extends State<LayerPropertiesManager> {
       showDragHandle: true,
       isScrollControlled: true,
       backgroundColor: PlotUi.card,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.6,
+      ),
       builder: (ctx) {
         return SafeArea(
           child: SizedBox(
@@ -1012,6 +1015,9 @@ class _LayerPropertiesManagerState extends State<LayerPropertiesManager> {
       context: context,
       showDragHandle: true,
       backgroundColor: PlotUi.card,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.6,
+      ),
       builder: (ctx) {
         return SafeArea(
           child: Column(
@@ -1082,6 +1088,9 @@ class _LayerPropertiesManagerState extends State<LayerPropertiesManager> {
       context: context,
       showDragHandle: true,
       backgroundColor: PlotUi.card,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.45,
+      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setLocal) {
@@ -1160,6 +1169,9 @@ class _LayerPropertiesManagerState extends State<LayerPropertiesManager> {
       context: context,
       showDragHandle: true,
       backgroundColor: PlotUi.card,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.5,
+      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setLocal) {

@@ -23,6 +23,10 @@ Future<PlacedPlotSymbol?> showSymbolLibrarySheet({
     useSafeArea: true,
     backgroundColor: const Color(0xFF141814),
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+    // Keep the plot preview visible while browsing the library.
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.of(context).size.height * 0.62,
+    ),
     builder: (ctx) => _SymbolLibrarySheet(
       anchorPoints: anchorPoints,
       existing: existing,

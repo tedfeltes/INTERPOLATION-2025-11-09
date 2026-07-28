@@ -25,6 +25,10 @@ Future<PickedColor?> showPlotColorPicker({
     showDragHandle: true,
     backgroundColor: PlotUi.card,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+    // Cap sheet height so the plot preview stays visible above it.
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.of(context).size.height * 0.62,
+    ),
     builder: (ctx) => _ColorPickerBody(
       currentArgb: currentArgb,
       ctb: ctb,
@@ -78,7 +82,9 @@ class _ColorPickerBodyState extends State<_ColorPickerBody>
 
   @override
   Widget build(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height * 0.72;
+    // Fill the whole allowed sheet area — the outer constraints cap total
+    // height at ~62% so the preview above the sheet stays visible.
+    final height = MediaQuery.sizeOf(context).height * 0.6;
     final ctb = widget.ctb;
     final aciSwatches = buildAciSwatches(ctb);
     return SafeArea(

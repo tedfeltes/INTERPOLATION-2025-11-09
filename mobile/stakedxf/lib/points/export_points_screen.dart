@@ -766,6 +766,14 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       onMoveSymbol: _moveSymbol,
                       onMoveLabel: _moveLabel,
                       onMoveText: _moveText,
+                      onMoveTitle: (fx, fy) => setState(
+                        () => _options = _options.copyWith(
+                          titleBlock: _options.titleBlock.copyWith(
+                            paperFracX: fx,
+                            paperFracY: fy,
+                          ),
+                        ),
+                      ),
                       lineEditMode: _lineEditMode,
                     ),
                     const SizedBox(height: 6),
@@ -1553,19 +1561,42 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                       ),
                       children: [
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.only(bottom: 6),
                           child: Text(
-                            'Corner block',
+                            'Plot title',
                             style: Theme.of(context)
                                 .textTheme
                                 .labelLarge
                                 ?.copyWith(letterSpacing: 0.6),
                           ),
                         ),
+                        // Optional draggable title. When disabled, nothing is
+                        // drawn on the sheet — the plan is a pure full-bleed
+                        // graphic. When enabled the user can drag it around
+                        // the preview and scale it with the slider.
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          value: _options.titleBlock.enabled,
+                          title: const Text(
+                            'Show plot title on sheet',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                          onChanged: (v) => setState(
+                            () => _options = _options.copyWith(
+                              titleBlock:
+                                  _options.titleBlock.copyWith(enabled: v),
+                            ),
+                          ),
+                        ),
                         TextFormField(
+                          key: ValueKey(
+                            'title-${_options.titleBlock.enabled}',
+                          ),
                           initialValue: _options.titleBlock.name,
+                          enabled: _options.titleBlock.enabled,
                           decoration: const InputDecoration(
-                            labelText: 'Plot name',
+                            labelText: 'Title text',
                             hintText: 'e.g. CARDINAL RIDGE',
                             isDense: true,
                             border: OutlineInputBorder(),
@@ -1577,48 +1608,75 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          onTap: _busy
-                              ? null
-                              : () async {
-                                  final now = DateTime.now();
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: now,
-                                    firstDate: DateTime(now.year - 5),
-                                    lastDate: DateTime(now.year + 5),
-                                  );
-                                  if (picked == null || !mounted) return;
-                                  const months = [
-                                    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-                                    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
-                                  ];
-                                  final formatted =
-                                      '${months[picked.month - 1]} ${picked.day}, ${picked.year}';
-                                  setState(
-                                    () => _options = _options.copyWith(
-                                      titleBlock: _options.titleBlock
-                                          .copyWith(date: formatted),
-                                    ),
-                                  );
-                                },
-                          child: InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Date',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                              suffixIcon: Icon(Icons.calendar_today, size: 18),
-                            ),
-                            child: Text(
-                              _options.titleBlock.date.trim().isEmpty
-                                  ? 'Today'
-                                  : _options.titleBlock.date,
-                              style: const TextStyle(fontSize: 13),
-                            ),
+                        const SizedBox(height: 4),
+                        Opacity(
+                          opacity: _options.titleBlock.enabled ? 1.0 : 0.55,
+                          child: Row(
+                            children: [
+                              const Text(
+                                'Size',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                              Expanded(
+                                child: Slider(
+                                  value: _options.titleBlock.fontSizePt
+                                      .clamp(10.0, 60.0),
+                                  min: 10,
+                                  max: 60,
+                                  divisions: 50,
+                                  onChanged: _options.titleBlock.enabled
+                                      ? (v) => setState(
+                                            () => _options = _options.copyWith(
+                                              titleBlock: _options.titleBlock
+                                                  .copyWith(fontSizePt: v),
+                                            ),
+                                          )
+                                      : null,
+                                ),
+                              ),
+                              Text(
+                                '${_options.titleBlock.fontSizePt.round()}pt',
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.pan_tool_alt_outlined, size: 14),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Drag the title on the preview to reposition.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.6),
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => setState(
+                                        () => _options = _options.copyWith(
+                                          titleBlock: _options.titleBlock
+                                              .copyWith(
+                                            paperFracX: 0.5,
+                                            paperFracY: 0.06,
+                                          ),
+                                        ),
+                                      ),
+                              child: const Text(
+                                'Reset',
+                                style: TextStyle(fontSize: 11),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
                         OutlinedButton.icon(
                           onPressed: _busy || previewPoints.isEmpty
                               ? null
@@ -1872,13 +1930,16 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: PlotUi.card,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.6,
+      ),
       builder: (ctx) {
         final customCtrl = TextEditingController(
           text: (current ?? auto).round().toString(),
         );
         return SafeArea(
           child: SizedBox(
-            height: MediaQuery.sizeOf(ctx).height * 0.62,
+            height: MediaQuery.sizeOf(ctx).height * 0.55,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

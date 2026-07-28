@@ -60,7 +60,7 @@ void main() {
           markerStyle: PointMarkerStyle.x,
           labelFormat: PointLabelFormat.numberDescription,
           titleBlock:
-              const TitleBlockData(name: 'DEMO', date: 'JUL 15, 2026'),
+              const TitleBlockData(enabled: true, name: 'DEMO'),
         ),
       );
       expect(bytes.length, greaterThan(800), reason: t.id);

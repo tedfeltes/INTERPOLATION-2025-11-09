@@ -43,8 +43,8 @@ Future<void> main() async {
         markerStyle: PointMarkerStyle.x,
         labelFormat: PointLabelFormat.numberDescriptionElevation,
         titleBlock: const TitleBlockData(
+          enabled: true,
           name: 'TEMPLATE CATALOG',
-          date: 'JUL 15, 2026',
         ),
         includeLinework: true,
       ),

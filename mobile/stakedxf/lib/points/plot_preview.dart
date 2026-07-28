@@ -57,6 +57,7 @@ class PlotPreview extends StatefulWidget {
     this.onMoveSymbol,
     this.onMoveLabel,
     this.onMoveText,
+    this.onMoveTitle,
     this.height,
   });
 
@@ -88,6 +89,10 @@ class PlotPreview extends StatefulWidget {
   final void Function(String pointId, double offsetE, double offsetN)?
       onMoveLabel;
   final void Function(String id, double easting, double northing)? onMoveText;
+
+  /// Called when the user drags the optional plot-title in paper space.
+  /// Fractions are 0..1 relative to the sheet width/height.
+  final void Function(double paperFracX, double paperFracY)? onMoveTitle;
   /// When null, height follows the selected sheet aspect ratio.
   final double? height;
 
@@ -95,7 +100,7 @@ class PlotPreview extends StatefulWidget {
   State<PlotPreview> createState() => _PlotPreviewState();
 }
 
-enum _DragKind { none, symbol, label, text }
+enum _DragKind { none, symbol, label, text, title }
 
 class _PlotPreviewState extends State<PlotPreview> {
   _DragKind _dragKind = _DragKind.none;
@@ -108,6 +113,8 @@ class _PlotPreviewState extends State<PlotPreview> {
   double? _liveSymN;
   double? _liveTextE;
   double? _liveTextN;
+  double? _liveTitleFracX;
+  double? _liveTitleFracY;
 
   Map<String, LabelDragState>? _cachedDrags;
   Object? _dragCacheKey;
@@ -209,8 +216,11 @@ class _PlotPreviewState extends State<PlotPreview> {
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    '${tpl.sizeCallout} · 1"=${scale.round()}\' · '
-                    '${widget.lineEditMode ? 'Line edit ON — tap segment/node' : 'Drag labels (points fixed)'}',
+                    // Scale is included so users still know how big things
+                    // will plot at, but the sheet-size + north-arrow callout
+                    // no longer clutters the sheet itself.
+                    '1" = ${scale.round()}\' · '
+                    '${widget.lineEditMode ? 'Line edit ON — tap segment/node' : 'Drag labels, symbols & title'}',
                     style: TextStyle(
                       fontSize: 11,
                       color: cs.onSurface.withValues(alpha: 0.55),
@@ -276,6 +286,10 @@ class _PlotPreviewState extends State<PlotPreview> {
                               sheetLabel:
                                   '${tpl.size.pickerLabel} · ${tpl.orientation.label}',
                               lineEditMode: widget.lineEditMode,
+                              liveTitleFracX: _liveTitleFracX,
+                              liveTitleFracY: _liveTitleFracY,
+                              titleDragging:
+                                  _dragKind == _DragKind.title,
                             ),
                           ),
                         ),
@@ -340,6 +354,10 @@ class _PlotPreviewState extends State<PlotPreview> {
         _liveTextE != null &&
         _liveTextN != null) {
       widget.onMoveText?.call(id, _liveTextE!, _liveTextN!);
+    } else if (kind == _DragKind.title &&
+        _liveTitleFracX != null &&
+        _liveTitleFracY != null) {
+      widget.onMoveTitle?.call(_liveTitleFracX!, _liveTitleFracY!);
     }
     setState(() {
       _dragKind = _DragKind.none;
@@ -349,6 +367,8 @@ class _PlotPreviewState extends State<PlotPreview> {
       _liveSymN = null;
       _liveTextE = null;
       _liveTextN = null;
+      _liveTitleFracX = null;
+      _liveTitleFracY = null;
     });
   }
 
@@ -460,6 +480,21 @@ class _PlotPreviewState extends State<PlotPreview> {
     if (widget.lineEditMode) return;
     final map = _map;
     if (map == null) return;
+    // Title is drawn on top of everything, so let the user grab it first.
+    if (_hitTitle(local)) {
+      final tb = widget.options.titleBlock;
+      setState(() {
+        _dragKind = _DragKind.title;
+        _draggingId = 'plot-title';
+        _liveTitleFracX = tb.paperFracX;
+        _liveTitleFracY = tb.paperFracY;
+      });
+      widget.onSelectSymbol?.call(null);
+      widget.onSelectLabelPoint?.call(null);
+      widget.onSelectText?.call(null);
+      widget.onSelectLinework?.call(null);
+      return;
+    }
     final labelHit = _hitLabel(local, map, drags);
     if (labelHit != null) {
       setState(() {
@@ -509,6 +544,22 @@ class _PlotPreviewState extends State<PlotPreview> {
       local.dx.clamp(map.planRect.left, map.planRect.right),
       local.dy.clamp(map.planRect.top, map.planRect.bottom),
     );
+    if (_dragKind == _DragKind.title) {
+      // Title is anchored in paper space, so it is clamped to the sheet
+      // rectangle rather than the plan viewport.
+      final sheet = map.sheetRect;
+      final clampedSheet = Offset(
+        local.dx.clamp(sheet.left + 4, sheet.right - 4),
+        local.dy.clamp(sheet.top + 4, sheet.bottom - 4),
+      );
+      setState(() {
+        _liveTitleFracX =
+            ((clampedSheet.dx - sheet.left) / sheet.width).clamp(0.0, 1.0);
+        _liveTitleFracY =
+            ((clampedSheet.dy - sheet.top) / sheet.height).clamp(0.0, 1.0);
+      });
+      return;
+    }
     if (_dragKind == _DragKind.symbol) {
       final en = map.toSurvey(clamped);
       setState(() {
@@ -545,6 +596,29 @@ class _PlotPreviewState extends State<PlotPreview> {
         );
       });
     }
+  }
+
+  bool _hitTitle(Offset local) {
+    final map = _map;
+    if (map == null) return false;
+    final tb = widget.options.titleBlock;
+    final name = tb.name.trim();
+    if (!tb.enabled || name.isEmpty) return false;
+    final fx = tb.paperFracX.clamp(0.0, 1.0);
+    final fy = tb.paperFracY.clamp(0.0, 1.0);
+    // Match what the painter uses so hit rect follows the drawn glyphs.
+    final k = math.max(0.4, map.sheetRect.width / 792.0);
+    final fs = math.max(8.0, tb.fontSizePt.clamp(6.0, 96.0) * k);
+    final approxW = math.max(30.0, name.length * fs * 0.55);
+    final approxH = fs * 1.2;
+    final cx = map.sheetRect.left + fx * map.sheetRect.width;
+    final cy = map.sheetRect.top + fy * map.sheetRect.height;
+    final rect = Rect.fromCenter(
+      center: Offset(cx, cy),
+      width: approxW,
+      height: approxH,
+    ).inflate(8);
+    return rect.contains(local);
   }
 
   String? _hitLabel(
@@ -718,13 +792,6 @@ class _PlanMap {
   }
 }
 
-class _CornerLine {
-  const _CornerLine(this.text, {this.fontSize = 9, this.weight = FontWeight.w500});
-  final String text;
-  final double fontSize;
-  final FontWeight weight;
-}
-
 void _drawSymbolPlaceholder(
   Canvas canvas,
   Offset center,
@@ -774,6 +841,9 @@ class _PlotPreviewPainter extends CustomPainter {
     required this.textObjects,
     required this.sheetLabel,
     required this.lineEditMode,
+    required this.liveTitleFracX,
+    required this.liveTitleFracY,
+    required this.titleDragging,
   });
 
   final _PlanMap map;
@@ -799,20 +869,23 @@ class _PlotPreviewPainter extends CustomPainter {
   final List<PlotTextObject> textObjects;
   final String sheetLabel;
   final bool lineEditMode;
+  final double? liveTitleFracX;
+  final double? liveTitleFracY;
+  final bool titleDragging;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Full-bleed preview: no cream panel, no bordered viewport, no grid.
-    // The paper edge is a hair-thin outline only so the user still knows
-    // what will be cropped.
+    // Full-bleed preview: no cream panel, no bordered viewport, no grid,
+    // no bounding box — the paper edge is a hair-thin outline only so the
+    // user still knows what will be cropped.
     _paintSheetOutline(canvas);
     canvas.save();
     canvas.clipRect(map.sheetRect);
     _paintLinework(canvas);
     _paintSymbols(canvas);
     _paintPointsAndLabels(canvas);
+    _paintPlotTitle(canvas);
     canvas.restore();
-    _paintCornerBlock(canvas);
   }
 
   void _paintSheetOutline(Canvas canvas) {
@@ -1092,221 +1165,75 @@ class _PlotPreviewPainter extends CustomPainter {
     }
   }
 
-  /// Paint the compact corner block preview (name + date + scale bar + N).
+  /// Compute the bounding rectangle the plot title occupies on the sheet.
   ///
-  /// Mirrors [_CornerLegend] from `plot_pdf.dart` at a smaller preview scale
-  /// so what the user sees on-screen matches what the PDF will produce.
-  void _paintCornerBlock(Canvas canvas) {
+  /// Returns null when the title is disabled or blank so hit-testing and
+  /// selection outlines can skip it entirely.
+  Rect? titleRect() {
     final tb = options.titleBlock;
-    final plotName = tb.name.trim();
-    // Sheet callout ("11"×17"") — pulled from the template.
-    final sheetCallout = options.template.sizeCallout;
-    final scaleInt = _cornerScaleFtPerInch().round();
-    final lines = <_CornerLine>[
-      if (plotName.isNotEmpty)
-        _CornerLine(plotName.toUpperCase(), fontSize: 12, weight: FontWeight.w800),
-      if (tb.date.trim().isNotEmpty)
-        _CornerLine(tb.date.trim().toUpperCase(), fontSize: 8.5),
-    ];
-    final scaleLine = 'SCALE: 1" = $scaleInt\'  ($sheetCallout)';
+    final name = tb.name.trim();
+    if (!tb.enabled || name.isEmpty) return null;
+    final fx = (liveTitleFracX ?? tb.paperFracX).clamp(0.0, 1.0);
+    final fy = (liveTitleFracY ?? tb.paperFracY).clamp(0.0, 1.0);
+    // The preview canvas is smaller than a real ANSI sheet, so map the
+    // paper-space font size to on-screen pixels via the sheet width.
+    final previewFs = _previewTitleFontSize(tb.fontSizePt);
+    final tp = _titlePainter(name, previewFs);
+    final cx = map.sheetRect.left + fx * map.sheetRect.width;
+    final cy = map.sheetRect.top + fy * map.sheetRect.height;
+    return Rect.fromCenter(center: Offset(cx, cy), width: tp.width, height: tp.height);
+  }
 
-    final textPainters = <TextPainter>[
-      for (final l in lines)
-        TextPainter(
-          text: TextSpan(
-            text: l.text,
-            style: TextStyle(
-              color: const Color(0xFF111418),
-              fontSize: l.fontSize,
-              fontWeight: l.weight,
-              letterSpacing: l.weight.index >= FontWeight.w700.index ? 0.4 : 0,
-              height: 1.15,
-            ),
-          ),
-          textDirection: ui.TextDirection.ltr,
-        )..layout(maxWidth: map.sheetRect.width * 0.4),
-    ];
-    final scalePainter = TextPainter(
+  double _previewTitleFontSize(double paperPt) {
+    // 1pt at 11" sheet width ≈ (sheetRect.width / 792) preview pixels.
+    // (792 pt = 11"). Fallback to 18px if geometry is off.
+    final base = paperPt.clamp(6.0, 96.0);
+    final k = math.max(0.4, map.sheetRect.width / 792.0);
+    return math.max(8.0, base * k);
+  }
+
+  TextPainter _titlePainter(String text, double fontSize) {
+    return TextPainter(
       text: TextSpan(
-        text: scaleLine,
-        style: const TextStyle(
-          color: Color(0xFF111418),
-          fontSize: 8.5,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: ui.TextDirection.ltr,
-    )..layout(maxWidth: map.sheetRect.width * 0.4);
-
-    const arrowW = 26.0;
-    const arrowH = 32.0;
-    const barW = 110.0;
-    const barH = 20.0;
-
-    final textH =
-        textPainters.fold<double>(0, (a, tp) => a + tp.height + 1) +
-            (textPainters.isEmpty ? 0 : 4);
-    final legendH = math.max(arrowH, barH + scalePainter.height + 2);
-    const pad = 6.0;
-
-    final blockW = math.max(
-          barW + 8 + arrowW,
-          textPainters.fold<double>(0, (a, tp) => math.max(a, tp.width)),
-        ) +
-        pad * 2;
-    final blockH = textH + legendH + pad * 2;
-
-    // Bottom-right corner of the sheet, matching the PDF default.
-    final corner = _resolveCorner();
-    final left = corner.right
-        ? map.sheetRect.right - blockW - 6
-        : map.sheetRect.left + 6;
-    final top = corner.bottom
-        ? map.sheetRect.bottom - blockH - 6
-        : map.sheetRect.top + 6;
-    final box = Rect.fromLTWH(left, top, blockW, blockH);
-
-    canvas.drawRect(box, Paint()..color = const Color(0xF2FFFFFF));
-    canvas.drawRect(
-      box,
-      Paint()
-        ..color = const Color(0xFF111418)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.7,
-    );
-
-    var y = box.top + pad;
-    for (final tp in textPainters) {
-      tp.paint(canvas, Offset(box.left + pad, y));
-      y += tp.height + 1;
-    }
-    if (textPainters.isNotEmpty) y += 4;
-
-    // North arrow (small filled triangle + tail).
-    final arrowRect =
-        Rect.fromLTWH(box.left + pad, y, arrowW, arrowH);
-    _paintPreviewNorthArrow(canvas, arrowRect);
-
-    // Graphic scale bar + scale text next to arrow.
-    final barLeft = arrowRect.right + 8;
-    final barRect = Rect.fromLTWH(barLeft, y + 4, barW, barH);
-    _paintPreviewScaleBar(canvas, barRect, scaleInt);
-    scalePainter.paint(canvas, Offset(barLeft, barRect.bottom + 1));
-  }
-
-  double _cornerScaleFtPerInch() {
-    if (options.scaleFtPerInch != null && options.scaleFtPerInch! > 0) {
-      return options.scaleFtPerInch!;
-    }
-    return chooseEngineeringScale(
-      points,
-      linework: linework,
-      symbols: symbols,
-      template: options.template,
-    );
-  }
-
-  ({bool right, bool bottom}) _resolveCorner() {
-    switch (options.template.legendCorner) {
-      case FieldLegendCorner.bottomLeft:
-        return (right: false, bottom: true);
-      case FieldLegendCorner.topLeft:
-        return (right: false, bottom: false);
-      case FieldLegendCorner.topRight:
-        return (right: true, bottom: false);
-      case FieldLegendCorner.bottomRight:
-        return (right: true, bottom: true);
-    }
-  }
-
-  void _paintPreviewNorthArrow(Canvas canvas, Rect r) {
-    final cx = r.center.dx;
-    final head = Path()
-      ..moveTo(cx, r.top + 2)
-      ..lineTo(cx - 5, r.top + r.height * 0.55)
-      ..lineTo(cx, r.top + r.height * 0.48)
-      ..lineTo(cx + 5, r.top + r.height * 0.55)
-      ..close();
-    final fill = Paint()..color = const Color(0xFF111418);
-    canvas.drawPath(head, fill);
-    canvas.drawLine(
-      Offset(cx, r.top + r.height * 0.55),
-      Offset(cx, r.bottom - 8),
-      Paint()
-        ..color = const Color(0xFF111418)
-        ..strokeWidth = 1.1,
-    );
-    final tp = TextPainter(
-      text: const TextSpan(
-        text: 'N',
+        text: text.toUpperCase(),
         style: TextStyle(
-          color: Color(0xFF111418),
-          fontSize: 8,
+          color: const Color(0xFF111418),
+          fontSize: fontSize,
           fontWeight: FontWeight.w800,
+          letterSpacing: fontSize * 0.03,
+          height: 1.0,
         ),
       ),
       textDirection: ui.TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, Offset(cx - tp.width / 2, r.bottom - tp.height));
   }
 
-  void _paintPreviewScaleBar(Canvas canvas, Rect r, int scaleFt) {
-    final paint = Paint()
-      ..color = const Color(0xFF111418)
-      ..strokeWidth = 1.0;
-    final y = r.top + r.height / 2;
-    canvas.drawLine(Offset(r.left, y), Offset(r.right, y), paint);
-    canvas.drawLine(Offset(r.left, y - 4), Offset(r.left, y + 4), paint);
-    canvas.drawLine(
-      Offset(r.center.dx, y - 3),
-      Offset(r.center.dx, y + 3),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(r.right, y - 4),
-      Offset(r.right, y + 4),
-      paint,
-    );
-    final zero = TextPainter(
-      text: const TextSpan(
-        text: '0',
-        style: TextStyle(
-          color: Color(0xFF111418),
-          fontSize: 7.5,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: ui.TextDirection.ltr,
-    )..layout();
-    final mid = TextPainter(
-      text: TextSpan(
-        text: '$scaleFt',
-        style: const TextStyle(
-          color: Color(0xFF111418),
-          fontSize: 7.5,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: ui.TextDirection.ltr,
-    )..layout();
-    final end = TextPainter(
-      text: TextSpan(
-        text: '${scaleFt * 2}',
-        style: const TextStyle(
-          color: Color(0xFF111418),
-          fontSize: 7.5,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: ui.TextDirection.ltr,
-    )..layout();
-    zero.paint(canvas, Offset(r.left - 2, r.bottom - zero.height));
-    mid.paint(
-      canvas,
-      Offset(r.center.dx - mid.width / 2, r.bottom - mid.height),
-    );
-    end.paint(canvas, Offset(r.right - end.width, r.bottom - end.height));
+  /// Draw the optional draggable plot title in paper space.
+  void _paintPlotTitle(Canvas canvas) {
+    final tb = options.titleBlock;
+    final name = tb.name.trim();
+    if (!tb.enabled || name.isEmpty) return;
+    final fx = (liveTitleFracX ?? tb.paperFracX).clamp(0.0, 1.0);
+    final fy = (liveTitleFracY ?? tb.paperFracY).clamp(0.0, 1.0);
+    final fs = _previewTitleFontSize(tb.fontSizePt);
+    final tp = _titlePainter(name, fs);
+    final cx = map.sheetRect.left + fx * map.sheetRect.width;
+    final cy = map.sheetRect.top + fy * map.sheetRect.height;
+    final origin = Offset(cx - tp.width / 2, cy - tp.height / 2);
+    tp.paint(canvas, origin);
+    if (titleDragging) {
+      final r = Rect.fromLTWH(origin.dx, origin.dy, tp.width, tp.height)
+          .inflate(3);
+      canvas.drawRect(
+        r,
+        Paint()
+          ..color = const Color(0xFFE4572E)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2,
+      );
+    }
   }
+
 
   @override
   bool shouldRepaint(covariant _PlotPreviewPainter old) {
@@ -1327,6 +1254,9 @@ class _PlotPreviewPainter extends CustomPainter {
         old.dragKind != dragKind ||
         old.labelDrags != labelDrags ||
         old.lineEditMode != lineEditMode ||
-        old.sheetLabel != sheetLabel;
+        old.sheetLabel != sheetLabel ||
+        old.liveTitleFracX != liveTitleFracX ||
+        old.liveTitleFracY != liveTitleFracY ||
+        old.titleDragging != titleDragging;
   }
 }

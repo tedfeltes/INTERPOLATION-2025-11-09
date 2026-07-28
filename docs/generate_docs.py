@@ -1320,7 +1320,8 @@ def ui_plot_preview(page, r):
     """
     ANSI full-bleed staking plot preview:
       * No border, no cream panel, no grid, no title block band.
-      * Corner block (bottom-right) carries name + date + scale bar + north.
+      * No bounding box, no scale text, no north arrow, no sheet callout.
+      * The only overlay is an OPTIONAL draggable plot title (paper-space).
     """
     x = r.x0
     yy = r.y0 + 8
@@ -1368,55 +1369,28 @@ def ui_plot_preview(page, r):
         page.insert_text((px + 5, py - 3), lbl,
                          fontsize=5, fontname=F_MONO, color=red)
 
-    # Corner block (bottom-right) — name + date + scale bar + N.
-    cb_w, cb_h = 130, 62
-    cb = fitz.Rect(sheet.x1 - cb_w - 6, sheet.y1 - cb_h - 6,
-                   sheet.x1 - 6, sheet.y1 - 6)
-    page.draw_rect(cb, color=(0.05, 0.05, 0.05),
-                   fill=(1, 1, 1), width=0.5)
-    page.insert_text((cb.x0 + 8, cb.y0 + 14), "ALPINE HILLS",
-                     fontsize=9, fontname=F_BOLD, color=(0.06, 0.07, 0.09))
-    page.insert_text((cb.x0 + 8, cb.y0 + 24), "JUL 15, 2026",
-                     fontsize=6.5, fontname=F_MONO, color=(0.20, 0.22, 0.25))
-
-    # North arrow (small filled triangle + tail + "N")
-    nx = cb.x0 + 20
-    ny = cb.y0 + 36
-    page.draw_polyline([(nx, ny),
-                        (nx - 4, ny + 8),
-                        (nx, ny + 6),
-                        (nx + 4, ny + 8)],
-                       color=(0.05, 0.05, 0.05),
-                       fill=(0.05, 0.05, 0.05),
-                       width=0.5, closePath=True)
-    page.draw_line((nx, ny + 6), (nx, ny + 18),
-                   color=(0.05, 0.05, 0.05), width=0.7)
-    page.insert_text((nx - 2, ny + 26), "N",
-                     fontsize=6, fontname=F_BOLD, color=(0.05, 0.05, 0.05))
-
-    # Graphic scale bar
-    sb_left = cb.x0 + 36
-    sb_right = cb.x1 - 8
-    sb_y = cb.y0 + 40
-    page.draw_line((sb_left, sb_y), (sb_right, sb_y),
-                   color=(0.05, 0.05, 0.05), width=0.7)
-    page.draw_line((sb_left, sb_y - 3), (sb_left, sb_y + 3),
-                   color=(0.05, 0.05, 0.05), width=0.7)
-    page.draw_line(((sb_left + sb_right) / 2, sb_y - 2),
-                   ((sb_left + sb_right) / 2, sb_y + 2),
-                   color=(0.05, 0.05, 0.05), width=0.7)
-    page.draw_line((sb_right, sb_y - 3), (sb_right, sb_y + 3),
-                   color=(0.05, 0.05, 0.05), width=0.7)
-    page.insert_text((sb_left - 2, sb_y + 9), "0",
-                     fontsize=4.5, fontname=F_MONO, color=(0.05, 0.05, 0.05))
-    page.insert_text(((sb_left + sb_right) / 2 - 3, sb_y + 9), "40",
-                     fontsize=4.5, fontname=F_MONO, color=(0.05, 0.05, 0.05))
-    page.insert_text((sb_right - 5, sb_y + 9), "80",
-                     fontsize=4.5, fontname=F_MONO, color=(0.05, 0.05, 0.05))
-    page.insert_text((cb.x0 + 36, cb.y0 + 55),
-                     "SCALE: 1\" = 40'  (11\"×17\")",
-                     fontsize=5.5, fontname=F_MONO_BOLD,
-                     color=(0.05, 0.05, 0.05))
+    # Optional draggable plot title, centred near the top of the sheet.
+    # This is now the ONLY overlay — no bounding box, no scale text, no
+    # north arrow, no sheet-size callout on the plotted sheet itself.
+    title_text = "ALPINE HILLS"
+    title_size = 12
+    title_w = len(title_text) * title_size * 0.55
+    title_cx = (sheet.x0 + sheet.x1) / 2
+    title_y = sheet.y0 + 18
+    page.insert_text((title_cx - title_w / 2, title_y),
+                     title_text,
+                     fontsize=title_size, fontname=F_BOLD,
+                     color=(0.06, 0.07, 0.09))
+    # Dashed outline to hint "draggable" — the outline is preview UI only,
+    # it never prints.
+    dash = fitz.Rect(title_cx - title_w / 2 - 3, title_y - title_size,
+                     title_cx + title_w / 2 + 3, title_y + 3)
+    for step in range(int(dash.width // 4)):
+        sx = dash.x0 + step * 4
+        page.draw_line((sx, dash.y0), (min(sx + 2, dash.x1), dash.y0),
+                       color=ORANGE, width=0.5)
+        page.draw_line((sx, dash.y1), (min(sx + 2, dash.x1), dash.y1),
+                       color=ORANGE, width=0.5)
 
     # Bottom action bar (save)
     ba = fitz.Rect(x + 10, r.y1 - 38, r.x1 - 10, r.y1 - 14)
@@ -1477,10 +1451,13 @@ def ui_templates(page, r):
         else:
             sh = fitz.Rect(card.x0 + 6, card.y0 + 10, card.x0 + 36, card.y0 + 30)
         page.draw_rect(sh, color=DIM, width=0.7)
-        # Corner block dot to hint at the legend position.
-        page.draw_rect(
-            fitz.Rect(sh.x1 - 5, sh.y1 - 4, sh.x1 - 1, sh.y1 - 1),
-            color=None, fill=(1.0, 0.35, 0.12))
+        # Optional draggable title hint — a thin orange tick where the
+        # centred title sits by default.
+        tick_left = sh.x0 + sh.width * 0.35
+        tick_right = sh.x0 + sh.width * 0.65
+        tick_y = sh.y0 + sh.height * 0.18
+        page.draw_line((tick_left, tick_y), (tick_right, tick_y),
+                       color=(1.0, 0.35, 0.12), width=0.9)
         page.insert_text((card.x0 + 48, card.y0 + 20), name,
                          fontsize=8, fontname=F_MONO_BOLD,
                          color=ORANGE if active else FG)
@@ -1783,8 +1760,9 @@ def build_slide_deck() -> Path:
     bullet_block(page, 430, 150,
                  ["Full-bleed sheet — linework runs edge-to-edge",
                   "No border, no cream panel, no title block band",
-                  "Corner block: plot name, date, scale bar, north arrow",
+                  "Plot title is OPTIONAL — off by default, draggable when on",
                   "Red X stake markers with numbered leader labels",
+                  "Sub-menus cap at ~60% height so the preview stays visible",
                   "SAVE PLOT PDF writes the final Trimble-ready sheet"],
                  size=13, gap=24, width=640)
 
@@ -1796,7 +1774,7 @@ def build_slide_deck() -> Path:
                   "Pick ANSI A / B / C / D",
                   "Portrait or landscape",
                   "Active template highlighted in safety-orange",
-                  "Corner block position tracks the sheet's active corner"],
+                  "Plot is pure full-bleed — nothing but the plan by default"],
                  size=13, gap=24, width=640)
 
     # 8 Plot options matrix
@@ -1817,7 +1795,8 @@ def build_slide_deck() -> Path:
                  size=13, gap=24, width=520)
     _section_rule(page, 40, 310, SLIDE_W - 40, "SHEET & LINEWORK")
     bullet_block(page, 40, 330,
-                 ["Corner block: plot name + date only (auto scale + N)",
+                 ["Plot title: optional, draggable & resizable on preview",
+                  "No bounding box, no scale text, no north arrow, no callout",
                   "No hatch fills on solid objects — clean outlines",
                   "Linked DXF: LINE / LWPOLYLINE / ARC / CIRCLE by layer",
                   "Auto engineering scale or hard-set 1\"=N'",
@@ -2013,9 +1992,12 @@ def build_tutorial_pdf() -> Path:
         "Number + description + elevation · No labels\n\n"
         "Sheet\n"
         "• Layout is always ANSI FULL BLEED — no border, no title-block band.\n"
-        "• Corner block carries: plot name, date, scale bar, north arrow.\n"
+        "• Plot title is OPTIONAL. When enabled, drag it around the preview\n"
+        "  and scale it with the size slider. Nothing else prints on the sheet.\n"
         "• Sheet size: ANSI A–D, portrait or landscape; auto or fixed 1\"=N'.\n"
-        "• Solid civil symbols draw as clean outlines — no hatch fills.\n\n"
+        "• Solid civil symbols draw as clean outlines — no hatch fills.\n"
+        "• Sub-menus (color, layer props, symbol library, scale) cap at ~60%\n"
+        "  of the screen so the plot preview always stays visible above.\n\n"
         "Colors\n"
         "• Full ACI 1–255, CTB-resolved swatches, and true-color HSV picker.\n\n"
         "Examples\n"
@@ -2169,7 +2151,7 @@ Selected layer shows an orange left bar; overridden layers show a yellow bar.
 | --- | --- |
 | Markers | Filled triangle, triangle outline, cross (+), X, large X, circle, dot, large dot |
 | Labels | Number · number+description · number+elevation · number+description+elevation · none |
-| Corner block | Plot name + date (scale bar + north arrow drawn automatically) |
+| Plot title | Optional; draggable / resizable on the preview (paper-space) |
 | Linework | Optional linked DXF layers |
 | Scale | Auto engineering scale, or fixed `1"=N'` |
 | Sheet | ANSI A–D, portrait or landscape · always ANSI full bleed |

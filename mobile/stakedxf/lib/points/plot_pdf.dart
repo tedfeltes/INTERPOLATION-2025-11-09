@@ -53,8 +53,8 @@ Future<Uint8List> buildStakingPlotPdf({
   }
 
   final template = options.template;
-  final when = date ?? DateTime.now();
-  final dateStr = _formatPlotDate(options.titleBlock.date, when);
+  // NOTE: `date` is accepted for backward compatibility with older callers;
+  // nothing on the sheet references it any longer (plot rework, v1.24.1).
   final scaleFtPerInch = chooseEngineeringScale(
     points,
     linework: linework,
@@ -80,7 +80,6 @@ Future<Uint8List> buildStakingPlotPdf({
         jobName: jobName,
         points: points,
         scaleFtPerInch: scaleFtPerInch,
-        dateStr: dateStr,
         options: options,
         linework: drawnLinework,
         symbols: symbols,
@@ -97,31 +96,18 @@ Future<Uint8List> buildStakingPlotPdf({
   return doc.save();
 }
 
-String _formatPlotDate(String supplied, DateTime when) {
-  final trimmed = supplied.trim();
-  if (trimmed.isNotEmpty) return trimmed;
-  final months = [
-    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
-  ];
-  return '${months[when.month - 1]} ${when.day}, ${when.year}';
-}
-
-/// Draw a single ANSI-size full-bleed staking sheet:
+/// Draw a single ANSI-size full-bleed staking sheet.
 ///
-///  * Plan fills the whole page (no border, no cream panel, no grid overlay).
-///  * A compact corner block carries the plot name + date + scale text +
-///    graphic scale bar + north arrow. Corner is chosen by the template.
-///
-/// Nothing else appears on the sheet — no bordered viewport, no side panel,
-/// no CONTROL POINTS table, no boilerplate notes.
+/// The sheet is literally just the plan — no bounding box, no scale text,
+/// no north arrow, no sheet-size callout. When the user enables it, an
+/// optional draggable **plot title** is drawn on top of the plan; it
+/// lives in paper space (its fractional position tracks the sheet).
 pw.Widget _buildFullBleedPage({
   required PlotTemplate template,
   required String title,
   required String jobName,
   required List<SurveyPoint> points,
   required double scaleFtPerInch,
-  required String dateStr,
   required PlotOptions options,
   required List<LineworkEntity> linework,
   required List<PlacedPlotSymbol> symbols,
@@ -133,10 +119,6 @@ pw.Widget _buildFullBleedPage({
   TextStyleCatalog? textStyleCatalog,
 }) {
   final tb = options.titleBlock;
-  final plotName = tb.name.trim().isNotEmpty
-      ? tb.name.trim()
-      : (jobName.trim().isNotEmpty ? jobName.trim() : title);
-
   final plan = _PlanPanel(
     points: points,
     scaleFtPerInch: scaleFtPerInch,
@@ -151,35 +133,57 @@ pw.Widget _buildFullBleedPage({
     textStyleCatalog: textStyleCatalog,
   );
 
-  final corner = _CornerLegend(
-    name: plotName,
-    dateStr: dateStr,
-    scaleFtPerInch: scaleFtPerInch,
-    sheetCallout: template.sizeCallout,
-  );
-
-  final block = _positionCorner(corner, template.legendCorner);
+  if (!tb.enabled || tb.name.trim().isEmpty) {
+    return plan;
+  }
 
   return pw.Stack(
     fit: pw.StackFit.expand,
     children: [
       pw.Positioned.fill(child: plan),
-      block,
+      _PlotTitle(title: tb),
     ],
   );
 }
 
-pw.Widget _positionCorner(pw.Widget child, FieldLegendCorner corner) {
-  const inset = 12.0;
-  switch (corner) {
-    case FieldLegendCorner.bottomRight:
-      return pw.Positioned(right: inset, bottom: inset, child: child);
-    case FieldLegendCorner.bottomLeft:
-      return pw.Positioned(left: inset, bottom: inset, child: child);
-    case FieldLegendCorner.topLeft:
-      return pw.Positioned(left: inset, top: inset, child: child);
-    case FieldLegendCorner.topRight:
-      return pw.Positioned(right: inset, top: inset, child: child);
+/// Optional draggable plot title — the only overlay StakeDXF draws on the
+/// ANSI full-bleed sheet. No background, no border; just centred bold text.
+class _PlotTitle extends pw.StatelessWidget {
+  _PlotTitle({required this.title});
+
+  final TitleBlockData title;
+
+  @override
+  pw.Widget build(pw.Context context) {
+    final fx = title.paperFracX.clamp(0.0, 1.0);
+    final fy = title.paperFracY.clamp(0.0, 1.0);
+    return pw.LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints?.maxWidth ?? 0;
+        final h = constraints?.maxHeight ?? 0;
+        if (w <= 0 || h <= 0) return pw.SizedBox.shrink();
+        final fs = title.fontSizePt.clamp(6.0, 96.0);
+        // Estimate text width so we can horizontally centre on (fx*w).
+        // 0.55 is a fair average character width for bold helvetica.
+        final approxTextW = fs * title.name.trim().length * 0.55;
+        final left = (fx * w - approxTextW / 2).clamp(4.0, w - approxTextW - 4);
+        final top = (fy * h - fs * 0.5).clamp(4.0, h - fs - 4);
+        return pw.Positioned(
+          left: left,
+          top: top,
+          child: pw.Text(
+            title.name.trim().toUpperCase(),
+            style: pw.TextStyle(
+              fontSize: fs,
+              fontWeight: pw.FontWeight.bold,
+              letterSpacing: fs * 0.03,
+              font: pw.Font.helveticaBold(),
+              color: PdfColors.black,
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -637,159 +641,3 @@ void _drawMarker(
   }
 }
 
-/// Compact corner block drawn over the full-bleed plan.
-///
-/// Layout (matches the field staking plots the TRIO crews take to site):
-///
-///     NAME (bold, uppercase)
-///     DATE (small)
-///     ── ── ── ── ── ── ── ──   ← thin rule
-///     [ N ] │ 0  s   2s   ft
-///           │ SCALE: 1" = s'  (11"×17")
-///
-/// No border, no filled background — the plan shows through. The block sits
-/// in whichever corner the template specifies (bottom-right by default).
-class _CornerLegend extends pw.StatelessWidget {
-  _CornerLegend({
-    required this.name,
-    required this.dateStr,
-    required this.scaleFtPerInch,
-    required this.sheetCallout,
-  });
-
-  final String name;
-  final String dateStr;
-  final double scaleFtPerInch;
-  final String sheetCallout;
-
-  @override
-  pw.Widget build(pw.Context context) {
-    final scaleInt = scaleFtPerInch.round();
-    final trimmedName = name.trim();
-    return pw.Container(
-      // Semi-opaque white behind the corner block so it stays readable when
-      // a busy layer sits directly under it.
-      decoration: pw.BoxDecoration(
-        color: const PdfColor.fromInt(0xF2FFFFFF),
-        border: pw.Border.all(width: 0.6, color: PdfColors.black),
-      ),
-      padding: const pw.EdgeInsets.fromLTRB(10, 8, 10, 8),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        mainAxisSize: pw.MainAxisSize.min,
-        children: [
-          if (trimmedName.isNotEmpty)
-            pw.Text(
-              trimmedName.toUpperCase(),
-              style: pw.TextStyle(
-                fontSize: 15,
-                fontWeight: pw.FontWeight.bold,
-                letterSpacing: 0.6,
-              ),
-            ),
-          if (dateStr.trim().isNotEmpty) ...[
-            pw.SizedBox(height: 2),
-            pw.Text(
-              dateStr.trim().toUpperCase(),
-              style: pw.TextStyle(
-                fontSize: 9,
-                font: pw.Font.helvetica(),
-              ),
-            ),
-          ],
-          pw.SizedBox(height: 6),
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.center,
-            mainAxisSize: pw.MainAxisSize.min,
-            children: [
-              pw.SizedBox(width: 34, height: 40, child: _NorthArrow()),
-              pw.SizedBox(width: 8),
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                mainAxisSize: pw.MainAxisSize.min,
-                children: [
-                  pw.SizedBox(
-                    width: 140,
-                    height: 26,
-                    child: _GraphicScale(scaleFtPerInch: scaleFtPerInch),
-                  ),
-                  pw.SizedBox(height: 2),
-                  pw.Text(
-                    'SCALE: 1" = $scaleInt\'  ($sheetCallout)',
-                    style: pw.TextStyle(
-                      fontSize: 9,
-                      fontWeight: pw.FontWeight.bold,
-                      font: pw.Font.helveticaBold(),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NorthArrow extends pw.StatelessWidget {
-  @override
-  pw.Widget build(pw.Context context) {
-    final font = pw.Font.helveticaBold().getFont(context);
-    return pw.CustomPaint(
-      size: const PdfPoint(50, 54),
-      painter: (canvas, size) {
-        final cx = size.x / 2;
-        canvas
-          ..setFillColor(PdfColors.black)
-          ..setStrokeColor(PdfColors.black)
-          ..setLineWidth(1)
-          ..moveTo(cx, size.y - 6)
-          ..lineTo(cx - 8, size.y - 30)
-          ..lineTo(cx, size.y - 24)
-          ..lineTo(cx + 8, size.y - 30)
-          ..closePath()
-          ..fillPath()
-          ..setLineWidth(1.2)
-          ..drawLine(cx, size.y - 24, cx, size.y - 44)
-          ..strokePath();
-        canvas.drawString(font, 9, 'N', cx - 3.5, 6);
-      },
-    );
-  }
-}
-
-class _GraphicScale extends pw.StatelessWidget {
-  _GraphicScale({required this.scaleFtPerInch});
-
-  final double scaleFtPerInch;
-
-  @override
-  pw.Widget build(pw.Context context) {
-    final major = scaleFtPerInch;
-    final font = pw.Font.helveticaBold().getFont(context);
-    return pw.SizedBox(
-      height: 36,
-      child: pw.CustomPaint(
-        size: const PdfPoint(220, 36),
-        painter: (canvas, size) {
-          final y = size.y - 14;
-          final x0 = 8.0;
-          final x1 = size.x - 8;
-          final mid = (x0 + x1) / 2;
-          canvas
-            ..setStrokeColor(PdfColors.black)
-            ..setLineWidth(1.2)
-            ..drawLine(x0, y, x1, y)
-            ..drawLine(x0, y - 6, x0, y + 6)
-            ..drawLine(mid, y - 5, mid, y + 5)
-            ..drawLine(x1, y - 6, x1, y + 6)
-            ..strokePath()
-            ..drawString(font, 8, '0', x0 - 2, 4)
-            ..drawString(font, 8, '${major.round()}', mid - 10, 4)
-            ..drawString(font, 8, '${(major * 2).round()}', x1 - 16, 4);
-        },
-      ),
-    );
-  }
-}
