@@ -8,17 +8,27 @@ Performance notes (v1.11+):
 - Single DXF load (no double-read)
 - In-place proxy explode + non-stakeable strip (Importer only when version coerce needed)
 - Optional progress bridge for foreground-service notifications
+
+Robustness notes (v1.25.1+):
+- Never raise out of recover_linework — Kotlin maps uncaught Python
+  exceptions to PlatformException(recover_failed, …) which aborts CONVERT.
+- Monkeypatch ezdxf ProxyGraphic so corrupt LAYER/LTYPE/STYLE tables
+  (LibreDWG + Civil 3D) cannot abort explode with
+  AttributeError: 'str' object has no attribute 'dxf'.
 """
 
 from __future__ import annotations
 
 import json
+import traceback
 from collections import Counter
 from typing import Any
 
 import ezdxf
+from ezdxf import recover as ezdxf_recover
 from ezdxf.addons import Importer
 from ezdxf.proxygraphic import ProxyGraphic, ProxyGraphicError
+import ezdxf.proxygraphic as _ezdxf_proxygraphic
 
 
 STAKEABLE = frozenset(
@@ -30,6 +40,51 @@ _KEEP_IN_PLACE = STAKEABLE | {"VERTEX", "SEQEND"}
 
 # R2010 / AC1024 — preferred for Trimble Access
 _R2010 = frozenset({"R2010", "AC1024"})
+
+
+def _patch_proxy_graphic() -> None:
+    """Tolerate non-entity junk in doc.layers / linetypes / styles.
+
+    Stock ezdxf ProxyGraphic.__init__ does::
+
+        layer.dxf.name for layer in self._doc.layers
+
+    After a Civil 3D → LibreDWG round-trip the layers table can yield a bare
+    ``str``. That raises ``AttributeError: 'str' object has no attribute
+    'dxf'`` and historically aborted the entire CONVERT at ~35%.
+
+    Retry without a document binding — proxy binary still decodes to the
+    same stakeable primitives (layer names fall back to \"0\" / BYLAYER).
+    """
+    orig = _ezdxf_proxygraphic.ProxyGraphic.__init__
+    if getattr(orig, "_stakedxf_safe", False):
+        return
+
+    def _safe_init(self, data, doc=None, *, dxfversion=None, **kwargs):
+        # ezdxf 1.4.x: dxfversion is keyword-only with default DXF2000.
+        init_kwargs = dict(kwargs)
+        if dxfversion is not None:
+            init_kwargs["dxfversion"] = dxfversion
+        try:
+            return orig(self, data, doc, **init_kwargs)
+        except AttributeError:
+            # Partial construction is OK to overwrite — orig resets fields.
+            fallback = {}
+            if doc is not None and hasattr(doc, "dxfversion"):
+                fallback["dxfversion"] = doc.dxfversion
+            elif dxfversion is not None:
+                fallback["dxfversion"] = dxfversion
+            fallback.update(kwargs)
+            return orig(self, data, None, **fallback)
+
+    _safe_init._stakedxf_safe = True  # type: ignore[attr-defined]
+    _ezdxf_proxygraphic.ProxyGraphic.__init__ = _safe_init  # type: ignore[method-assign]
+    # Keep the name imported into this module in sync.
+    global ProxyGraphic
+    ProxyGraphic = _ezdxf_proxygraphic.ProxyGraphic
+
+
+_patch_proxy_graphic()
 
 
 def _safe_layer(entity) -> str | None:
@@ -75,6 +130,32 @@ def _report(progress: Any, stage: str, percent: int, message: str) -> None:
             pass
 
 
+def _load_dxf(path: str):
+    """Load DXF; fall back to recover mode for LibreDWG oddities."""
+    try:
+        return ezdxf.readfile(path)
+    except Exception:
+        doc, _auditor = ezdxf_recover.readfile(path)
+        return doc
+
+
+def _fail(message: str, **extra: Any) -> dict:
+    payload = {
+        "ok": False,
+        "stakeable_count": 0,
+        "proxy_exploded": 0,
+        "proxy_primitives": 0,
+        "skipped": {},
+        "empty_layers_removed": 0,
+        "layers": [],
+        "layers_json": "[]",
+        "message": message,
+        "error": message,
+    }
+    payload.update(extra)
+    return payload
+
+
 def _explode_proxies(doc, progress: Any = None) -> tuple[int, int]:
     msp = doc.modelspace()
     entities = list(msp)
@@ -87,10 +168,18 @@ def _explode_proxies(doc, progress: Any = None) -> tuple[int, int]:
         etype = _safe_dxftype(entity)
         if etype is None:
             # Malformed entry (e.g. a str leaked in by a broken proxy round-trip).
+            try:
+                msp.delete_entity(entity)
+            except Exception:
+                pass
             continue
         graphic = getattr(entity, "proxy_graphic", None)
-        is_proxy = etype in {"ACAD_PROXY_ENTITY", "ACAD_PROXY_OBJECT"} or bool(graphic)
-        if not is_proxy and not hasattr(entity, "virtual_entities"):
+        is_proxy = etype in {"ACAD_PROXY_ENTITY", "ACAD_PROXY_OBJECT"} or bool(
+            graphic
+        )
+        # Civil 3D custom entities (ACDC_*) expose virtual_entities via proxy.
+        is_acdc = etype.startswith("ACDC_") or etype.startswith("AECC_")
+        if not is_proxy and not is_acdc and not hasattr(entity, "virtual_entities"):
             continue
         if etype in STAKEABLE:
             continue
@@ -107,11 +196,19 @@ def _explode_proxies(doc, progress: Any = None) -> tuple[int, int]:
             except (ProxyGraphicError, Exception):
                 virt = []
         if not virt:
+            # Drop unrecoverable proxies so they cannot poison later save/import.
+            if is_proxy or is_acdc:
+                try:
+                    msp.delete_entity(entity)
+                except Exception:
+                    pass
             continue
 
         layer = _safe_layer(entity)
 
         for item in virt:
+            if _safe_dxftype(item) is None:
+                continue
             try:
                 clone = item.copy()
             except Exception:
@@ -295,9 +392,28 @@ def recover_linework(
 
     Empty layers are omitted. Returns layer stats for the UI checklist.
     [progress] may be a Kotlin bridge with on_progress(stage, percent, message).
+
+    Never raises — failures return ``ok: False`` so Kotlin does not surface
+    PlatformException(recover_failed, …).
     """
+    try:
+        return _recover_linework_impl(input_path, output_path, progress)
+    except Exception as exc:
+        detail = f"{type(exc).__name__}: {exc}"
+        _report(progress, "error", 100, f"Recovery failed: {detail}")
+        return _fail(
+            f"Recovery failed: {detail}",
+            traceback=traceback.format_exc()[-1500:],
+        )
+
+
+def _recover_linework_impl(
+    input_path: str,
+    output_path: str,
+    progress: Any = None,
+) -> dict:
     _report(progress, "load", 5, "Loading DXF…")
-    doc = ezdxf.readfile(input_path)  # single load
+    doc = _load_dxf(input_path)
 
     _report(progress, "explode", 15, "Exploding Civil 3D proxies…")
     exploded, primitives = _explode_proxies(doc, progress)
@@ -312,6 +428,10 @@ def recover_linework(
     imported = _save_trimble(doc, output_path, progress)
     if imported is not None:
         kept = imported
+        try:
+            layers = _layer_stats(ezdxf.readfile(output_path))
+        except Exception:
+            layers = _layer_stats(doc)
 
     _report(progress, "done", 100, "Conversion complete")
 
@@ -339,13 +459,24 @@ def recover_linework(
 
 def list_layers(input_path: str) -> dict:
     """Return non-empty stakeable layer stats for an existing DXF."""
-    doc = ezdxf.readfile(input_path)
-    layers = _layer_stats(doc)
-    return {
-        "layers": layers,
-        "layers_json": json.dumps(layers),
-        "stakeable_count": sum(r["entity_count"] for r in layers),
-    }
+    try:
+        doc = _load_dxf(input_path)
+        layers = _layer_stats(doc)
+        return {
+            "layers": layers,
+            "layers_json": json.dumps(layers),
+            "stakeable_count": sum(r["entity_count"] for r in layers),
+            "ok": True,
+        }
+    except Exception as exc:
+        return {
+            "layers": [],
+            "layers_json": "[]",
+            "stakeable_count": 0,
+            "ok": False,
+            "error": f"{type(exc).__name__}: {exc}",
+            "message": f"Layer list failed: {type(exc).__name__}: {exc}",
+        }
 
 
 def filter_layers(input_path: str, output_path: str, layers_json: str) -> dict:
@@ -366,7 +497,11 @@ def filter_layers(input_path: str, output_path: str, layers_json: str) -> dict:
             "message": "Select at least one layer",
         }
 
-    source = ezdxf.readfile(input_path)
+    try:
+        source = _load_dxf(input_path)
+    except Exception as exc:
+        return _fail(f"DXF load failed: {type(exc).__name__}: {exc}")
+
     include_l = {n.lower() for n in include}
     msp = source.modelspace()
     # First pass: decide which POLYLINE parents stay, then keep their VERTEX/SEQEND.
@@ -411,16 +546,19 @@ def filter_layers(input_path: str, output_path: str, layers_json: str) -> dict:
     _purge_empty_layers(source)
 
     version = str(getattr(source, "dxfversion", "") or "")
-    if version.upper() in _R2010 or version in _R2010:
-        source.saveas(output_path)
-        layers = _layer_stats(source)
-    else:
-        out = ezdxf.new("R2010")
-        _copy_units(source, out)
-        kept, _ = _import_stakeable(source, out, include_layers=include)
-        _purge_empty_layers(out)
-        out.saveas(output_path)
-        layers = _layer_stats(out)
+    try:
+        if version.upper() in _R2010 or version in _R2010:
+            source.saveas(output_path)
+            layers = _layer_stats(source)
+        else:
+            out = ezdxf.new("R2010")
+            _copy_units(source, out)
+            kept, _ = _import_stakeable(source, out, include_layers=include)
+            _purge_empty_layers(out)
+            out.saveas(output_path)
+            layers = _layer_stats(out)
+    except Exception as exc:
+        return _fail(f"DXF write failed: {type(exc).__name__}: {exc}")
 
     return {
         "ok": kept > 0,

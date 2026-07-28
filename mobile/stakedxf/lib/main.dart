@@ -433,9 +433,17 @@ class _ConvertDwgPageState extends State<ConvertDwgPage> {
           });
         },
       );
+      final outFile = File(result.outputPath);
+      if (!outFile.existsSync()) {
+        throw Exception(
+          result.message.isNotEmpty
+              ? result.message
+              : 'Conversion produced no DXF',
+        );
+      }
       final docs = await getApplicationDocumentsDirectory();
       final durable = p.join(docs.path, p.basename(output));
-      await File(result.outputPath).copy(durable);
+      await outFile.copy(durable);
 
       var layers = result.layers;
       if (layers.isEmpty && File(durable).existsSync()) {

@@ -76,10 +76,19 @@ class MainActivity : FlutterActivity() {
                                 val recovered = callRecover(input, output)
                                 runOnUiThread { result.success(recovered) }
                             } catch (e: Exception) {
+                                // Soft-fail: never surface PlatformException(recover_failed)
+                                // for Python AttributeError — Flutter shows the message instead.
                                 ConvertProgressBus.emitError("recover_failed", e.message)
-                                runOnUiThread {
-                                    result.error("recover_failed", e.message, null)
-                                }
+                                val soft = hashMapOf<String, Any?>(
+                                    "stakeable_count" to 0,
+                                    "proxy_exploded" to 0,
+                                    "proxy_primitives" to 0,
+                                    "ok" to false,
+                                    "message" to "Recovery failed: ${e.message ?: e.javaClass.simpleName}",
+                                    "layers_json" to "[]",
+                                    "empty_layers_removed" to 0,
+                                )
+                                runOnUiThread { result.success(soft) }
                             }
                         }
                     }
@@ -177,6 +186,7 @@ class MainActivity : FlutterActivity() {
             "proxy_primitives" to (lookup("proxy_primitives")?.toIntOrNull() ?: 0),
             "ok" to (lookup("ok")?.toBoolean() ?: false),
             "message" to (lookup("message") ?: ""),
+            "error" to (lookup("error") ?: ""),
             "layers_json" to (lookup("layers_json") ?: "[]"),
             "empty_layers_removed" to (lookup("empty_layers_removed")?.toIntOrNull() ?: 0),
         )
