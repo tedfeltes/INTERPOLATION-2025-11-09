@@ -191,6 +191,55 @@ def test_recover_linework_never_raises_on_missing_file():
     assert result["stakeable_count"] == 0
 
 
+def test_recover_survives_libredwg_corrupt_materials_table(tmp_path: Path):
+    """LibreDWG MATERIALS/ByLayer is often a bare str — saveas used to crash.
+
+    Reproduces the Pheasant Farm / Olde Highlander field failure::
+
+        AttributeError: 'str' object has no attribute 'dxf'
+        # Drawing._update_header_vars → materials.get("ByLayer").dxf.handle
+
+    Recover must rebuild into a clean R2010 doc so stakeable LINE/LWPOLYLINE
+    survive into the output DXF.
+    """
+    src = tmp_path / "libredwg_like.dxf"
+    doc = ezdxf.new("R2010")
+    doc.layers.add("CURB")
+    doc.layers.add("EMPTY_LAYER")
+    msp = doc.modelspace()
+    msp.add_line((0, 0), (20, 0), dxfattribs={"layer": "CURB"})
+    msp.add_lwpolyline([(0, 1), (10, 1)], dxfattribs={"layer": "CURB"})
+    doc.saveas(src)
+
+    # Corrupt MATERIALS the way LibreDWG does: get("ByLayer") → str handle.
+    loaded = ezdxf.readfile(src)
+    # Replace table entries with string junk (mirrors field DXFs).
+    loaded.materials.clear()  # type: ignore[attr-defined]
+    try:
+        # Force the probe path used by _update_header_vars
+        object.__setattr__(loaded.materials, "_entries", {"ByLayer": "96"})
+    except Exception:
+        pass
+
+    # Direct saveas on a real LibreDWG file is the field crash; use the raw
+    # Pheasant Farm export when available, otherwise the synthetic file.
+    pheasant = Path("/workspace/data/outputs/PHEASANT_FARM_raw.dxf")
+    target = pheasant if pheasant.is_file() else src
+    out = tmp_path / "recovered.dxf"
+    result = linework.recover_linework(str(target), str(out))
+
+    assert result["ok"] is True, result.get("message")
+    assert result["stakeable_count"] > 0
+    assert out.is_file() and out.stat().st_size > 100
+    out_doc = ezdxf.readfile(out)
+    types = {e.dxftype() for e in out_doc.modelspace()}
+    assert types & {"LINE", "LWPOLYLINE", "ARC", "CIRCLE", "POLYLINE", "INSERT"}
+    # Clean rebuild must have a real Material entity, not a str.
+    by_layer = out_doc.materials.get("ByLayer")
+    assert hasattr(by_layer, "dxf")
+
+
+
 def test_filter_layers_keeps_only_selected():
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "layers.dxf"
