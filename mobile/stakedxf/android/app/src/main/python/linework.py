@@ -32,6 +32,36 @@ _KEEP_IN_PLACE = STAKEABLE | {"VERTEX", "SEQEND"}
 _R2010 = frozenset({"R2010", "AC1024"})
 
 
+def _safe_layer(entity) -> str | None:
+    """Return the entity's layer name, tolerating malformed entities.
+
+    Civil 3D DWGs occasionally round-trip through LibreDWG with stray table
+    entries (or proxy-exploded children) that surface as bare strings inside
+    ``doc.modelspace()`` / ``doc.layers``. A naïve ``getattr(entity.dxf,
+    "layer", "0")`` still evaluates ``entity.dxf`` first — which raises
+    ``AttributeError: 'str' object has no attribute 'dxf'`` and aborts the
+    entire conversion. Guarded lookup lets us skip the offending entry
+    instead of tearing down the whole recover flow.
+    """
+    dxf_ns = getattr(entity, "dxf", None)
+    if dxf_ns is None:
+        return None
+    layer = getattr(dxf_ns, "layer", None)
+    if not layer:
+        return None
+    return str(layer)
+
+
+def _safe_dxftype(entity) -> str | None:
+    fn = getattr(entity, "dxftype", None)
+    if not callable(fn):
+        return None
+    try:
+        return str(fn()).upper()
+    except Exception:
+        return None
+
+
 def _report(progress: Any, stage: str, percent: int, message: str) -> None:
     if progress is None:
         return
@@ -54,7 +84,10 @@ def _explode_proxies(doc, progress: Any = None) -> tuple[int, int]:
     last_pct = -1
 
     for idx, entity in enumerate(entities):
-        etype = entity.dxftype().upper()
+        etype = _safe_dxftype(entity)
+        if etype is None:
+            # Malformed entry (e.g. a str leaked in by a broken proxy round-trip).
+            continue
         graphic = getattr(entity, "proxy_graphic", None)
         is_proxy = etype in {"ACAD_PROXY_ENTITY", "ACAD_PROXY_OBJECT"} or bool(graphic)
         if not is_proxy and not hasattr(entity, "virtual_entities"):
@@ -76,12 +109,7 @@ def _explode_proxies(doc, progress: Any = None) -> tuple[int, int]:
         if not virt:
             continue
 
-        layer = None
-        try:
-            if hasattr(entity.dxf, "layer"):
-                layer = entity.dxf.layer
-        except Exception:
-            layer = None
+        layer = _safe_layer(entity)
 
         for item in virt:
             try:
@@ -127,8 +155,14 @@ def _strip_non_stakeable(doc, progress: Any = None) -> tuple[int, Counter]:
     last_pct = -1
 
     for idx, entity in enumerate(entities):
-        etype = entity.dxftype().upper()
-        if etype in _KEEP_IN_PLACE:
+        etype = _safe_dxftype(entity)
+        if etype is None:
+            # Skip anything we can't classify — malformed entries silently drop.
+            try:
+                msp.delete_entity(entity)
+            except Exception:
+                pass
+        elif etype in _KEEP_IN_PLACE:
             if etype in STAKEABLE:
                 kept += 1
         else:
@@ -149,10 +183,10 @@ def _layer_stats(doc) -> list[dict]:
     counts: Counter[str] = Counter()
     types: dict[str, Counter[str]] = {}
     for entity in doc.modelspace():
-        etype = entity.dxftype().upper()
-        if etype not in STAKEABLE:
+        etype = _safe_dxftype(entity)
+        if etype is None or etype not in STAKEABLE:
             continue
-        layer = getattr(entity.dxf, "layer", "0") or "0"
+        layer = _safe_layer(entity) or "0"
         counts[layer] += 1
         types.setdefault(layer, Counter())[etype] += 1
     rows = []
@@ -169,10 +203,19 @@ def _layer_stats(doc) -> list[dict]:
 
 def _purge_empty_layers(doc) -> int:
     """Remove layer table entries that have no modelspace entities."""
-    used = {getattr(e.dxf, "layer", "0") or "0" for e in doc.modelspace()}
+    used: set[str] = set()
+    for e in doc.modelspace():
+        layer = _safe_layer(e)
+        if layer:
+            used.add(layer)
     removed = 0
     for layer in list(doc.layers):
-        name = layer.dxf.name
+        # Layer table entries can also be malformed after a LibreDWG roundtrip;
+        # skip anything without a well-formed ``dxf.name`` instead of aborting.
+        dxf_ns = getattr(layer, "dxf", None)
+        name = getattr(dxf_ns, "name", None) if dxf_ns is not None else None
+        if not isinstance(name, str) or not name:
+            continue
         if name in used:
             continue
         if name.upper() == "0":
@@ -191,11 +234,14 @@ def _import_stakeable(working, out, include_layers: set[str] | None = None) -> t
     skipped: Counter[str] = Counter()
     include_l = {n.lower() for n in include_layers} if include_layers is not None else None
     for entity in list(working.modelspace()):
-        etype = entity.dxftype().upper()
+        etype = _safe_dxftype(entity)
+        if etype is None:
+            skipped["_MALFORMED"] += 1
+            continue
         if etype not in STAKEABLE:
             skipped[etype] += 1
             continue
-        layer = (getattr(entity.dxf, "layer", "0") or "0").lower()
+        layer = (_safe_layer(entity) or "0").lower()
         if include_l is not None and layer not in include_l:
             skipped[etype] += 1
             continue
@@ -326,8 +372,14 @@ def filter_layers(input_path: str, output_path: str, layers_json: str) -> dict:
     # First pass: decide which POLYLINE parents stay, then keep their VERTEX/SEQEND.
     keep_poly = False
     for entity in list(msp):
-        etype = entity.dxftype().upper()
-        layer = (getattr(entity.dxf, "layer", "0") or "0").lower()
+        etype = _safe_dxftype(entity)
+        if etype is None:
+            try:
+                msp.delete_entity(entity)
+            except Exception:
+                pass
+            continue
+        layer = (_safe_layer(entity) or "0").lower()
         if etype == "POLYLINE":
             keep_poly = etype in STAKEABLE and layer in include_l
             if not keep_poly:
@@ -354,7 +406,7 @@ def filter_layers(input_path: str, output_path: str, layers_json: str) -> dict:
     kept = sum(
         1
         for e in source.modelspace()
-        if e.dxftype().upper() in STAKEABLE
+        if (_safe_dxftype(e) or "") in STAKEABLE
     )
     _purge_empty_layers(source)
 

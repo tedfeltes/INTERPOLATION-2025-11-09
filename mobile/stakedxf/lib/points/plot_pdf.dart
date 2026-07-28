@@ -529,7 +529,12 @@ void paintStakingPlan(
       canvas
         ..setStrokeColor(pointColor)
         ..setLineWidth(0.65)
-        ..drawLine(g.ax, g.ay, g.ex, g.ey)
+        // point → hinge → elbow → landing.
+        // When (hx, hy) == (ex, ey) the leader collapses to the classic
+        // 2-segment shape; otherwise we route around the label so the
+        // shoulder never strikes through the description text.
+        ..drawLine(g.ax, g.ay, g.hx, g.hy)
+        ..drawLine(g.hx, g.hy, g.ex, g.ey)
         ..drawLine(g.ex, g.ey, g.lx, g.ly)
         ..strokePath();
     }

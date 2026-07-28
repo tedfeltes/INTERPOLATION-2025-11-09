@@ -62,6 +62,38 @@ def test_recover_linework_omits_empty_layers():
         assert "EMPTY_B" not in table_names
 
 
+def test_safe_helpers_tolerate_string_entries():
+    """The ``_safe_*`` helpers must return None instead of crashing on ``str``.
+
+    Civil 3D DWGs occasionally round-trip through LibreDWG with malformed
+    entries whose Python type is ``str``. Historically that surfaced as
+    ``AttributeError: 'str' object has no attribute 'dxf'`` and aborted the
+    whole conversion (frame 23 of the field bug-report screen recording).
+    The helpers must degrade gracefully so those entries can be skipped.
+    """
+    from linework import _safe_dxftype, _safe_layer
+
+    class _RealEntity:
+        class _NS:
+            layer = "REAL"
+
+        dxf = _NS()
+
+        def dxftype(self) -> str:  # pragma: no cover - simple test double
+            return "LINE"
+
+    real = _RealEntity()
+    assert _safe_dxftype(real) == "LINE"
+    assert _safe_layer(real) == "REAL"
+
+    # A bare string used to blow up with AttributeError:
+    #   'str' object has no attribute 'dxf'
+    assert _safe_dxftype("phantom-entity") is None
+    assert _safe_layer("phantom-entity") is None
+    assert _safe_dxftype(None) is None
+    assert _safe_layer(None) is None
+
+
 def test_filter_layers_keeps_only_selected():
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "layers.dxf"

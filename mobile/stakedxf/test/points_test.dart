@@ -265,6 +265,68 @@ void main() {
     final outT = File('test/fixtures/sample_staking_plot_titled.pdf');
     await outT.writeAsBytes(withTitle);
     expect(withTitle.length, greaterThan(1000));
+
+    // Leader strikethrough regression fixture — mirrors the
+    // OLDE_HIGHLANDER_STAKE-STM-OH_2023-12-14 field bug report where the
+    // description line of every label was crossed by the leader shoulder.
+    // Points sit level with their labels (auto-spread pushes each label
+    // sideways rather than above), so this is the exact scenario the
+    // buildLeader hinge-and-wrap fix targets.
+    final level = <SurveyPoint>[
+      SurveyPoint(
+        id: '1419',
+        easting: 100,
+        northing: 100,
+        elevation: 100,
+        description: '1P-P OUTLET FES',
+      ),
+      SurveyPoint(
+        id: '1420',
+        easting: 100,
+        northing: 92,
+        elevation: 100,
+        description: '1P-P OUTLET STRUC',
+      ),
+      SurveyPoint(
+        id: '1421',
+        easting: 100,
+        northing: 84,
+        elevation: 100,
+        description: '1P-P INLET PIPE',
+      ),
+      SurveyPoint(
+        id: '1431',
+        easting: 100,
+        northing: 76,
+        elevation: 100,
+        description: '4P-P OUTLET FES',
+      ),
+      SurveyPoint(
+        id: '1432',
+        easting: 100,
+        northing: 68,
+        elevation: 100,
+        description: '4P-P OUTLET STRUC',
+      ),
+    ];
+    final leaderFix = await buildStakingPlotPdf(
+      points: level,
+      jobName: 'LEADER FIX',
+      date: DateTime(2026, 7, 15),
+      options: PlotOptions(
+        markerStyle: PointMarkerStyle.largeX,
+        labelFormat: PointLabelFormat.numberDescription,
+        includeLinework: false,
+        autoSpreadLabels: true,
+        labelDrags: {
+          for (final p in level)
+            p.id: LabelDragState(offsetE: -60, offsetN: 0, pinned: true),
+        },
+      ),
+    );
+    final outLdr = File('test/fixtures/sample_staking_plot_leader_fix.pdf');
+    await outLdr.writeAsBytes(leaderFix);
+    expect(leaderFix.length, greaterThan(1000));
   });
 
   test('auto-spread separates stacked labels; preserves pinned drags', () {

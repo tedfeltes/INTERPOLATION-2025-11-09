@@ -233,7 +233,11 @@ class _PlotPreviewState extends State<PlotPreview> {
             SizedBox(
               height: h,
               child: ColoredBox(
-                  color: const Color(0xFFE8E4DC),
+                  // Preview background = paper white so what you see matches
+                  // the printed PDF. Earlier builds used a warm cream tone
+                  // (0xFFE8E4DC) but that made the preview inconsistent with
+                  // the actual white staking sheet.
+                  color: const Color(0xFFFAFAFA),
                   child: LayoutBuilder(
                     builder: (context, c) {
                       final size = Size(c.maxWidth, c.maxHeight);
@@ -889,6 +893,14 @@ class _PlotPreviewPainter extends CustomPainter {
   }
 
   void _paintSheetOutline(Canvas canvas) {
+    // Fill the sheet rect with paper white so the plot's "paper" matches the
+    // printed PDF. The preview's ColoredBox is now a neutral off-white too,
+    // so the paper edges show as a hair-thin dark outline instead of a
+    // cream/beige rectangle bleeding through.
+    canvas.drawRect(
+      map.sheetRect,
+      Paint()..color = const Color(0xFFFFFFFF),
+    );
     canvas.drawRect(
       map.sheetRect,
       Paint()
@@ -990,6 +1002,7 @@ class _PlotPreviewPainter extends CustomPainter {
       if (dragged) {
         final path = Path()
           ..moveTo(g.point.dx, g.point.dy)
+          ..lineTo(g.hinge.dx, g.hinge.dy)
           ..lineTo(g.elbow.dx, g.elbow.dy)
           ..lineTo(g.landing.dx, g.landing.dy);
         canvas.drawPath(path, leader);
