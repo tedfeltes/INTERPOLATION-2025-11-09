@@ -14,6 +14,7 @@ import 'package:stakedxf/points/label_placement.dart';
 import 'package:stakedxf/points/linetype_catalog.dart';
 import 'package:stakedxf/points/linework_edit.dart';
 import 'package:stakedxf/points/linework_style.dart';
+import 'package:stakedxf/points/plot_annotations.dart';
 import 'package:stakedxf/points/plot_options.dart';
 import 'package:stakedxf/points/plot_pdf.dart';
 import 'package:stakedxf/points/plot_symbols.dart';
@@ -240,6 +241,30 @@ void main() {
     final out = File('test/fixtures/sample_staking_plot.pdf');
     await out.writeAsBytes(withTable);
     expect(withTable.length, greaterThan(1000));
+
+    // Companion fixture with the optional plot title enabled — used by
+    // docs/generate_docs.py and manual QA to sanity-check the paper-space
+    // title placement.
+    final withTitle = await buildStakingPlotPdf(
+      points: pts,
+      jobName: 'ALPINE HILLS',
+      date: DateTime(2026, 7, 15),
+      options: const PlotOptions(
+        markerStyle: PointMarkerStyle.largeX,
+        labelFormat: PointLabelFormat.numberDescription,
+        includeLinework: false,
+        titleBlock: TitleBlockData(
+          enabled: true,
+          name: 'ALPINE HILLS',
+          paperFracX: 0.5,
+          paperFracY: 0.06,
+          fontSizePt: 26,
+        ),
+      ),
+    );
+    final outT = File('test/fixtures/sample_staking_plot_titled.pdf');
+    await outT.writeAsBytes(withTitle);
+    expect(withTitle.length, greaterThan(1000));
   });
 
   test('auto-spread separates stacked labels; preserves pinned drags', () {

@@ -137,54 +137,39 @@ pw.Widget _buildFullBleedPage({
     return plan;
   }
 
+  // Position the title in paper space directly against the page format —
+  // this avoids Stack/LayoutBuilder coordinate ambiguity that could pin the
+  // title to the corner of an intermediate widget instead of the sheet.
+  final pageW = template.pageFormat.width;
+  final pageH = template.pageFormat.height;
+  final fs = tb.fontSizePt.clamp(6.0, 96.0);
+  final fx = tb.paperFracX.clamp(0.0, 1.0);
+  final fy = tb.paperFracY.clamp(0.0, 1.0);
+  final approxTextW = fs * tb.name.trim().length * 0.55;
+  final left =
+      (fx * pageW - approxTextW / 2).clamp(4.0, pageW - approxTextW - 4);
+  final top = (fy * pageH - fs * 0.5).clamp(4.0, pageH - fs - 4);
+
   return pw.Stack(
     fit: pw.StackFit.expand,
     children: [
       pw.Positioned.fill(child: plan),
-      _PlotTitle(title: tb),
+      pw.Positioned(
+        left: left,
+        top: top,
+        child: pw.Text(
+          tb.name.trim().toUpperCase(),
+          style: pw.TextStyle(
+            fontSize: fs,
+            fontWeight: pw.FontWeight.bold,
+            letterSpacing: fs * 0.03,
+            font: pw.Font.helveticaBold(),
+            color: PdfColors.black,
+          ),
+        ),
+      ),
     ],
   );
-}
-
-/// Optional draggable plot title — the only overlay StakeDXF draws on the
-/// ANSI full-bleed sheet. No background, no border; just centred bold text.
-class _PlotTitle extends pw.StatelessWidget {
-  _PlotTitle({required this.title});
-
-  final TitleBlockData title;
-
-  @override
-  pw.Widget build(pw.Context context) {
-    final fx = title.paperFracX.clamp(0.0, 1.0);
-    final fy = title.paperFracY.clamp(0.0, 1.0);
-    return pw.LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints?.maxWidth ?? 0;
-        final h = constraints?.maxHeight ?? 0;
-        if (w <= 0 || h <= 0) return pw.SizedBox.shrink();
-        final fs = title.fontSizePt.clamp(6.0, 96.0);
-        // Estimate text width so we can horizontally centre on (fx*w).
-        // 0.55 is a fair average character width for bold helvetica.
-        final approxTextW = fs * title.name.trim().length * 0.55;
-        final left = (fx * w - approxTextW / 2).clamp(4.0, w - approxTextW - 4);
-        final top = (fy * h - fs * 0.5).clamp(4.0, h - fs - 4);
-        return pw.Positioned(
-          left: left,
-          top: top,
-          child: pw.Text(
-            title.name.trim().toUpperCase(),
-            style: pw.TextStyle(
-              fontSize: fs,
-              fontWeight: pw.FontWeight.bold,
-              letterSpacing: fs * 0.03,
-              font: pw.Font.helveticaBold(),
-              color: PdfColors.black,
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
 /// Axis-aligned plan bounds used for auto-scale and `_paintPlan` framing.
