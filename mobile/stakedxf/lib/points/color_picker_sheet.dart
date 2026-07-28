@@ -117,7 +117,7 @@ class _ColorPickerBodyState extends State<_ColorPickerBody>
   @override
   Widget build(BuildContext context) {
     final ctb = widget.ctb;
-    final aciSwatches = buildAciSwatches(ctb);
+    final aciSwatches = buildAciSwatchesByShade(ctb);
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,

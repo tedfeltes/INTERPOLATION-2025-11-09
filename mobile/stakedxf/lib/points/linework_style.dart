@@ -19,7 +19,7 @@ class ResolvedLineworkStyle {
   final double linetypeScale;
 
   int get colorWithOpacity {
-    final a = (opacity.clamp(0.05, 1.0) * 255).round();
+    final a = (opacity.clamp(0.0, 1.0) * 255).round().clamp(0, 255);
     return (a << 24) | (colorArgb & 0x00FFFFFF);
   }
 
@@ -106,7 +106,7 @@ ResolvedLineworkStyle resolveLineworkStyle({
           entity.opacity ??
           layerOv?.opacity ??
           1.0)
-      .clamp(0.05, 1.0);
+      .clamp(0.0, 1.0);
 
   // Stroke: user override → DXF lineweight → CTB lineweight for ACI.
   final stroke = entOv?.strokeWidthPt ??

@@ -42,78 +42,82 @@ void paintLineworkFlutter({
 
     final layerSelected =
         selectedLayer != null && ent.layer == selectedLayer;
+    final entitySelected = ent.id == selectedId;
     final paint = Paint()
       ..color = Color(style.colorWithOpacity)
       ..strokeWidth =
-          style.strokeWidthPt * (layerSelected ? 1.35 : 1.0)
+          style.strokeWidthPt * (layerSelected ? 1.15 : 1.0)
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    final dash = style.dashPatternPoints();
-    if (dash.isEmpty) {
+    Path buildPath() {
       final path = Path()..moveTo(samples.first.dx, samples.first.dy);
       for (var i = 1; i < samples.length; i++) {
         path.lineTo(samples[i].dx, samples[i].dy);
       }
       if (ent.closed || ent.type == 'CIRCLE') path.close();
-      canvas.drawPath(path, paint);
+      return path;
+    }
+
+    // Selection chrome UNDER the stroke so opacity/transparency changes
+    // stay visible (old highlight painted on top and masked fade-out).
+    if (layerSelected || entitySelected) {
+      final hi = Paint()
+        ..color = const Color(0xFFE4572E).withValues(alpha: 0.28)
+        ..strokeWidth = style.strokeWidthPt + (layerSelected ? 2.2 : 2.8)
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(buildPath(), hi);
+    }
+
+    final dash = style.dashPatternPoints();
+    if (dash.isEmpty) {
+      canvas.drawPath(buildPath(), paint);
     } else {
       _strokeDashed(canvas, samples, dash, paint, closed: ent.closed);
     }
 
-    if (layerSelected || ent.id == selectedId) {
-      // Keep highlight translucent so opacity changes remain visible.
-      final hi = Paint()
-        ..color = const Color(0xFFE4572E)
-            .withValues(alpha: (0.35 + style.opacity * 0.55).clamp(0.25, 0.95))
-        ..strokeWidth = style.strokeWidthPt + (layerSelected ? 1.0 : 1.5)
-        ..style = PaintingStyle.stroke;
-      final path = Path()..moveTo(samples.first.dx, samples.first.dy);
-      for (var i = 1; i < samples.length; i++) {
-        path.lineTo(samples[i].dx, samples[i].dy);
+    if ((layerSelected || entitySelected) && showNodesForSelected) {
+      final verts = [
+        for (final v in ent.vertices)
+          if (v.length >= 2) toPixel(v[0], v[1]),
+      ];
+      for (var i = 0; i < verts.length; i++) {
+        final selected = i == selectedNodeIndex;
+        canvas.drawCircle(
+          verts[i],
+          selected ? 6 : 4.5,
+          Paint()
+            ..color = selected
+                ? const Color(0xFFE4572E)
+                : const Color(0xFF1565C0),
+        );
+        canvas.drawCircle(
+          verts[i],
+          selected ? 6 : 4.5,
+          Paint()
+            ..color = Colors.white
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.2,
+        );
       }
-      canvas.drawPath(path, hi);
-
-      if (showNodesForSelected) {
-        final verts = [
-          for (final v in ent.vertices)
-            if (v.length >= 2) toPixel(v[0], v[1]),
-        ];
-        for (var i = 0; i < verts.length; i++) {
-          final selected = i == selectedNodeIndex;
-          canvas.drawCircle(
-            verts[i],
-            selected ? 6 : 4.5,
-            Paint()
-              ..color = selected
-                  ? const Color(0xFFE4572E)
-                  : const Color(0xFF1565C0),
-          );
-          canvas.drawCircle(
-            verts[i],
-            selected ? 6 : 4.5,
-            Paint()
-              ..color = Colors.white
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.2,
-          );
-        }
-        // Segment midpoints as selectable handles.
-        final edgeCount = ent.closed ? verts.length : verts.length - 1;
-        for (var i = 0; i < edgeCount && verts.length >= 2; i++) {
-          final a = verts[i];
-          final b = verts[(i + 1) % verts.length];
-          final mid = Offset((a.dx + b.dx) / 2, (a.dy + b.dy) / 2);
-          final sel = i == selectedSegmentIndex;
-          canvas.drawRect(
-            Rect.fromCenter(center: mid, width: sel ? 10 : 8, height: sel ? 10 : 8),
-            Paint()
-              ..color = sel
-                  ? const Color(0xFFE4572E)
-                  : const Color(0xFF2E7D32),
-          );
-        }
+      // Segment midpoints as selectable handles.
+      final edgeCount = ent.closed ? verts.length : verts.length - 1;
+      for (var i = 0; i < edgeCount && verts.length >= 2; i++) {
+        final a = verts[i];
+        final b = verts[(i + 1) % verts.length];
+        final mid = Offset((a.dx + b.dx) / 2, (a.dy + b.dy) / 2);
+        final sel = i == selectedSegmentIndex;
+        canvas.drawRect(
+          Rect.fromCenter(
+              center: mid, width: sel ? 10 : 8, height: sel ? 10 : 8),
+          Paint()
+            ..color = sel
+                ? const Color(0xFFE4572E)
+                : const Color(0xFF2E7D32),
+        );
       }
     }
   }
@@ -192,10 +196,12 @@ void paintLineworkPdf({
     if (samples.length < 2) continue;
 
     final argb = style.colorWithOpacity;
+    final opacity = style.opacity.clamp(0.0, 1.0);
+    if (opacity <= 0.001) continue;
     // PdfColor RGB setters drop alpha — use a graphic state for true opacity.
     canvas
       ..saveContext()
-      ..setGraphicState(PdfGraphicState(opacity: style.opacity.clamp(0.05, 1.0)))
+      ..setGraphicState(PdfGraphicState(opacity: opacity))
       ..setStrokeColor(PdfColor.fromInt(argb | 0xFF000000))
       ..setLineWidth(style.strokeWidthPt);
 

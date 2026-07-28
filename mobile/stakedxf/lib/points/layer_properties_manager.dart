@@ -1121,7 +1121,7 @@ class _LayerPropertiesManagerState extends State<LayerPropertiesManager> {
     LineworkStyleOverride ov,
     ResolvedLineworkStyle resolved,
   ) async {
-    var value = (ov.opacity ?? resolved.opacity).clamp(0.05, 1.0);
+    var value = (ov.opacity ?? resolved.opacity).clamp(0.0, 1.0);
     final picked = await showModalBottomSheet<double>(
       context: context,
       showDragHandle: true,
@@ -1150,9 +1150,21 @@ class _LayerPropertiesManagerState extends State<LayerPropertiesManager> {
                       ],
                     ),
                     const SizedBox(height: 8),
+                    // Live swatch so fade is obvious even with selection chrome.
+                    Center(
+                      child: Container(
+                        width: 72,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: Color(resolved.colorArgb | 0xFF000000)
+                              .withValues(alpha: value),
+                          border: Border.all(color: PlotUi.border),
+                        ),
+                      ),
+                    ),
                     Slider(
                       value: value,
-                      min: 0.05,
+                      min: 0.0,
                       max: 1.0,
                       onChanged: (v) {
                         setLocal(() => value = v);
