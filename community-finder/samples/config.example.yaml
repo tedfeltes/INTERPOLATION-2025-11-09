@@ -1,0 +1,52 @@
+# Community Finder configuration
+# Edit keywords freely — they drive which Reddit communities are discovered.
+
+keywords:
+  primary:
+    - photography
+    - camera
+  secondary:
+    - landscape
+    - portrait
+    - street photography
+  tertiary:
+    - sony
+    - fuji
+    - lightroom
+
+reddit:
+  # Create a script app at https://www.reddit.com/prefs/apps
+  client_id: "YOUR_CLIENT_ID"
+  client_secret: "YOUR_CLIENT_SECRET"
+  user_agent: "community-finder/1.0 by YOUR_REDDIT_USERNAME"
+  # Optional — only needed if you want a logged-in session
+  # username: ""
+  # password: ""
+
+search:
+  limit_per_term: 100
+  include_nsfw: true
+  min_subscribers: 0
+  # If true, keep only communities whose name/title contain at least one keyword
+  require_any_tier_in_name_or_title: false
+  weights:
+    primary: 10
+    secondary: 5
+    tertiary: 2
+
+export:
+  # Local folder for exports (absolute or relative path)
+  output_dir: "./exports"
+  # Optional: also copy exports into a cloud-synced folder
+  # Examples:
+  #   cloud_sync_dir: "/sdcard/Download/CommunityFinder"   # Android / Termux
+  #   cloud_sync_dir: "~/Dropbox/CommunityFinder"
+  #   cloud_sync_dir: "~/Library/CloudStorage/GoogleDrive-you@email/My Drive/CommunityFinder"
+  #   cloud_sync_dir: "~/OneDrive/CommunityFinder"
+  cloud_sync_dir: null
+  formats:
+    - json
+    - csv
+    - txt
+  filename_prefix: communities
+  auto_export: true
