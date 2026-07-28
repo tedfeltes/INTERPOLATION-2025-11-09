@@ -954,8 +954,8 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                     style: TextStyle(fontSize: 11)),
                                 Expanded(
                                   child: Slider(
-                                    value: selectedSym.opacity.clamp(0.0, 1.0),
-                                    min: 0.0,
+                                    value: selectedSym.opacity.clamp(0.05, 1.0),
+                                    min: 0.05,
                                     max: 1.0,
                                     onChanged: (v) =>
                                         _updateSelectedSymbol(opacity: v),
@@ -1747,8 +1747,8 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                           style: TextStyle(fontSize: 12)),
                                       Expanded(
                                         child: Slider(
-                                          value: t.opacity.clamp(0.0, 1.0),
-                                          min: 0.0,
+                                          value: t.opacity.clamp(0.05, 1.0),
+                                          min: 0.05,
                                           max: 1.0,
                                           onChanged: (v) => setState(() {
                                             _textObjects[i] =
