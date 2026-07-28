@@ -416,8 +416,19 @@ class _LayerPropertiesManagerState extends State<LayerPropertiesManager> {
         ),
       );
     }
+    // Match the SizedBox height to the *actual* row count (header + rows +
+    // a small pad). Previously we hard-capped the height at
+    // ``_rowHeight * 13`` regardless of layer count — but the Column below
+    // still rendered all N rows, so with a large DXF (107 layers in the
+    // OLDE_HIGHLANDER field bug report) the overflow painted on top of the
+    // GLOBAL LTS footer *and* the next sticky sections (OBJECTS / TITLE /
+    // TEXT / POINTS). Sizing to the true grid height lets the outer
+    // CustomScrollView on the Export Points screen scroll cleanly through
+    // every layer, then land on the GLOBAL LTS slider, then the next
+    // section — no overlap, no ghosted text behind the slider.
+    final gridHeight = _rowHeight * (layers.length + 1) + 8;
     return SizedBox(
-      height: _rowHeight * (layers.length.clamp(1, 12) + 1) + 8,
+      height: gridHeight,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
