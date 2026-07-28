@@ -3,17 +3,18 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pdf/pdf.dart';
 import 'package:stakedxf/points/csv_io.dart';
+import 'package:stakedxf/points/plot_annotations.dart';
 import 'package:stakedxf/points/plot_options.dart';
 import 'package:stakedxf/points/plot_pdf.dart';
 import 'package:stakedxf/points/plot_templates.dart';
 
 void main() {
-  test('catalog covers ANSI A–D with field and control layouts', () {
-    expect(kPlotTemplates.length, greaterThanOrEqualTo(12));
+  test('catalog covers ANSI A–D as ANSI full-bleed sheets', () {
+    expect(kPlotTemplates.length, greaterThanOrEqualTo(8));
     final sizes = kPlotTemplates.map((t) => t.size).toSet();
     expect(sizes, containsAll(AnsiSheetSize.values));
     final layouts = kPlotTemplates.map((t) => t.layout).toSet();
-    expect(layouts, containsAll(PlotTemplateLayout.values));
+    expect(layouts, {PlotTemplateLayout.fullBleed});
     expect(kPlotTemplates.map((t) => t.id).toSet().length, kPlotTemplates.length);
   });
 
@@ -27,17 +28,20 @@ void main() {
     final a = plotTemplateById('field_a_portrait');
     expect(a.widthIn, 8.5);
     expect(a.heightIn, 11);
+    // Legacy id `control_b_landscape` now routes to the ANSI B landscape
+    // full-bleed sheet.
     final b = plotTemplateById('control_b_landscape');
     expect(b.widthIn, 17);
     expect(b.heightIn, 11);
+    expect(b.layout, PlotTemplateLayout.fullBleed);
     final d = plotTemplateById('field_d_landscape');
     expect(d.widthIn, 34);
     expect(d.heightIn, 22);
   });
 
-  test('default template is control note B landscape', () {
-    expect(kDefaultPlotTemplate.id, 'control_b_landscape');
-    expect(kDefaultPlotTemplate.layout, PlotTemplateLayout.sidePanel);
+  test('default template is ANSI B landscape full bleed', () {
+    expect(kDefaultPlotTemplate.id, 'field_b_landscape');
+    expect(kDefaultPlotTemplate.layout, PlotTemplateLayout.fullBleed);
     expect(plotTemplateById('missing'), kDefaultPlotTemplate);
   });
 
@@ -55,7 +59,8 @@ void main() {
           template: t,
           markerStyle: PointMarkerStyle.x,
           labelFormat: PointLabelFormat.numberDescription,
-          showPointList: t.layout == PlotTemplateLayout.sidePanel,
+          titleBlock:
+              const TitleBlockData(name: 'DEMO', date: 'JUL 15, 2026'),
         ),
       );
       expect(bytes.length, greaterThan(800), reason: t.id);

@@ -4,7 +4,6 @@ import 'package:pdf/pdf.dart';
 import 'package:vector_math/vector_math_64.dart';
 
 import 'block_catalog.dart';
-import 'hatch_paint.dart';
 import 'plot_symbols.dart';
 
 /// Draw all placed symbols (after linework; typically before stake markers).
@@ -184,11 +183,6 @@ void _strokeCircle(PdfGraphics c, double r) {
     ..strokePath();
 }
 
-/// Civil-style hatch fill (ANSI31) — never solid.
-void _hatchCircle(PdfGraphics c, double r, PdfColor color) {
-  hatchPdfCircle(c, 0, 0, r, color, spacing: math.max(2.2, r * 0.35));
-}
-
 void _hydrant(PdfGraphics c, double h, PdfColor color) {
   _strokeCircle(c, h * 0.55);
   c
@@ -199,7 +193,11 @@ void _hydrant(PdfGraphics c, double h, PdfColor color) {
     ..moveTo(0, h * 0.55)
     ..lineTo(0, h * 0.95)
     ..strokePath();
-  _hatchCircle(c, h * 0.18, color);
+  // Solid centre dot (small filled circle) — no hatch.
+  c
+    ..setFillColor(color)
+    ..drawEllipse(0, 0, h * 0.16, h * 0.16)
+    ..fillPath();
 }
 
 void _valve(PdfGraphics c, double h) {
@@ -309,37 +307,23 @@ void _octagon(
   PdfGraphics c,
   double h,
   PdfColor color, {
-  required bool hatch,
+  // ignore: avoid_unused_constructor_parameters
+  bool hatch = false,
 }) {
+  // Outline only — the field plot never hatch-fills solid signage shapes.
   final r = h * 0.85;
-  void build(PdfGraphics g) {
-    final pts = <PdfPoint>[];
-    for (var i = 0; i < 8; i++) {
-      final a = -math.pi / 8 + i * math.pi / 4;
-      pts.add(PdfPoint(math.cos(a) * r, math.sin(a) * r));
-    }
-    g.moveTo(pts.first.x, pts.first.y);
-    for (var i = 1; i < pts.length; i++) {
-      g.lineTo(pts[i].x, pts[i].y);
-    }
-    g.closePath();
+  final pts = <PdfPoint>[];
+  for (var i = 0; i < 8; i++) {
+    final a = -math.pi / 8 + i * math.pi / 4;
+    pts.add(PdfPoint(math.cos(a) * r, math.sin(a) * r));
   }
-
-  if (hatch) {
-    hatchPdfClosedPath(
-      c,
-      build,
-      color,
-      minX: -r,
-      minY: -r,
-      maxX: r,
-      maxY: r,
-      spacing: math.max(2.4, r * 0.28),
-    );
-  } else {
-    build(c);
-    c.strokePath();
+  c.moveTo(pts.first.x, pts.first.y);
+  for (var i = 1; i < pts.length; i++) {
+    c.lineTo(pts[i].x, pts[i].y);
   }
+  c
+    ..closePath()
+    ..strokePath();
 }
 
 void _yield(PdfGraphics c, double h) {
@@ -359,18 +343,10 @@ void _yield(PdfGraphics c, double h) {
 
 void _doNotEnter(PdfGraphics c, double h, PdfColor color) {
   _strokeCircle(c, h * 0.8);
-  hatchPdfClosedPath(
-    c,
-    (g) {
-      g.drawRect(-h * 0.5, -h * 0.18, h, h * 0.36);
-    },
-    color,
-    minX: -h * 0.5,
-    minY: -h * 0.18,
-    maxX: h * 0.5,
-    maxY: h * 0.18,
-    spacing: math.max(2.0, h * 0.22),
-  );
+  // Solid outline bar — no hatch fill.
+  c
+    ..drawRect(-h * 0.5, -h * 0.18, h, h * 0.36)
+    ..strokePath();
 }
 
 void _oneWay(PdfGraphics c, double h) {
@@ -419,13 +395,20 @@ void _handicap(PdfGraphics c, double h) {
     ..strokePath();
 }
 
+void _fillDot(PdfGraphics c, double r, PdfColor color) {
+  c
+    ..setFillColor(color)
+    ..drawEllipse(0, 0, r, r)
+    ..fillPath();
+}
+
 void _bollard(PdfGraphics c, double h, PdfColor color) {
-  _hatchCircle(c, h * 0.35, color);
+  _fillDot(c, h * 0.28, color);
   _strokeCircle(c, h * 0.55);
 }
 
 void _lightPole(PdfGraphics c, double h, PdfColor color) {
-  _hatchCircle(c, h * 0.2, color);
+  _fillDot(c, h * 0.16, color);
   _strokeCircle(c, h * 0.7);
   for (var i = 0; i < 8; i++) {
     final a = i * math.pi / 4;
@@ -439,7 +422,7 @@ void _lightPole(PdfGraphics c, double h, PdfColor color) {
 void _tree(PdfGraphics c, double h, PdfColor color) {
   _strokeCircle(c, h * 0.75);
   _strokeCircle(c, h * 0.45);
-  _hatchCircle(c, h * 0.12, color);
+  _fillDot(c, h * 0.10, color);
 }
 
 void _ironPipe(PdfGraphics c, double h) {
@@ -457,7 +440,7 @@ void _benchmark(PdfGraphics c, double h, PdfColor color) {
     ..lineTo(-h * 0.75, -h * 0.55)
     ..closePath()
     ..strokePath();
-  _hatchCircle(c, h * 0.12, color);
+  _fillDot(c, h * 0.10, color);
 }
 
 void _hub(PdfGraphics c, double h) {

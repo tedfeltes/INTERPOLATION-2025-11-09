@@ -619,14 +619,15 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     try {
       final linework = _chosenLinework;
       final symbols = List<PlacedPlotSymbol>.from(_symbols);
+      final plotName = _options.titleBlock.name.trim().isNotEmpty
+          ? _options.titleBlock.name.trim()
+          : (_jobCtrl.text.trim().isNotEmpty
+              ? _jobCtrl.text.trim()
+              : 'STAKING PLOT');
       final bytes = await buildStakingPlotPdf(
         points: chosen,
         jobName: _jobCtrl.text.trim(),
-        title: _options.titleBlock.enabled
-            ? (_options.titleBlock.title.trim().isEmpty
-                ? 'STAKING PLOT'
-                : _options.titleBlock.title.trim())
-            : 'STAKING PLOT',
+        title: plotName,
         options: _options,
         linework: linework,
         symbols: symbols,
@@ -642,7 +643,6 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
         linework: linework,
         symbols: symbols,
         template: _options.template,
-        showPointList: _options.showPointList,
         overrideFtPerInch: _options.scaleFtPerInch,
       ).round();
       final docs = await getApplicationDocumentsDirectory();
@@ -1123,38 +1123,6 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                 },
                         ),
                         const SizedBox(height: 8),
-                        DropdownButtonFormField<PlotTemplateLayout>(
-                          value: _options.template.layout,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Sheet style',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          items: [
-                            for (final l in PlotTemplateLayout.values)
-                              DropdownMenuItem(
-                                value: l,
-                                child: Text(l.label),
-                              ),
-                          ],
-                          onChanged: _busy
-                              ? null
-                              : (v) {
-                                  if (v == null) return;
-                                  setState(() {
-                                    _options = _options.copyWith(
-                                      template: composePlotTemplate(
-                                        size: _options.template.size,
-                                        orientation:
-                                            _options.template.orientation,
-                                        layout: v,
-                                      ),
-                                    );
-                                  });
-                                },
-                        ),
-                        const SizedBox(height: 8),
                         Builder(
                           builder: (context) {
                             final selected = _textStyleCatalog
@@ -1584,146 +1552,72 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                         () => _annotationsOpen = !_annotationsOpen,
                       ),
                       children: [
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          title: const Text('Title block',
-                              style: TextStyle(fontSize: 13)),
-                          value: _options.titleBlock.enabled,
-                          onChanged: _busy
-                              ? null
-                              : (v) => setState(
-                                    () => _options = _options.copyWith(
-                                      titleBlock:
-                                          _options.titleBlock.copyWith(
-                                        enabled: v,
-                                      ),
-                                    ),
-                                  ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Corner block',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(letterSpacing: 0.6),
+                          ),
                         ),
-                        if (_options.titleBlock.enabled) ...[
-                          TextFormField(
-                            initialValue: _options.titleBlock.title,
+                        TextFormField(
+                          initialValue: _options.titleBlock.name,
+                          decoration: const InputDecoration(
+                            labelText: 'Plot name',
+                            hintText: 'e.g. CARDINAL RIDGE',
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (v) => setState(
+                            () => _options = _options.copyWith(
+                              titleBlock:
+                                  _options.titleBlock.copyWith(name: v),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        InkWell(
+                          onTap: _busy
+                              ? null
+                              : () async {
+                                  final now = DateTime.now();
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: now,
+                                    firstDate: DateTime(now.year - 5),
+                                    lastDate: DateTime(now.year + 5),
+                                  );
+                                  if (picked == null || !mounted) return;
+                                  const months = [
+                                    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+                                    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+                                  ];
+                                  final formatted =
+                                      '${months[picked.month - 1]} ${picked.day}, ${picked.year}';
+                                  setState(
+                                    () => _options = _options.copyWith(
+                                      titleBlock: _options.titleBlock
+                                          .copyWith(date: formatted),
+                                    ),
+                                  );
+                                },
+                          child: InputDecorator(
                             decoration: const InputDecoration(
-                              labelText: 'Title',
+                              labelText: 'Date',
                               isDense: true,
                               border: OutlineInputBorder(),
+                              suffixIcon: Icon(Icons.calendar_today, size: 18),
                             ),
-                            onChanged: (v) => setState(
-                              () => _options = _options.copyWith(
-                                titleBlock:
-                                    _options.titleBlock.copyWith(title: v),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            initialValue: _options.titleBlock.project,
-                            decoration: const InputDecoration(
-                              labelText: 'Project',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                            ),
-                            onChanged: (v) => setState(
-                              () => _options = _options.copyWith(
-                                titleBlock:
-                                    _options.titleBlock.copyWith(project: v),
-                              ),
+                            child: Text(
+                              _options.titleBlock.date.trim().isEmpty
+                                  ? 'Today'
+                                  : _options.titleBlock.date,
+                              style: const TextStyle(fontSize: 13),
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  initialValue: _options.titleBlock.drawnBy,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Drawn by',
-                                    isDense: true,
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  onChanged: (v) => setState(
-                                    () => _options = _options.copyWith(
-                                      titleBlock: _options.titleBlock
-                                          .copyWith(drawnBy: v),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: TextFormField(
-                                  initialValue: _options.titleBlock.checkedBy,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Checked by',
-                                    isDense: true,
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  onChanged: (v) => setState(
-                                    () => _options = _options.copyWith(
-                                      titleBlock: _options.titleBlock
-                                          .copyWith(checkedBy: v),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  initialValue: _options.titleBlock.sheet,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Sheet',
-                                    isDense: true,
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  onChanged: (v) => setState(
-                                    () => _options = _options.copyWith(
-                                      titleBlock: _options.titleBlock
-                                          .copyWith(sheet: v),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: TextFormField(
-                                  initialValue: _options.titleBlock.revision,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Rev',
-                                    isDense: true,
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  onChanged: (v) => setState(
-                                    () => _options = _options.copyWith(
-                                      titleBlock: _options.titleBlock
-                                          .copyWith(revision: v),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            initialValue: _options.titleBlock.notes,
-                            maxLines: 2,
-                            decoration: const InputDecoration(
-                              labelText: 'Notes',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                            ),
-                            onChanged: (v) => setState(
-                              () => _options = _options.copyWith(
-                                titleBlock:
-                                    _options.titleBlock.copyWith(notes: v),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
                           onPressed: _busy || previewPoints.isEmpty

@@ -96,7 +96,6 @@ void main() {
       options: const PlotOptions(
         markerStyle: PointMarkerStyle.largeX,
         labelFormat: PointLabelFormat.numberElevation,
-        showPointList: false,
         includeLinework: false,
       ),
       symbols: symbols,

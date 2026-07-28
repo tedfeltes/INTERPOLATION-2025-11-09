@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:stakedxf/points/csv_io.dart';
 import 'package:stakedxf/points/dxf_linework.dart';
+import 'package:stakedxf/points/plot_annotations.dart';
 import 'package:stakedxf/points/plot_options.dart';
 import 'package:stakedxf/points/plot_pdf.dart';
 import 'package:stakedxf/points/plot_templates.dart';
@@ -41,7 +42,10 @@ Future<void> main() async {
         template: t,
         markerStyle: PointMarkerStyle.x,
         labelFormat: PointLabelFormat.numberDescriptionElevation,
-        showPointList: t.layout == PlotTemplateLayout.sidePanel,
+        titleBlock: const TitleBlockData(
+          name: 'TEMPLATE CATALOG',
+          date: 'JUL 15, 2026',
+        ),
         includeLinework: true,
       ),
       linework: lw.forLayers(lw.layers.toSet()),

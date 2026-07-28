@@ -3,10 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'block_catalog.dart';
-import 'hatch_paint.dart';
 import 'plot_symbols.dart';
 
-/// Tiny preview icon for the symbol library picker (hatched, not solid fill).
+/// Tiny preview icon for the symbol library picker — outline-only, no hatch.
 class SymbolPreviewPainter extends CustomPainter {
   SymbolPreviewPainter(
     this.kind, {
@@ -45,7 +44,7 @@ class SymbolPreviewPainter extends CustomPainter {
           }
         }
         path.close();
-        hatchFlutterPath(canvas, path, paintColor, spacing: 3.2);
+        canvas.drawPath(path, stroke);
         return;
       case PlotSymbolKind.yieldSign:
         canvas.drawPath(
@@ -97,13 +96,7 @@ class SymbolPreviewPainter extends CustomPainter {
         return;
       default:
         canvas.drawCircle(Offset(cx, cy), h, stroke);
-        hatchFlutterCircle(
-          canvas,
-          Offset(cx, cy),
-          h * 0.35,
-          paintColor,
-          spacing: 2.8,
-        );
+        canvas.drawCircle(Offset(cx, cy), h * 0.35, stroke);
         return;
     }
   }
@@ -149,16 +142,9 @@ class BlockPreviewPainter extends CustomPainter {
       }
       if (path.closed) {
         p.close();
-        // Closed block paths: Civil-style hatch instead of solid fill.
-        hatchFlutterPath(
-          canvas,
-          p,
-          color.withValues(alpha: opacity.clamp(0.05, 1.0)),
-          spacing: 3.5,
-        );
-      } else {
-        canvas.drawPath(p, paint);
       }
+      // Outline only — no hatch fill on any block symbol.
+      canvas.drawPath(p, paint);
     }
   }
 

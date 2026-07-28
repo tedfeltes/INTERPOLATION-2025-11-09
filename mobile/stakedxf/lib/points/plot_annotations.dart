@@ -64,47 +64,34 @@ class PlotTextObject {
   }
 }
 
-/// Editable title-block fields drawn on the sheet (not plan-space).
+/// Corner-block fields drawn on the ANSI full-bleed sheet.
+///
+/// StakeDXF ships a single, compact staking-plot layout: a full-sheet
+/// plan plus a corner block that carries the plot **name** and **date**
+/// (the scale line and north arrow are drawn automatically). No side
+/// panels, no title blocks, no point-list tables.
 class TitleBlockData {
   const TitleBlockData({
-    this.enabled = false,
-    this.title = 'STAKING PLOT',
-    this.project = '',
-    this.drawnBy = '',
-    this.checkedBy = '',
-    this.sheet = '1 of 1',
-    this.revision = '',
-    this.notes = '',
+    this.name = '',
+    this.date = '',
   });
 
-  final bool enabled;
-  final String title;
-  final String project;
-  final String drawnBy;
-  final String checkedBy;
-  final String sheet;
-  final String revision;
-  final String notes;
+  /// The plot's display name — appears in the corner block as the top line.
+  ///
+  /// Empty by default; the export screen prompts the user to enter a name
+  /// before creating the PDF.
+  final String name;
+
+  /// Optional date string. Empty → today's date at PDF-build time.
+  final String date;
 
   TitleBlockData copyWith({
-    bool? enabled,
-    String? title,
-    String? project,
-    String? drawnBy,
-    String? checkedBy,
-    String? sheet,
-    String? revision,
-    String? notes,
+    String? name,
+    String? date,
   }) {
     return TitleBlockData(
-      enabled: enabled ?? this.enabled,
-      title: title ?? this.title,
-      project: project ?? this.project,
-      drawnBy: drawnBy ?? this.drawnBy,
-      checkedBy: checkedBy ?? this.checkedBy,
-      sheet: sheet ?? this.sheet,
-      revision: revision ?? this.revision,
-      notes: notes ?? this.notes,
+      name: name ?? this.name,
+      date: date ?? this.date,
     );
   }
 }

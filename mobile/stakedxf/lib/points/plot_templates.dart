@@ -35,27 +35,15 @@ enum SheetOrientation {
   final String label;
 }
 
-/// Sheet composition styles observed in field staking plot PDFs.
+/// Sheet layout — StakeDXF ships a single **ANSI full bleed** style.
+///
+/// The plan fills the entire sheet edge-to-edge; a compact corner block
+/// carries name / date / scale bar / north arrow. This matches the field
+/// staking plots the TRIO crews take to site.
 enum PlotTemplateLayout {
-  /// Full-bleed plan; north arrow + scale + sheet size in a corner.
-  /// Matches the majority of TRIO field plots (curb, utilities, lot lines).
-  fieldMap(
-    'Field map',
-    'Full-sheet plan with corner north arrow, scale, and sheet-size callout.',
-  ),
-
-  /// Full-bleed plan with title / job / date clustered with north + scale.
-  /// Matches titled field plots (e.g. Cardinal Ridge test-pit style).
-  fieldHeader(
-    'Titled field map',
-    'Full-sheet plan with title block, north arrow, and scale grouped together.',
-  ),
-
-  /// Bordered sheet: plan viewport + side panel (title, optional point table,
-  /// graphic scale, liability note, firm block). The original StakeDXF control note.
-  sidePanel(
-    'Control note',
-    'Bordered sheet with plan on the left and title / notes / point list on the right.',
+  fullBleed(
+    'ANSI Full Bleed',
+    'Full-sheet plan; name, date, scale, and north in one corner.',
   );
 
   const PlotTemplateLayout(this.label, this.description);
@@ -63,21 +51,21 @@ enum PlotTemplateLayout {
   final String description;
 }
 
-/// Where north arrow + scale sit on field-map layouts.
+/// Where the corner block (name / date / north / scale) sits on the sheet.
 enum FieldLegendCorner {
   bottomRight,
   bottomLeft,
   topLeft,
+  topRight,
 }
 
-/// A selectable staking-plot sheet template (ANSI size × orientation × layout).
+/// A selectable staking-plot sheet template (ANSI size × orientation).
 class PlotTemplate {
   const PlotTemplate({
     required this.id,
     required this.name,
     required this.size,
     required this.orientation,
-    required this.layout,
     this.legendCorner = FieldLegendCorner.bottomRight,
     this.blurb = '',
   });
@@ -86,11 +74,13 @@ class PlotTemplate {
   final String name;
   final AnsiSheetSize size;
   final SheetOrientation orientation;
-  final PlotTemplateLayout layout;
   final FieldLegendCorner legendCorner;
 
   /// Short why-this-template note for the UI.
   final String blurb;
+
+  /// Every StakeDXF sheet is now ANSI full bleed.
+  PlotTemplateLayout get layout => PlotTemplateLayout.fullBleed;
 
   double get widthIn => orientation == SheetOrientation.landscape
       ? size.longIn
@@ -110,7 +100,7 @@ class PlotTemplate {
       '${_fmt(widthIn)}"×${_fmt(heightIn)}"';
 
   String get subtitle =>
-      '${size.label} $sizeCallout ${orientation.label} · ${layout.label}';
+      '${size.label} $sizeCallout ${orientation.label}';
 
   @override
   bool operator ==(Object other) =>
@@ -119,204 +109,120 @@ class PlotTemplate {
   @override
   int get hashCode => id.hashCode;
 
-  /// Outer page padding (PDF points) before the content / border.
-  double get outerPaddingPt {
+  /// Approximate area (in²) reserved for the corner name / scale / north
+  /// block. Used only for auto-scale so it doesn't overlap the plan.
+  double get legendReserveIn2 {
     switch (size) {
       case AnsiSheetSize.a:
-        return 18;
+        return 2.4 * 1.6;
       case AnsiSheetSize.b:
-        return 28;
+        return 3.0 * 1.8;
       case AnsiSheetSize.c:
-        return 36;
+        return 3.4 * 2.0;
       case AnsiSheetSize.d:
-        return 44;
+        return 4.2 * 2.3;
     }
   }
 
   /// Usable plan width/height in inches for auto scale selection.
+  ///
+  /// Full-bleed sheets get the entire page minus a hair-line safe margin
+  /// (0.15") and a slightly reduced height to keep the corner block from
+  /// overlapping edge stakes.
   ({double widthIn, double heightIn}) get usablePlanInches {
-    final padIn = outerPaddingPt / 72.0;
-    final sheetW = widthIn - 2 * padIn;
-    final sheetH = heightIn - 2 * padIn;
-    switch (layout) {
-      case PlotTemplateLayout.fieldMap:
-        // Thin footer strip (~0.85") for north/scale/date.
-        return (widthIn: sheetW - 0.15, heightIn: sheetH - 0.95);
-      case PlotTemplateLayout.fieldHeader:
-        // Header cluster (~1.35") + small bottom margin.
-        return (widthIn: sheetW - 0.15, heightIn: sheetH - 1.45);
-      case PlotTemplateLayout.sidePanel:
-        // ~58% / 42% split when table shown; callers pass showPointList.
-        return (widthIn: sheetW * 0.72, heightIn: sheetH - 0.35);
-    }
+    return (widthIn: widthIn - 0.30, heightIn: heightIn - 0.35);
   }
 
+  /// Kept for callers migrated from the old side-panel layout.
+  ///
+  /// The `showPointList` argument is ignored — there is no more point-list
+  /// side panel — but the parameter is preserved so existing callers keep
+  /// compiling.
   ({double widthIn, double heightIn}) usablePlanInchesFor({
-    required bool showPointList,
-  }) {
-    if (layout != PlotTemplateLayout.sidePanel) {
-      return usablePlanInches;
-    }
-    final padIn = outerPaddingPt / 72.0;
-    final sheetW = widthIn - 2 * padIn;
-    final sheetH = heightIn - 2 * padIn;
-    final planFrac = showPointList ? 0.58 : 0.78;
-    return (widthIn: sheetW * planFrac - 0.2, heightIn: sheetH - 0.35);
-  }
+    bool showPointList = false,
+  }) =>
+      usablePlanInches;
 
   static String _fmt(double v) =>
       v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
 }
 
-/// Curated templates derived from commonalities in the field staking plot set
-/// (Google Drive folder `1jmfZLTcZxhoksZeUCR0Jxq_cR9CgNp-S`).
+/// ANSI full-bleed catalog — one template per (size × orientation).
 const List<PlotTemplate> kPlotTemplates = [
-  // --- Field map (dominant pattern in the Drive set) ---
   PlotTemplate(
     id: 'field_a_portrait',
-    name: 'Field map — A portrait',
+    name: 'ANSI A · portrait',
     size: AnsiSheetSize.a,
     orientation: SheetOrientation.portrait,
-    layout: PlotTemplateLayout.fieldMap,
     legendCorner: FieldLegendCorner.bottomRight,
-    blurb: 'Letter sheet for tight lot-line / small-area stakes.',
+    blurb: 'Letter sheet for tight lot-line stakes.',
   ),
   PlotTemplate(
     id: 'field_a_landscape',
-    name: 'Field map — A landscape',
+    name: 'ANSI A · landscape',
     size: AnsiSheetSize.a,
     orientation: SheetOrientation.landscape,
-    layout: PlotTemplateLayout.fieldMap,
     legendCorner: FieldLegendCorner.bottomRight,
-    blurb: 'Letter landscape for short utility / offset runs.',
+    blurb: 'Letter landscape for short offset runs.',
   ),
   PlotTemplate(
     id: 'field_b_portrait',
-    name: 'Field map — B portrait',
+    name: 'ANSI B · portrait',
     size: AnsiSheetSize.b,
     orientation: SheetOrientation.portrait,
-    layout: PlotTemplateLayout.fieldMap,
     legendCorner: FieldLegendCorner.bottomRight,
-    blurb: 'Most common field size in the sample set (11×17).',
+    blurb: 'Tabloid portrait for N–S curb runs.',
   ),
   PlotTemplate(
     id: 'field_b_landscape',
-    name: 'Field map — B landscape',
+    name: 'ANSI B · landscape',
     size: AnsiSheetSize.b,
     orientation: SheetOrientation.landscape,
-    layout: PlotTemplateLayout.fieldMap,
     legendCorner: FieldLegendCorner.bottomRight,
-    blurb: 'Tabloid landscape — curb / water / buffer strips.',
+    blurb: 'Default TRIO field size (17"×11").',
   ),
   PlotTemplate(
     id: 'field_c_landscape',
-    name: 'Field map — C landscape',
+    name: 'ANSI C · landscape',
     size: AnsiSheetSize.c,
     orientation: SheetOrientation.landscape,
-    layout: PlotTemplateLayout.fieldMap,
     legendCorner: FieldLegendCorner.bottomLeft,
-    blurb: 'ANSI C for medium site extents between B and D.',
+    blurb: 'Medium site extents between B and D.',
   ),
   PlotTemplate(
     id: 'field_c_portrait',
-    name: 'Field map — C portrait',
+    name: 'ANSI C · portrait',
     size: AnsiSheetSize.c,
     orientation: SheetOrientation.portrait,
-    layout: PlotTemplateLayout.fieldMap,
     legendCorner: FieldLegendCorner.bottomRight,
     blurb: 'Tall C sheet for N–S corridors.',
   ),
   PlotTemplate(
     id: 'field_d_landscape',
-    name: 'Field map — D landscape',
+    name: 'ANSI D · landscape',
     size: AnsiSheetSize.d,
     orientation: SheetOrientation.landscape,
-    layout: PlotTemplateLayout.fieldMap,
     legendCorner: FieldLegendCorner.bottomLeft,
-    blurb: 'Large sheet for long curb / site-wide stakeouts.',
+    blurb: 'Full-size sheet for long curb / site stakeouts.',
   ),
   PlotTemplate(
     id: 'field_d_portrait',
-    name: 'Field map — D portrait',
+    name: 'ANSI D · portrait',
     size: AnsiSheetSize.d,
     orientation: SheetOrientation.portrait,
-    layout: PlotTemplateLayout.fieldMap,
     legendCorner: FieldLegendCorner.bottomRight,
     blurb: 'Tall D for long N–S alignments.',
   ),
-
-  // --- Titled field map ---
-  PlotTemplate(
-    id: 'header_b_landscape',
-    name: 'Titled field — B landscape',
-    size: AnsiSheetSize.b,
-    orientation: SheetOrientation.landscape,
-    layout: PlotTemplateLayout.fieldHeader,
-    legendCorner: FieldLegendCorner.topLeft,
-    blurb: 'Title, date, north, and scale grouped (test-pit style).',
-  ),
-  PlotTemplate(
-    id: 'header_b_portrait',
-    name: 'Titled field — B portrait',
-    size: AnsiSheetSize.b,
-    orientation: SheetOrientation.portrait,
-    layout: PlotTemplateLayout.fieldHeader,
-    legendCorner: FieldLegendCorner.topLeft,
-    blurb: 'Titled 11×17 portrait for named stake packages.',
-  ),
-  PlotTemplate(
-    id: 'header_d_landscape',
-    name: 'Titled field — D landscape',
-    size: AnsiSheetSize.d,
-    orientation: SheetOrientation.landscape,
-    layout: PlotTemplateLayout.fieldHeader,
-    legendCorner: FieldLegendCorner.topLeft,
-    blurb: 'Large titled sheet with dual-scale-friendly header.',
-  ),
-
-  // --- Control note / side panel (StakeDXF original) ---
-  PlotTemplate(
-    id: 'control_a_portrait',
-    name: 'Control note — A portrait',
-    size: AnsiSheetSize.a,
-    orientation: SheetOrientation.portrait,
-    layout: PlotTemplateLayout.sidePanel,
-    blurb: 'Bordered letter sheet with side title / notes panel.',
-  ),
-  PlotTemplate(
-    id: 'control_b_landscape',
-    name: 'Control note — B landscape',
-    size: AnsiSheetSize.b,
-    orientation: SheetOrientation.landscape,
-    layout: PlotTemplateLayout.sidePanel,
-    blurb: 'Default TRIO-style control note (17×11).',
-  ),
-  PlotTemplate(
-    id: 'control_c_landscape',
-    name: 'Control note — C landscape',
-    size: AnsiSheetSize.c,
-    orientation: SheetOrientation.landscape,
-    layout: PlotTemplateLayout.sidePanel,
-    blurb: 'Larger control note with room for longer point lists.',
-  ),
-  PlotTemplate(
-    id: 'control_d_landscape',
-    name: 'Control note — D landscape',
-    size: AnsiSheetSize.d,
-    orientation: SheetOrientation.landscape,
-    layout: PlotTemplateLayout.sidePanel,
-    blurb: 'Full-size control note for dense point tables.',
-  ),
 ];
 
-/// Default template — matches the historical StakeDXF control note.
+/// Default template — 17"×11" ANSI B landscape field sheet.
 const PlotTemplate kDefaultPlotTemplate = PlotTemplate(
-  id: 'control_b_landscape',
-  name: 'Control note — B landscape',
+  id: 'field_b_landscape',
+  name: 'ANSI B · landscape',
   size: AnsiSheetSize.b,
   orientation: SheetOrientation.landscape,
-  layout: PlotTemplateLayout.sidePanel,
-  blurb: 'Default TRIO-style control note (17×11).',
+  legendCorner: FieldLegendCorner.bottomRight,
+  blurb: 'Default TRIO field size (17"×11").',
 );
 
 PlotTemplate plotTemplateById(String? id) {
@@ -324,17 +230,19 @@ PlotTemplate plotTemplateById(String? id) {
   for (final t in kPlotTemplates) {
     if (t.id == id) return t;
   }
-  // Composed ids: field|header|control _ a|b|c|d _ landscape|portrait
   final composed = tryParseComposedTemplateId(id);
   if (composed != null) return composed;
   return kDefaultPlotTemplate;
 }
 
-/// Build a sheet from ANSI size × orientation × layout (UI pickers).
+/// Build a sheet from ANSI size × orientation.
+///
+/// `layout` is accepted for backwards compatibility but ignored — every
+/// StakeDXF sheet is ANSI full bleed.
 PlotTemplate composePlotTemplate({
   required AnsiSheetSize size,
   required SheetOrientation orientation,
-  PlotTemplateLayout layout = PlotTemplateLayout.sidePanel,
+  PlotTemplateLayout layout = PlotTemplateLayout.fullBleed,
 }) {
   final sizeKey = switch (size) {
     AnsiSheetSize.a => 'a',
@@ -342,20 +250,14 @@ PlotTemplate composePlotTemplate({
     AnsiSheetSize.c => 'c',
     AnsiSheetSize.d => 'd',
   };
-  final layoutKey = switch (layout) {
-    PlotTemplateLayout.fieldMap => 'field',
-    PlotTemplateLayout.fieldHeader => 'header',
-    PlotTemplateLayout.sidePanel => 'control',
-  };
   final orientKey =
       orientation == SheetOrientation.landscape ? 'landscape' : 'portrait';
-  final id = '${layoutKey}_${sizeKey}_$orientKey';
+  final id = 'field_${sizeKey}_$orientKey';
   for (final t in kPlotTemplates) {
     if (t.id == id) return t;
   }
-  final legend = layout == PlotTemplateLayout.fieldHeader
-      ? FieldLegendCorner.topLeft
-      : (size == AnsiSheetSize.c || size == AnsiSheetSize.d) &&
+  final legend =
+      (size == AnsiSheetSize.c || size == AnsiSheetSize.d) &&
               orientation == SheetOrientation.landscape
           ? FieldLegendCorner.bottomLeft
           : FieldLegendCorner.bottomRight;
@@ -364,7 +266,6 @@ PlotTemplate composePlotTemplate({
     name: '${size.pickerLabel} · ${orientation.label}',
     size: size,
     orientation: orientation,
-    layout: layout,
     legendCorner: legend,
   );
 }
@@ -372,12 +273,8 @@ PlotTemplate composePlotTemplate({
 PlotTemplate? tryParseComposedTemplateId(String id) {
   final parts = id.split('_');
   if (parts.length < 3) return null;
-  final layout = switch (parts[0]) {
-    'field' => PlotTemplateLayout.fieldMap,
-    'header' => PlotTemplateLayout.fieldHeader,
-    'control' => PlotTemplateLayout.sidePanel,
-    _ => null,
-  };
+  // Accept legacy prefixes ("control_" / "header_") so historical ids still
+  // resolve — they simply route to the full-bleed template of the same size.
   final size = switch (parts[1]) {
     'a' => AnsiSheetSize.a,
     'b' => AnsiSheetSize.b,
@@ -390,19 +287,11 @@ PlotTemplate? tryParseComposedTemplateId(String id) {
     'portrait' => SheetOrientation.portrait,
     _ => null,
   };
-  if (layout == null || size == null || orient == null) return null;
-  return composePlotTemplate(
-    size: size,
-    orientation: orient,
-    layout: layout,
-  );
+  if (size == null || orient == null) return null;
+  return composePlotTemplate(size: size, orientation: orient);
 }
 
 /// Templates grouped for UI section headers.
 Map<PlotTemplateLayout, List<PlotTemplate>> plotTemplatesByLayout() {
-  final map = <PlotTemplateLayout, List<PlotTemplate>>{};
-  for (final t in kPlotTemplates) {
-    map.putIfAbsent(t.layout, () => []).add(t);
-  }
-  return map;
+  return {PlotTemplateLayout.fullBleed: List.of(kPlotTemplates)};
 }

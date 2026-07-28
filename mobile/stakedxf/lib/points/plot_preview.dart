@@ -718,6 +718,37 @@ class _PlanMap {
   }
 }
 
+class _CornerLine {
+  const _CornerLine(this.text, {this.fontSize = 9, this.weight = FontWeight.w500});
+  final String text;
+  final double fontSize;
+  final FontWeight weight;
+}
+
+void _drawSymbolPlaceholder(
+  Canvas canvas,
+  Offset center,
+  double radius,
+  Color color,
+) {
+  // Outline-only placeholder for unknown blocks — no hatch fill.
+  final stroke = Paint()
+    ..color = color
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.2;
+  canvas.drawCircle(center, radius, stroke);
+  canvas.drawLine(
+    Offset(center.dx - radius * 0.7, center.dy - radius * 0.7),
+    Offset(center.dx + radius * 0.7, center.dy + radius * 0.7),
+    stroke,
+  );
+  canvas.drawLine(
+    Offset(center.dx - radius * 0.7, center.dy + radius * 0.7),
+    Offset(center.dx + radius * 0.7, center.dy - radius * 0.7),
+    stroke,
+  );
+}
+
 class _PlotPreviewPainter extends CustomPainter {
   _PlotPreviewPainter({
     required this.map,
@@ -771,84 +802,27 @@ class _PlotPreviewPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    _paintSheet(canvas);
+    // Full-bleed preview: no cream panel, no bordered viewport, no grid.
+    // The paper edge is a hair-thin outline only so the user still knows
+    // what will be cropped.
+    _paintSheetOutline(canvas);
     canvas.save();
-    canvas.clipRect(map.planRect);
-    _paintPlanBackground(canvas);
-    _paintGrid(canvas);
+    canvas.clipRect(map.sheetRect);
     _paintLinework(canvas);
     _paintSymbols(canvas);
     _paintPointsAndLabels(canvas);
     canvas.restore();
-    _paintSheetFrame(canvas);
-    if (options.titleBlock.enabled) {
-      _paintTitleBlock(canvas);
-    }
+    _paintCornerBlock(canvas);
   }
 
-  void _paintSheet(Canvas canvas) {
-    canvas.drawRect(map.sheetRect, Paint()..color = Colors.white);
-  }
-
-  void _paintPlanBackground(Canvas canvas) {
-    canvas.drawRect(map.planRect, Paint()..color = const Color(0xFFF7F4EE));
-  }
-
-  void _paintSheetFrame(Canvas canvas) {
+  void _paintSheetOutline(Canvas canvas) {
     canvas.drawRect(
       map.sheetRect,
       Paint()
-        ..color = const Color(0xFF333333)
+        ..color = const Color(0xFF3A3F44)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6,
+        ..strokeWidth = 0.8,
     );
-    canvas.drawRect(
-      map.planRect,
-      Paint()
-        ..color = const Color(0xFF8A8478)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0,
-    );
-    final tp = TextPainter(
-      text: TextSpan(
-        text: sheetLabel,
-        style: const TextStyle(
-          color: Color(0xFF444444),
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      textDirection: ui.TextDirection.ltr,
-    )..layout(maxWidth: map.sheetRect.width - 8);
-    tp.paint(
-      canvas,
-      Offset(
-        map.sheetRect.left + 6,
-        map.sheetRect.bottom - tp.height - 4,
-      ),
-    );
-  }
-
-  void _paintGrid(Canvas canvas) {
-    final paint = Paint()
-      ..color = const Color(0xFFD9D2C5)
-      ..strokeWidth = 0.8;
-    final gridFt = math.max(map.ftPerPx * 40, 10.0);
-    final bounds = computePlanViewBounds(
-      points,
-      linework: linework,
-      includeSymbols: false,
-    );
-    final startE = (bounds.minE / gridFt).floor() * gridFt - gridFt;
-    final endE = (bounds.maxE / gridFt).ceil() * gridFt + gridFt;
-    final startN = (bounds.minN / gridFt).floor() * gridFt - gridFt;
-    final endN = (bounds.maxN / gridFt).ceil() * gridFt + gridFt;
-    for (var e = startE; e <= endE + 0.001; e += gridFt) {
-      canvas.drawLine(map.toPixel(e, startN), map.toPixel(e, endN), paint);
-    }
-    for (var n = startN; n <= endN + 0.001; n += gridFt) {
-      canvas.drawLine(map.toPixel(startE, n), map.toPixel(endE, n), paint);
-    }
   }
 
   void _paintLinework(Canvas canvas) {
@@ -1041,20 +1015,10 @@ class _PlotPreviewPainter extends CustomPainter {
           BlockPreviewPainter(def, color: color, opacity: 1.0)
               .paint(canvas, Size(half * 2, half * 2));
         } else {
-          hatchFlutterCircle(
-            canvas,
-            Offset(half, half),
-            half * 0.55,
-            color,
-          );
+          _drawSymbolPlaceholder(canvas, Offset(half, half), half * 0.55, color);
         }
       } else {
-        hatchFlutterCircle(
-          canvas,
-          Offset(half, half),
-          half * 0.55,
-          color,
-        );
+        _drawSymbolPlaceholder(canvas, Offset(half, half), half * 0.55, color);
       }
       canvas.restore();
 
@@ -1128,57 +1092,220 @@ class _PlotPreviewPainter extends CustomPainter {
     }
   }
 
-  void _paintTitleBlock(Canvas canvas) {
+  /// Paint the compact corner block preview (name + date + scale bar + N).
+  ///
+  /// Mirrors [_CornerLegend] from `plot_pdf.dart` at a smaller preview scale
+  /// so what the user sees on-screen matches what the PDF will produce.
+  void _paintCornerBlock(Canvas canvas) {
     final tb = options.titleBlock;
-    final style = textStyleCatalog.resolve(options.textStyleId);
-    final lines = <String>[
-      if (tb.title.trim().isNotEmpty) tb.title.trim().toUpperCase(),
-      if (tb.project.trim().isNotEmpty) tb.project.trim().toUpperCase(),
-      if (tb.drawnBy.trim().isNotEmpty) 'DRWN: ${tb.drawnBy.trim()}',
-      if (tb.checkedBy.trim().isNotEmpty) 'CHK: ${tb.checkedBy.trim()}',
-      if (tb.sheet.trim().isNotEmpty) 'SHT: ${tb.sheet.trim()}',
-      if (tb.revision.trim().isNotEmpty) 'REV: ${tb.revision.trim()}',
-      if (tb.notes.trim().isNotEmpty) tb.notes.trim(),
+    final plotName = tb.name.trim();
+    // Sheet callout ("11"×17"") — pulled from the template.
+    final sheetCallout = options.template.sizeCallout;
+    final scaleInt = _cornerScaleFtPerInch().round();
+    final lines = <_CornerLine>[
+      if (plotName.isNotEmpty)
+        _CornerLine(plotName.toUpperCase(), fontSize: 12, weight: FontWeight.w800),
+      if (tb.date.trim().isNotEmpty)
+        _CornerLine(tb.date.trim().toUpperCase(), fontSize: 8.5),
     ];
-    if (lines.isEmpty) {
-      lines.add('TITLE BLOCK');
-    }
-    final tp = TextPainter(
-      text: TextSpan(
-        children: [
-          for (var i = 0; i < lines.length; i++)
-            TextSpan(
-              text: '${lines[i]}${i == lines.length - 1 ? '' : '\n'}',
-              style: TextStyle(
-                color: const Color(0xFF1A1A1A),
-                fontSize: i == 0 ? 11 : 9,
-                fontFamily: style.flutterFamily,
-                fontWeight: i == 0 ? FontWeight.w800 : style.flutterWeight,
-                fontStyle: style.flutterStyle,
-                height: 1.25,
-              ),
+    final scaleLine = 'SCALE: 1" = $scaleInt\'  ($sheetCallout)';
+
+    final textPainters = <TextPainter>[
+      for (final l in lines)
+        TextPainter(
+          text: TextSpan(
+            text: l.text,
+            style: TextStyle(
+              color: const Color(0xFF111418),
+              fontSize: l.fontSize,
+              fontWeight: l.weight,
+              letterSpacing: l.weight.index >= FontWeight.w700.index ? 0.4 : 0,
+              height: 1.15,
             ),
-        ],
+          ),
+          textDirection: ui.TextDirection.ltr,
+        )..layout(maxWidth: map.sheetRect.width * 0.4),
+    ];
+    final scalePainter = TextPainter(
+      text: TextSpan(
+        text: scaleLine,
+        style: const TextStyle(
+          color: Color(0xFF111418),
+          fontSize: 8.5,
+          fontWeight: FontWeight.w700,
+        ),
       ),
       textDirection: ui.TextDirection.ltr,
-    )..layout(maxWidth: map.sheetRect.width * 0.42);
+    )..layout(maxWidth: map.sheetRect.width * 0.4);
 
-    final pad = 6.0;
-    final box = Rect.fromLTWH(
-      map.sheetRect.right - tp.width - pad * 2 - 8,
-      map.sheetRect.top + 8,
-      tp.width + pad * 2,
-      tp.height + pad * 2,
-    );
-    canvas.drawRect(box, Paint()..color = const Color(0xEEF7F4EE));
+    const arrowW = 26.0;
+    const arrowH = 32.0;
+    const barW = 110.0;
+    const barH = 20.0;
+
+    final textH =
+        textPainters.fold<double>(0, (a, tp) => a + tp.height + 1) +
+            (textPainters.isEmpty ? 0 : 4);
+    final legendH = math.max(arrowH, barH + scalePainter.height + 2);
+    const pad = 6.0;
+
+    final blockW = math.max(
+          barW + 8 + arrowW,
+          textPainters.fold<double>(0, (a, tp) => math.max(a, tp.width)),
+        ) +
+        pad * 2;
+    final blockH = textH + legendH + pad * 2;
+
+    // Bottom-right corner of the sheet, matching the PDF default.
+    final corner = _resolveCorner();
+    final left = corner.right
+        ? map.sheetRect.right - blockW - 6
+        : map.sheetRect.left + 6;
+    final top = corner.bottom
+        ? map.sheetRect.bottom - blockH - 6
+        : map.sheetRect.top + 6;
+    final box = Rect.fromLTWH(left, top, blockW, blockH);
+
+    canvas.drawRect(box, Paint()..color = const Color(0xF2FFFFFF));
     canvas.drawRect(
       box,
       Paint()
-        ..color = const Color(0xFF333333)
+        ..color = const Color(0xFF111418)
         ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.7,
+    );
+
+    var y = box.top + pad;
+    for (final tp in textPainters) {
+      tp.paint(canvas, Offset(box.left + pad, y));
+      y += tp.height + 1;
+    }
+    if (textPainters.isNotEmpty) y += 4;
+
+    // North arrow (small filled triangle + tail).
+    final arrowRect =
+        Rect.fromLTWH(box.left + pad, y, arrowW, arrowH);
+    _paintPreviewNorthArrow(canvas, arrowRect);
+
+    // Graphic scale bar + scale text next to arrow.
+    final barLeft = arrowRect.right + 8;
+    final barRect = Rect.fromLTWH(barLeft, y + 4, barW, barH);
+    _paintPreviewScaleBar(canvas, barRect, scaleInt);
+    scalePainter.paint(canvas, Offset(barLeft, barRect.bottom + 1));
+  }
+
+  double _cornerScaleFtPerInch() {
+    if (options.scaleFtPerInch != null && options.scaleFtPerInch! > 0) {
+      return options.scaleFtPerInch!;
+    }
+    return chooseEngineeringScale(
+      points,
+      linework: linework,
+      symbols: symbols,
+      template: options.template,
+    );
+  }
+
+  ({bool right, bool bottom}) _resolveCorner() {
+    switch (options.template.legendCorner) {
+      case FieldLegendCorner.bottomLeft:
+        return (right: false, bottom: true);
+      case FieldLegendCorner.topLeft:
+        return (right: false, bottom: false);
+      case FieldLegendCorner.topRight:
+        return (right: true, bottom: false);
+      case FieldLegendCorner.bottomRight:
+        return (right: true, bottom: true);
+    }
+  }
+
+  void _paintPreviewNorthArrow(Canvas canvas, Rect r) {
+    final cx = r.center.dx;
+    final head = Path()
+      ..moveTo(cx, r.top + 2)
+      ..lineTo(cx - 5, r.top + r.height * 0.55)
+      ..lineTo(cx, r.top + r.height * 0.48)
+      ..lineTo(cx + 5, r.top + r.height * 0.55)
+      ..close();
+    final fill = Paint()..color = const Color(0xFF111418);
+    canvas.drawPath(head, fill);
+    canvas.drawLine(
+      Offset(cx, r.top + r.height * 0.55),
+      Offset(cx, r.bottom - 8),
+      Paint()
+        ..color = const Color(0xFF111418)
         ..strokeWidth = 1.1,
     );
-    tp.paint(canvas, Offset(box.left + pad, box.top + pad));
+    final tp = TextPainter(
+      text: const TextSpan(
+        text: 'N',
+        style: TextStyle(
+          color: Color(0xFF111418),
+          fontSize: 8,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(cx - tp.width / 2, r.bottom - tp.height));
+  }
+
+  void _paintPreviewScaleBar(Canvas canvas, Rect r, int scaleFt) {
+    final paint = Paint()
+      ..color = const Color(0xFF111418)
+      ..strokeWidth = 1.0;
+    final y = r.top + r.height / 2;
+    canvas.drawLine(Offset(r.left, y), Offset(r.right, y), paint);
+    canvas.drawLine(Offset(r.left, y - 4), Offset(r.left, y + 4), paint);
+    canvas.drawLine(
+      Offset(r.center.dx, y - 3),
+      Offset(r.center.dx, y + 3),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(r.right, y - 4),
+      Offset(r.right, y + 4),
+      paint,
+    );
+    final zero = TextPainter(
+      text: const TextSpan(
+        text: '0',
+        style: TextStyle(
+          color: Color(0xFF111418),
+          fontSize: 7.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    final mid = TextPainter(
+      text: TextSpan(
+        text: '$scaleFt',
+        style: const TextStyle(
+          color: Color(0xFF111418),
+          fontSize: 7.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    final end = TextPainter(
+      text: TextSpan(
+        text: '${scaleFt * 2}',
+        style: const TextStyle(
+          color: Color(0xFF111418),
+          fontSize: 7.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    zero.paint(canvas, Offset(r.left - 2, r.bottom - zero.height));
+    mid.paint(
+      canvas,
+      Offset(r.center.dx - mid.width / 2, r.bottom - mid.height),
+    );
+    end.paint(canvas, Offset(r.right - end.width, r.bottom - end.height));
   }
 
   @override

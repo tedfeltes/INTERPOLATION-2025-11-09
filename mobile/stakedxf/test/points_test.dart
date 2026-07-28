@@ -219,7 +219,6 @@ void main() {
         options: PlotOptions(
           markerStyle: marker,
           labelFormat: PointLabelFormat.numberElevation,
-          showPointList: false,
           includeLinework: true,
         ),
         linework: lw.forLayers(lw.layers.toSet()),
@@ -235,7 +234,6 @@ void main() {
       options: const PlotOptions(
         markerStyle: PointMarkerStyle.largeX,
         labelFormat: PointLabelFormat.numberDescription,
-        showPointList: true,
         includeLinework: false,
       ),
     );
@@ -439,11 +437,11 @@ test('composePlotTemplate builds ANSI size × orientation', () {
     final t = composePlotTemplate(
       size: AnsiSheetSize.b,
       orientation: SheetOrientation.landscape,
-      layout: PlotTemplateLayout.sidePanel,
     );
     expect(t.size.pickerLabel, contains('ANSI B'));
     expect(t.widthIn, 17);
     expect(t.heightIn, 11);
+    expect(t.layout, PlotTemplateLayout.fullBleed);
   });
 
   test('CTB plot styles drive ACI color and lineweight', () {

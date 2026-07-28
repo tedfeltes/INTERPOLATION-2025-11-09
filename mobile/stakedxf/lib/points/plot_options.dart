@@ -71,7 +71,10 @@ class PlotOptions {
   const PlotOptions({
     this.markerStyle = PointMarkerStyle.triangleFilled,
     this.labelFormat = PointLabelFormat.numberDescriptionElevation,
-    this.showPointList = false,
+    // Legacy: side-panel point list has been retired in favour of the
+    // ANSI full-bleed layout. Accepted here so old callers still compile.
+    // ignore: avoid_unused_constructor_parameters
+    bool showPointList = false,
     this.includeLinework = true,
     this.template = kDefaultPlotTemplate,
     this.labelDrags = const {},
@@ -93,8 +96,9 @@ class PlotOptions {
   final PointMarkerStyle markerStyle;
   final PointLabelFormat labelFormat;
 
-  /// When false, omit the CONTROL POINTS table (more plot space).
-  final bool showPointList;
+  /// Legacy flag retained for tests / callers migrated from the old
+  /// side-panel layout. Ignored by the ANSI full-bleed layout.
+  bool get showPointList => false;
 
   /// When true and DXF linework is linked, draw selected layers.
   final bool includeLinework;
@@ -168,10 +172,11 @@ class PlotOptions {
     bool clearDefaultPointColor = false,
     bool clearScaleFtPerInch = false,
   }) {
+    // `showPointList` is accepted but ignored (ANSI full bleed has no
+    // point-list panel). Keeping the parameter avoids churn in callers.
     return PlotOptions(
       markerStyle: markerStyle ?? this.markerStyle,
       labelFormat: labelFormat ?? this.labelFormat,
-      showPointList: showPointList ?? this.showPointList,
       includeLinework: includeLinework ?? this.includeLinework,
       template: template ?? this.template,
       labelDrags: labelDrags ?? this.labelDrags,
