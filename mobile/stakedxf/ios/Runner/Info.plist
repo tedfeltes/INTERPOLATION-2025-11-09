@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Stakedxf</string>
+	<string>StakeDXF</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -44,6 +44,16 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>StakeDXF needs photo library access when you attach images or export plots.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>StakeDXF may save exported plots to your photo library when you choose Save Image.</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>UISupportsDocumentBrowser</key>
 	<true/>
 </dict>
 </plist>
