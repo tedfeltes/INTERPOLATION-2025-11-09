@@ -25,6 +25,42 @@ void main() {
     });
   });
 
+  group('plotPreviewCanvasHeight', () {
+    test('caps TSC5-class short viewports well below old 520 floor', () {
+      // Typical TSC5 landscape usable width ~1200, height ~720.
+      final h = plotPreviewCanvasHeight(
+        maxWidth: 1200,
+        viewportHeight: 720,
+        templateWidthIn: 17,
+        templateHeightIn: 11,
+      );
+      expect(h, lessThanOrEqualTo(240));
+      expect(h, greaterThanOrEqualTo(140));
+    });
+
+    test('allows larger preview on tall tablets', () {
+      final h = plotPreviewCanvasHeight(
+        maxWidth: 900,
+        viewportHeight: 1200,
+        templateWidthIn: 17,
+        templateHeightIn: 11,
+      );
+      expect(h, greaterThan(240));
+      expect(h, lessThanOrEqualTo(520));
+    });
+
+    test('honors explicit height override', () {
+      final h = plotPreviewCanvasHeight(
+        maxWidth: 800,
+        viewportHeight: 720,
+        templateWidthIn: 11,
+        templateHeightIn: 8.5,
+        explicitHeight: 180,
+      );
+      expect(h, 180);
+    });
+  });
+
   group('layer opacity override', () {
     test('resolveLineworkStyle applies layer opacity into color alpha', () {
       final ent = LineworkEntity(
