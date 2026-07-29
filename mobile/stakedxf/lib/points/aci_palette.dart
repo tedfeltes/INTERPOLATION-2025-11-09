@@ -9,11 +9,48 @@ class AciSwatch {
 }
 
 /// Build ACI 1–255 swatches, preferring CTB-resolved colors when available.
+///
+/// Order is **numeric ACI 1→255** (legacy callers / reverse-lookup helpers).
 List<AciSwatch> buildAciSwatches(CtbPlotStyleTable? ctb) {
   final out = <AciSwatch>[];
   for (var aci = 1; aci <= 255; aci++) {
     final argb = ctb?.resolve(aci).colorArgb ?? aciToArgb(aci);
     out.add(AciSwatch(aci: aci, argb: argb | 0xFF000000));
+  }
+  return out;
+}
+
+/// ACI swatches arranged for a 10-column picker grid by **shade family**.
+///
+/// Layout (Civil 3D / AutoCAD-style, not raw ACI order):
+///  * Row 0 — standard index colors ACI 1–9, padded with ACI 250
+///  * Rows 1–24 — hue families ACI 10–249 (one hue per row, 10 shade columns)
+///  * Row 25 — remaining greys ACI 251–255 (padded)
+///
+/// ACI numbers on each swatch are unchanged; only display order changes.
+List<AciSwatch> buildAciSwatchesByShade(CtbPlotStyleTable? ctb) {
+  AciSwatch sw(int aci) {
+    final argb = ctb?.resolve(aci).colorArgb ?? aciToArgb(aci);
+    return AciSwatch(aci: aci, argb: argb | 0xFF000000);
+  }
+
+  final out = <AciSwatch>[];
+  // Standards row (pad to 10 with first grey).
+  for (var aci = 1; aci <= 9; aci++) {
+    out.add(sw(aci));
+  }
+  out.add(sw(250));
+
+  // 24 hue rows × 10 shade columns (ACI 10–249).
+  for (var hue = 0; hue < 24; hue++) {
+    for (var shade = 0; shade < 10; shade++) {
+      out.add(sw(10 + hue * 10 + shade));
+    }
+  }
+
+  // Remaining greys (incomplete last row is fine).
+  for (var aci = 251; aci <= 255; aci++) {
+    out.add(sw(aci));
   }
   return out;
 }

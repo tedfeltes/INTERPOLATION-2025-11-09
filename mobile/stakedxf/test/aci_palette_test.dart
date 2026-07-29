@@ -48,4 +48,32 @@ void main() {
       expect(aciLabelFor(0x00123456), '#123456');
     });
   });
+
+  group('buildAciSwatchesByShade', () {
+    test('keeps every ACI 1–255 exactly once (except intentional grey pad)', () {
+      final swatches = buildAciSwatchesByShade(null);
+      // Standards 1–9 + 250, hues 10–249, greys 251–255 = 9+1+240+5 = 255.
+      expect(swatches.length, 255);
+      final acis = swatches.map((s) => s.aci).toSet();
+      expect(acis.length, 255);
+      for (var aci = 1; aci <= 255; aci++) {
+        expect(acis.contains(aci), isTrue, reason: 'missing ACI $aci');
+      }
+    });
+
+    test('groups each hue family into one 10-swatch row', () {
+      final swatches = buildAciSwatchesByShade(null);
+      // After the standards row (10 cells), row 1 starts at index 10.
+      // Hue 0 = ACI 10–19.
+      expect(
+        [for (var i = 10; i < 20; i++) swatches[i].aci],
+        [for (var a = 10; a <= 19; a++) a],
+      );
+      // Hue 1 = ACI 20–29 at the next row.
+      expect(
+        [for (var i = 20; i < 30; i++) swatches[i].aci],
+        [for (var a = 20; a <= 29; a++) a],
+      );
+    });
+  });
 }

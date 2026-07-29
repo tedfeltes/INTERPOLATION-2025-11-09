@@ -716,6 +716,19 @@ class _PlotPreviewState extends State<PlotPreview> {
 }
 
 /// Maps survey ↔ pixel with an explicit sheet / plan viewport.
+/// Survey-feet per preview-pixel for an engineering scale on a fitted sheet.
+///
+/// Mirrors PDF `ppt = 72 / scaleFtPerInch` so changing scale zooms coverage
+/// the same way Save Plot will.
+double previewFtPerPx({
+  required double sheetWidthPx,
+  required double templateWidthIn,
+  required double scaleFtPerInch,
+}) {
+  final pxPerInch = sheetWidthPx / math.max(templateWidthIn, 0.01);
+  return math.max(scaleFtPerInch / math.max(pxPerInch, 0.01), 0.01);
+}
+
 class _PlanMap {
   _PlanMap({
     required this.size,
@@ -754,24 +767,19 @@ class _PlanMap {
       sheet = Rect.fromLTWH(size.width * 0.02, (size.height - h) / 2, w, h);
     }
 
-    // Plan viewport inset (matches field-map margin feeling).
-    final inset = math.min(sheet.width, sheet.height) * 0.06;
-    final plan = Rect.fromLTRB(
-      sheet.left + inset,
-      sheet.top + inset,
-      sheet.right - inset,
-      sheet.bottom - inset * 1.35, // room for sheet callout
-    );
+    // Plan viewport matches the full sheet (same framing as the PDF plan),
+    // so changing engineering scale zooms coverage the way Save Plot will.
+    final plan = sheet;
 
     final bounds = computePlanViewBounds(
       points,
       linework: linework,
       includeSymbols: false,
     );
-    final pad = 1.15;
-    final ftPerPx = math.max(
-      bounds.rangeE * pad / math.max(plan.width, 1),
-      bounds.rangeN * pad / math.max(plan.height, 1),
+    final ftPerPx = previewFtPerPx(
+      sheetWidthPx: sheet.width,
+      templateWidthIn: template.widthIn,
+      scaleFtPerInch: scaleFtPerInch,
     );
     return _PlanMap(
       size: size,
@@ -779,19 +787,20 @@ class _PlanMap {
       planRect: plan,
       midE: bounds.midE,
       midN: bounds.midN,
-      ftPerPx: math.max(ftPerPx, 0.01),
+      ftPerPx: ftPerPx,
     );
   }
 
   Offset toPixel(double e, double n) {
-    final x = planRect.center.dx + (e - midE) / ftPerPx;
-    final y = planRect.center.dy - (n - midN) / ftPerPx;
+    // Center on the sheet — matches PDF paintStakingPlan page-center mapping.
+    final x = sheetRect.center.dx + (e - midE) / ftPerPx;
+    final y = sheetRect.center.dy - (n - midN) / ftPerPx;
     return Offset(x, y);
   }
 
   (double, double) toSurvey(Offset p) {
-    final e = midE + (p.dx - planRect.center.dx) * ftPerPx;
-    final n = midN - (p.dy - planRect.center.dy) * ftPerPx;
+    final e = midE + (p.dx - sheetRect.center.dx) * ftPerPx;
+    final n = midN - (p.dy - sheetRect.center.dy) * ftPerPx;
     return (e, n);
   }
 }
