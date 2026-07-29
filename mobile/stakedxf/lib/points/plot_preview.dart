@@ -59,6 +59,7 @@ class PlotPreview extends StatefulWidget {
     this.onMoveText,
     this.onMoveTitle,
     this.height,
+    this.showTitle = true,
   });
 
   final List<SurveyPoint> points;
@@ -93,8 +94,11 @@ class PlotPreview extends StatefulWidget {
   /// Called when the user drags the optional plot-title in paper space.
   /// Fractions are 0..1 relative to the sheet width/height.
   final void Function(double paperFracX, double paperFracY)? onMoveTitle;
-  /// When null, height follows the selected sheet aspect ratio.
+  /// When null, height follows sheet aspect with a viewport-aware clamp.
   final double? height;
+
+  /// When false, omit the built-in "Plot preview" title row (parent supplies chrome).
+  final bool showTitle;
 
   @override
   State<PlotPreview> createState() => _PlotPreviewState();
@@ -161,20 +165,27 @@ class _PlotPreviewState extends State<PlotPreview> {
     return {..._baseDrags, ..._liveLabelDrags};
   }
 
-  double _previewHeight(double maxWidth) {
-    if (widget.height != null) return widget.height!;
+  /// Canvas height for the live plot preview — see top-level [plotPreviewCanvasHeight].
+  double _previewHeight(double maxWidth, double viewportHeight) {
     final t = widget.options.template;
-    final aspect = t.heightIn / math.max(t.widthIn, 0.1);
-    // Large usable preview; clamp for small phones / tall sheets.
-    return (maxWidth * aspect).clamp(280.0, 520.0);
+    return plotPreviewCanvasHeight(
+      maxWidth: maxWidth,
+      viewportHeight: viewportHeight,
+      templateWidthIn: t.widthIn,
+      templateHeightIn: t.heightIn,
+      explicitHeight: widget.height,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final viewportH = MediaQuery.sizeOf(context).height;
     if (widget.points.isEmpty) {
+      final emptyH = widget.height ??
+          (viewportH < 820 ? 160.0 : 280.0);
       return Container(
-        height: widget.height ?? 320,
+        height: emptyH,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: PlotUi.muted,
@@ -199,37 +210,39 @@ class _PlotPreviewState extends State<PlotPreview> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final h = _previewHeight(constraints.maxWidth);
+        final h = _previewHeight(constraints.maxWidth, viewportH);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Text(
-                  'Plot preview',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: cs.primary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    // Scale is included so users still know how big things
-                    // will plot at, but the sheet-size + north-arrow callout
-                    // no longer clutters the sheet itself.
-                    '1" = ${scale.round()}\' · '
-                    '${widget.lineEditMode ? 'Line edit ON — tap segment/node' : 'Drag labels, symbols & title'}',
+            if (widget.showTitle) ...[
+              Row(
+                children: [
+                  Text(
+                    'Plot preview',
                     style: TextStyle(
-                      fontSize: 11,
-                      color: cs.onSurface.withValues(alpha: 0.55),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: cs.primary,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      // Scale is included so users still know how big things
+                      // will plot at, but the sheet-size + north-arrow callout
+                      // no longer clutters the sheet itself.
+                      '1" = ${scale.round()}\' · '
+                      '${widget.lineEditMode ? 'Line edit ON — tap segment/node' : 'Drag labels, symbols & title'}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurface.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+            ],
             SizedBox(
               height: h,
               child: ColoredBox(
@@ -713,6 +726,30 @@ class _PlotPreviewState extends State<PlotPreview> {
     }
     return best;
   }
+}
+
+/// Canvas height for the live plot preview.
+///
+/// Caps by **viewport height** so a pinned preview cannot starve the form on
+/// short controllers (Trimble TSC5 ~720px landscape). Tablets keep a larger
+/// usable preview.
+double plotPreviewCanvasHeight({
+  required double maxWidth,
+  required double viewportHeight,
+  required double templateWidthIn,
+  required double templateHeightIn,
+  double? explicitHeight,
+}) {
+  if (explicitHeight != null) return explicitHeight;
+  final aspect = templateHeightIn / math.max(templateWidthIn, 0.1);
+  final ideal = maxWidth * aspect;
+  final short = viewportHeight < 820;
+  final maxH = short
+      ? (viewportHeight * 0.28).clamp(140.0, 240.0)
+      : math.min(520.0, math.max(280.0, viewportHeight * 0.42));
+  final minH = short ? 120.0 : 200.0;
+  if (maxH < minH) return maxH;
+  return ideal.clamp(minH, maxH);
 }
 
 /// Maps survey ↔ pixel with an explicit sheet / plan viewport.

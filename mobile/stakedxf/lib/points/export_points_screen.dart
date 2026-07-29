@@ -74,6 +74,9 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
   final List<PlotTextObject> _textObjects = [];
   String? _selectedTextId;
 
+  /// null = auto (collapsed on short TSC5-class viewports).
+  bool? _previewUserExpanded;
+
   @override
   void initState() {
     super.initState();
@@ -103,6 +106,19 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
 
   List<SurveyPoint> get _chosen =>
       _points.where((pt) => _selected.contains(pt.id)).toList();
+
+  /// Short controllers (TSC5 landscape ~720) default the preview collapsed so
+  /// plot options / layers remain reachable. Tablets stay expanded.
+  bool _previewExpandedFor(double screenHeight) {
+    if (_previewUserExpanded != null) return _previewUserExpanded!;
+    return screenHeight >= 820;
+  }
+
+  void _togglePreviewExpanded(double screenHeight) {
+    setState(() {
+      _previewUserExpanded = !_previewExpandedFor(screenHeight);
+    });
+  }
 
   List<LineworkEntity> get _chosenLinework {
     final lw = _linework;
@@ -684,6 +700,9 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
     final previewPoints = _chosen.isNotEmpty ? _chosen : _points;
     final selectedSym = _selectedSymbol;
     final selectedLabel = _selectedLabelPoint;
+    final screenH = MediaQuery.sizeOf(context).height;
+    final shortScreen = screenH < 820;
+    final previewExpanded = _previewExpandedFor(screenH);
 
     return Theme(
       data: PlotUi.theme(context),
@@ -703,79 +722,133 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    PlotPreview(
-                      points: previewPoints,
-                      options: _options,
-                      linework: _chosenLinework,
-                      symbols: _symbols,
-                      textObjects: _textObjects,
-                      blockCatalog: _blockCatalog,
-                      linetypeCatalog: _linetypeCatalog,
-                      ctbPlotStyle: _ctbPlotStyle,
-                      textStyleCatalog: _textStyleCatalog,
-                      layerStyles: _linework?.layerStyles ?? const {},
-                      selectedSymbolId: _selectedSymbolId,
-                      selectedLabelPointId: _selectedLabelPointId,
-                      selectedLineworkId: _selectedLineworkId,
-                      selectedLineworkLayer: _selectedLineworkLayer,
-                      selectedTextId: _selectedTextId,
-                      selectedNodeIndex: _selectedNodeIndex,
-                      selectedSegmentIndex: _selectedSegmentIndex,
-                      onSelectSymbol: (id) => setState(() {
-                        _selectedSymbolId = id;
-                        if (id != null) {
-                          _selectedLabelPointId = null;
-                          _selectedLineworkId = null;
-                          _selectedLineworkLayer = null;
-                          _selectedTextId = null;
-                          _selectedNodeIndex = null;
-                          _selectedSegmentIndex = null;
-                          _objectsOpen = true;
-                        }
-                      }),
-                      onSelectLabelPoint: (id) => setState(() {
-                        _selectedLabelPointId = id;
-                        if (id != null) {
-                          _selectedSymbolId = null;
-                          _selectedLineworkId = null;
-                          _selectedLineworkLayer = null;
-                          _selectedTextId = null;
-                          _selectedNodeIndex = null;
-                          _selectedSegmentIndex = null;
-                        }
-                      }),
-                      onSelectLinework: _selectLineworkEntity,
-                      onSelectText: (id) => setState(() {
-                        _selectedTextId = id;
-                        if (id != null) {
-                          _selectedSymbolId = null;
-                          _selectedLabelPointId = null;
-                          _selectedLineworkId = null;
-                          _selectedLineworkLayer = null;
-                          _annotationsOpen = true;
-                        }
-                      }),
-                      onSelectNode: (i) => setState(() {
-                        _selectedNodeIndex = i;
-                        if (i != null) _selectedSegmentIndex = null;
-                      }),
-                      onSelectSegment: (i) => setState(() {
-                        _selectedSegmentIndex = i;
-                        if (i != null) _selectedNodeIndex = null;
-                      }),
-                      onMoveSymbol: _moveSymbol,
-                      onMoveLabel: _moveLabel,
-                      onMoveText: _moveText,
-                      onMoveTitle: (fx, fy) => setState(
-                        () => _options = _options.copyWith(
-                          titleBlock: _options.titleBlock.copyWith(
-                            paperFracX: fx,
-                            paperFracY: fy,
+                    Material(
+                      color: PlotUi.card,
+                      child: InkWell(
+                        onTap: () => _togglePreviewExpanded(screenH),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                previewExpanded
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                color: PlotUi.accent,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'PLOT PREVIEW',
+                                style: PlotUi.monoLabel.copyWith(
+                                  color: PlotUi.fg,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                previewExpanded ? 'Hide' : 'Show',
+                                style: PlotUi.mono.copyWith(
+                                  color: PlotUi.accent,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      lineEditMode: _lineEditMode,
                     ),
+                    if (previewExpanded) ...[
+                      const SizedBox(height: 6),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final h = plotPreviewCanvasHeight(
+                            maxWidth: constraints.maxWidth,
+                            viewportHeight: screenH,
+                            templateWidthIn: _options.template.widthIn,
+                            templateHeightIn: _options.template.heightIn,
+                          );
+                          return PlotPreview(
+                            points: previewPoints,
+                            options: _options,
+                            height: h,
+                            showTitle: false,
+                            linework: _chosenLinework,
+                            symbols: _symbols,
+                            textObjects: _textObjects,
+                            blockCatalog: _blockCatalog,
+                            linetypeCatalog: _linetypeCatalog,
+                            ctbPlotStyle: _ctbPlotStyle,
+                            textStyleCatalog: _textStyleCatalog,
+                            layerStyles: _linework?.layerStyles ?? const {},
+                            selectedSymbolId: _selectedSymbolId,
+                            selectedLabelPointId: _selectedLabelPointId,
+                            selectedLineworkId: _selectedLineworkId,
+                            selectedLineworkLayer: _selectedLineworkLayer,
+                            selectedTextId: _selectedTextId,
+                            selectedNodeIndex: _selectedNodeIndex,
+                            selectedSegmentIndex: _selectedSegmentIndex,
+                            onSelectSymbol: (id) => setState(() {
+                              _selectedSymbolId = id;
+                              if (id != null) {
+                                _selectedLabelPointId = null;
+                                _selectedLineworkId = null;
+                                _selectedLineworkLayer = null;
+                                _selectedTextId = null;
+                                _selectedNodeIndex = null;
+                                _selectedSegmentIndex = null;
+                                _objectsOpen = true;
+                              }
+                            }),
+                            onSelectLabelPoint: (id) => setState(() {
+                              _selectedLabelPointId = id;
+                              if (id != null) {
+                                _selectedSymbolId = null;
+                                _selectedLineworkId = null;
+                                _selectedLineworkLayer = null;
+                                _selectedTextId = null;
+                                _selectedNodeIndex = null;
+                                _selectedSegmentIndex = null;
+                              }
+                            }),
+                            onSelectLinework: _selectLineworkEntity,
+                            onSelectText: (id) => setState(() {
+                              _selectedTextId = id;
+                              if (id != null) {
+                                _selectedSymbolId = null;
+                                _selectedLabelPointId = null;
+                                _selectedLineworkId = null;
+                                _selectedLineworkLayer = null;
+                                _annotationsOpen = true;
+                              }
+                            }),
+                            onSelectNode: (i) => setState(() {
+                              _selectedNodeIndex = i;
+                              if (i != null) _selectedSegmentIndex = null;
+                            }),
+                            onSelectSegment: (i) => setState(() {
+                              _selectedSegmentIndex = i;
+                              if (i != null) _selectedNodeIndex = null;
+                            }),
+                            onMoveSymbol: _moveSymbol,
+                            onMoveLabel: _moveLabel,
+                            onMoveText: _moveText,
+                            onMoveTitle: (fx, fy) => setState(
+                              () => _options = _options.copyWith(
+                                titleBlock: _options.titleBlock.copyWith(
+                                  paperFracX: fx,
+                                  paperFracY: fy,
+                                ),
+                              ),
+                            ),
+                            lineEditMode: _lineEditMode,
+                          );
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
@@ -806,6 +879,10 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                                       _selectedLabelPointId = null;
                                       _selectedSymbolId = null;
                                       _lineworkOpen = true;
+                                      // Need the canvas visible to trim.
+                                      if (!previewExpanded) {
+                                        _previewUserExpanded = true;
+                                      }
                                     } else {
                                       _selectedLineworkId = null;
                                       _selectedNodeIndex = null;
@@ -820,7 +897,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                           ),
                       ],
                     ),
-                    if (selectedLabel != null) ...[
+                    if (previewExpanded && selectedLabel != null) ...[
                       const SizedBox(height: 8),
                       PointPropertiesPanel(
                         point: selectedLabel,
@@ -830,7 +907,7 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
                             setState(() => _selectedLabelPointId = null),
                       ),
                     ],
-                    if (selectedSym != null) ...[
+                    if (previewExpanded && selectedSym != null) ...[
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
@@ -977,6 +1054,10 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
               ),
             Expanded(
               child: CustomScrollView(
+                // Let D-pad / arrow keys scroll the form on controllers.
+                primary: true,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 slivers: [
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
@@ -1832,38 +1913,81 @@ class _ExportPointsScreenState extends State<ExportPointsScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: Column(
-                children: [
-                  FilledButton.icon(
-                    onPressed:
-                        _busy || _selected.isEmpty ? null : _exportPlot,
-                    icon: _busy
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.picture_as_pdf),
-                    label: const Text('Create PDF'),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(46),
-                      backgroundColor: cs.primary,
-                      foregroundColor: Colors.black,
+              padding: EdgeInsets.fromLTRB(20, 0, 20, shortScreen ? 10 : 16),
+              child: shortScreen
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: _busy || _selected.isEmpty
+                                ? null
+                                : _exportPlot,
+                            icon: _busy
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.picture_as_pdf, size: 18),
+                            label: const Text('PDF'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(40),
+                              backgroundColor: cs.primary,
+                              foregroundColor: Colors.black,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _busy || _selected.isEmpty
+                                ? null
+                                : _exportCsv,
+                            icon: const Icon(Icons.table_rows, size: 18),
+                            label: const Text('CSV'),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(40),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        FilledButton.icon(
+                          onPressed: _busy || _selected.isEmpty
+                              ? null
+                              : _exportPlot,
+                          icon: _busy
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.picture_as_pdf),
+                          label: const Text('Create PDF'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(46),
+                            backgroundColor: cs.primary,
+                            foregroundColor: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed:
+                              _busy || _selected.isEmpty ? null : _exportCsv,
+                          icon: const Icon(Icons.table_rows),
+                          label: const Text('Export selected points CSV'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(42),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed:
-                        _busy || _selected.isEmpty ? null : _exportCsv,
-                    icon: const Icon(Icons.table_rows),
-                    label: const Text('Export selected points CSV'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(42),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
