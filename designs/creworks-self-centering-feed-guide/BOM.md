@@ -1,39 +1,62 @@
-# Bill of materials
+# Bill of materials (by concept)
 
-## 3D-printed parts (PETG or ABS)
+Measure **A / B / C** first (`MEASURE.md`). Provisional hardware assumes M5/M8 class fasteners.
 
-| Qty | Part | SCAD `part=` | Notes |
-|-----|------|--------------|-------|
-| 1 | Mount plate | `plate` | Replaces OEM 5-hole plate; reuse OEM thumbscrews |
-| 1 | Left V-jaw | `jaw_left` | Mirror of right; rack faces pinion |
-| 1 | Right V-jaw | `jaw_right` | |
-| 1 | Sync pinion | `pinion` | Print solid, 100% infill |
-| 1 | Lead-in flare cover | `cover` | Optional but recommended |
+## Common (all concepts)
 
-**Print settings:** 0.2 mm layer, 4+ walls / 1.6 mm shell, 40% gyroid (100% for pinion), ironing off, seams away from V faces. Orient jaws with V face vertical (no supports on the contact face).
+| Qty | Item | Notes |
+|-----|------|-------|
+| 2 | OEM thumbscrews | Reuse from 5-hole plate |
+| — | Threadlocker (optional) | If vibration loosens screws |
 
-Optional upgrade: glue 1 mm UHMW or PTFE tape on the V faces for lower drag and longer life.
+---
 
-## Hardware (hardware store / McMaster)
+## Concept A — Fixed funnel
 
-| Qty | Item | Spec | Role |
-|-----|------|------|------|
-| 2 | OEM thumbscrews | reuse | Clamp plate to stripper head |
-| 1 | Shoulder bolt or dowel | M5 × 25–30 mm (or 5 mm pin + e-clips) | Pinion axle |
-| 2 | Extension springs | light, ~0.3–0.6 N/mm, free length ~25–35 mm | Close jaws |
-| 4 | M3 × 8 screws + washers | optional | Spring hooks if not using hook-end springs |
-| 1 | Drop of machine oil / dry PTFE | — | Rails + pinion |
+| Qty | Item | Spec |
+|-----|------|------|
+| 1 | Funnel body | Per WSFG-A1 — HDPE plate or PETG print |
+| 1 | UHMW liner (opt.) | Tube/sleeve in tunnel |
 
-Spring rule of thumb: you should open the jaws to 20 mm with two fingers. If it fights you, go lighter — drag causes thin wire to slip on the roller.
+## Concept B — Deep-V + hold-down *(recommended)*
 
-## Hardware-store alternative (no printer)
+| Qty | Item | Spec |
+|-----|------|------|
+| 1 | V-block / mount | WSFG-B1 — PETG or Al 6061 |
+| 1 | Hold-down arm | WSFG-B2 |
+| 1 | Pivot | M5 shoulder bolt × 20–30 |
+| 1 | Spring | Light torsion or extension |
+| — | UHMW/PTFE tape | On V faces |
 
-If you do not want to print:
+## Concept C — Side idle rollers
 
-1. **Mount:** Cut a steel or aluminum plate to match the OEM plate outline; drill the two thumbscrew holes from the OEM plate as a template; cut a center window.
-2. **Jaws:** Two small adjustable V-blocks or 90° angle aluminum, mounted on miniature drawer slides or brass rod linear rails, facing each other.
-3. **Sync:** Link the slides with a bicycle-brake-style crossover cable or a short scissor link so they move equally.
-4. **Springs:** Same light extension springs between each jaw and the plate outer edge.
-5. **Lead-in:** Funnel cut from a plastic bottle neck or sheet metal cone, bolted in front of the window.
+| Qty | Item | Spec |
+|-----|------|------|
+| 1 | Mount plate | Same envelope as IF |
+| 2 | Swing arms | WSFG-C1 LH/RH |
+| 2 | Idle rollers | Ø16–20 PU/POM |
+| 2 | Bearings | 608ZZ or bushings |
+| 1 | Equalizer bar | Flat bar + slotted ends |
+| 2 | Springs | Light extension |
+| 2 | Pivot bolts | M5 shoulder |
 
-Functionally identical; heavier and uglier, same centering behavior.
+## Concept D — Scissor jaws
+
+| Qty | Item | Spec |
+|-----|------|------|
+| 1 | Mount plate | IF envelope + center pivot boss |
+| 2 | Links | WSFG-D1 |
+| 2 | Jaw pads | WSFG-D1 |
+| 1 | Center pivot | M5/M6 shoulder |
+| 4 | Nylon washers | Link stack |
+| 1 | Spring | Extension across lower ends |
+
+## Concept E — Three-jaw
+
+| Qty | Item | Spec |
+|-----|------|------|
+| 1 | Housing + scroll/cam | Custom or adapted mini chuck |
+| 3 | Jaws | Soft-face pads |
+| 1 | Adjusting knob | On scroll shaft |
+
+See concept sheets for geometry. Do not order long-lead parts until A/C are measured.

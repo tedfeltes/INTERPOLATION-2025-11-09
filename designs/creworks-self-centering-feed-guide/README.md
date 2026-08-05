@@ -1,53 +1,59 @@
-# CREWORKS Self-Centering Feed Guide
+# CREWORKS self-centering feed guide — multi-concept design package
 
-Drop-in replacement for the black 5-hole feed plate on a CREWORKS 180W (and similar) electric wire stripper.
+Engineering concepts and drawings for a feed guide that keeps wire in the driven V-roller **without** picking a hole in the OEM 5-channel plate or hand-steering mid-strip.
 
-**Problem:** Wire must be aimed into a specific hole / the roller V, and still walks sideways off the roller so it is not stripped.
+## Start here
 
-**Solution:** A spring-loaded dual V-jaw guide that always squeezes the wire onto the blade/roller centerline. Push the wire roughly into the flared mouth — the jaws open to the wire diameter and stay centered for the full 1.5–38 mm range.
+1. Read **[`CONCEPTS.md`](CONCEPTS.md)** — five distinct mechanisms + tradeoffs  
+2. Open the drawing sheets in **[`drawings/sheets/`](drawings/sheets/)**  
+3. Measure your machine per **[`MEASURE.md`](MEASURE.md)** before fabricating  
 
+**Recommended first build:** Concept **B** (deep-V + spring hold-down).  
+**If thin wire stalls from drag:** Concept **C** (opposed idle rollers).  
+**Same-day zero-moving-parts fix:** Concept **A** (funnel with keyhole exit).
+
+---
+
+## Drawing index
+
+| DWG | File | Description |
+|-----|------|-------------|
+| WSFG-00 | `WSFG-00_concept_comparison.png` | All five concepts at a glance |
+| WSFG-IF | `WSFG-IF_machine_interface.png` + `.dxf` | Mounting interface control (A, B, C) |
+| WSFG-A0/A1 | `WSFG-A0_…` `WSFG-A1_…` | Concept A — fixed funnel |
+| WSFG-B0/B1/B2 | `WSFG-B0_…` `WSFG-B1_…` `WSFG-B2_…` | Concept B — deep-V + hold-down |
+| WSFG-C0/C1 | `WSFG-C0_…` `WSFG-C1_…` | Concept C — side idle rollers |
+| WSFG-D0/D1 | `WSFG-D0_…` `WSFG-D1_…` | Concept D — scissor jaws |
+| WSFG-E0 | `WSFG-E0_…` | Concept E — three-jaw iris (stretch) |
+
+PNG sheets are A3 landscape shop-style layouts (border, title block, orthographic / section views, dimensions, notes).  
+DXF files are fab patterns / interface geometry for CAD, laser, or CNC.
+
+### Regenerate drawings
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install matplotlib ezdxf
+cd drawings
+../.venv/bin/python generate_engineering_drawings.py
+../.venv/bin/python generate_dxf_engineering.py
 ```
-                    OEM thumbscrews
-                   ○───────────────○
-        ┌──────────────────────────────┐
-        │   ╲                      ╱   │  ← left / right V-jaws
-        │    ╲      ○ wire        ╱    │     spring-closed,
-        │     ╲                  ╱     │     rack+pinion synced
-        │      ╲________________╱      │
-        │           ▼ into roller      │
-        └──────────────────────────────┘
-                 stripper head
-```
 
-## How it works
+Edit provisional `A`, `B`, `C` at the top of both generators after measuring.
 
-1. Two mirrored V-jaws slide horizontally in the mount plate.
-2. Rack teeth on each jaw mesh with a shared pinion, so both jaws always move the same amount — the gap center never leaves the machine centerline.
-3. Light springs pull the jaws closed. The wire itself opens them to size.
-4. A flared lead-in lets you feed without lining up to a hole.
+---
 
-No channel selection. No hand-steering. Wire stays in the roller V.
+## Concepts (summary)
 
-## What’s in this package
+| ID | Name | Moving parts | Centering | Drag | Complexity |
+|----|------|--------------|-----------|------|------------|
+| **A** | Fixed funnel / keyhole tunnel | None | Good | Low | Lowest |
+| **B** | Deep-V cradle + spring hold-down | Hold-down only | Excellent | Low–med | Low |
+| **C** | Opposed idle side rollers | Arms + rollers | Excellent | Lowest | Medium |
+| **D** | Scissor (X-link) jaws | Linkage | Excellent | Med | Medium |
+| **E** | Three-jaw iris / scroll | Scroll + jaws | Best | Med | Highest |
 
-| Path | Purpose |
-|------|---------|
-| [`MEASURE.md`](MEASURE.md) | Three measurements you take on *your* machine before printing |
-| [`scad/feed_guide.scad`](scad/feed_guide.scad) | Parametric OpenSCAD — all printable parts |
-| [`drawings/`](drawings/) | Flat DXF patterns for laser/CNC or paper templates |
-| [`BOM.md`](BOM.md) | Printed parts + hardware list |
-| [`ASSEMBLY.md`](ASSEMBLY.md) | Install on the stripper, tune springs, align centerline |
-| [`diagrams/`](diagrams/) | Exploded / front / section concept diagrams |
+---
 
-## Build options
+## Legacy note
 
-1. **3D print (recommended)** — PETG or ABS, 0.2 mm layers, 4+ walls, 40% infill. Enter your screw spacing in the SCAD file and export STLs.
-2. **Laser / CNC from DXF** — cut the mount plate and jaws from 6 mm HDPE / UHMW / plywood; add printed or purchased pinion.
-3. **No-print shop build** — see “Hardware-store alternative” in [`BOM.md`](BOM.md).
-
-## Safety
-
-- Unplug the stripper before removing the OEM plate or installing the guide.
-- Keep fingers clear of the driven roller and blade.
-- Start with light spring tension; too much drag can stall thin wire or burn the motor.
-- Verify centerline alignment with a straight rod before powering on.
+An earlier single-concept rack-and-pinion jaw SCAD experiment remains under `scad/` for reference only. Prefer the multi-concept sheets above.

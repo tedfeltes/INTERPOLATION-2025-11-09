@@ -1,46 +1,47 @@
-# Assembly & install
+# Fabrication & install (all concepts)
 
-## 1. Print / cut parts
+## 0. Measure before you cut
 
-Export STLs from `scad/feed_guide.scad` after entering your measurements. Deburr V faces with a knife or sandpaper so wire slides smoothly.
+Per [`MEASURE.md`](MEASURE.md) / drawing **WSFG-IF**:
 
-## 2. Dry-fit jaws
+1. Thumbscrew hole C–C → **A**
+2. Screw clearance → **B**
+3. Roller V centerline height on the mounting face → **C**
 
-1. Drop the pinion axle through the plate bore (do not final-tighten yet).
-2. Slide left and right jaws onto the plate rails so their rack teeth both mesh the pinion.
-3. Move one jaw by hand — the other must move the opposite direction by the same amount. If not, flip a jaw or check tooth mesh.
-4. Confirm the closed gap is on the plate vertical centerline (mark center with a Sharpie first).
+Update generators and regenerate sheets if values differ from 140 / 8.5 / 55.
 
-## 3. Springs
+## 1. Pick a concept
 
-Hook one light extension spring from each jaw’s outer hole to the matching plate anchor hole. Jaws should close firmly but still open by hand to your max wire size.
+| If you want… | Build |
+|--------------|-------|
+| Best centering per effort | **B** |
+| Lowest drag | **C** |
+| Zero moving parts tonight | **A** |
+| Moving jaws, no gears | **D** |
+| Lathe-chuck precision | **E** |
 
-## 4. Flare cover
+## 2. Fab
 
-Seat the lead-in flare over the thumbscrew holes (or screw it to the plate face with short M3s if you added bosses). Mouth faces outward, small end toward the roller.
+- **Print:** PETG/ABS, 0.2 mm, ≥4 walls, 40% infill. Orient wear faces on XY.
+- **Machine:** HDPE / UHMW / Al 6061 from DXF profiles in `drawings/sheets/*.dxf`.
+- Deburr; V and roller contact faces must be smooth.
 
-## 5. Mount on the stripper
+## 3. Install (common)
 
-1. Unplug the machine.
-2. Remove OEM 5-hole plate.
-3. Place the new assembly on the blue head, align thumbscrew holes, tighten OEM thumbscrews snug — not crushing plastic.
-4. Sight a straight rod through the jaws into the roller V. The rod must sit in the deepest part of the V with both jaws touching it. If it sits left/right, loosen thumbscrews and shim/slot-adjust (the plate holes can be slotted ±1 mm if needed).
+1. Unplug stripper. Remove OEM 5-hole plate (keep it).
+2. Mount new guide with OEM thumbscrews — snug, don’t crush plastic.
+3. Sight a straight rod through the guide into the driven V. Rod must sit in the V bottom.
+4. If off-center: slot mount holes ±1 mm or shim; re-check **C**.
 
-## 6. First-run tuning
+## 4. Concept-specific checks
 
-| Symptom | Fix |
-|---------|-----|
-| Wire still walks off roller | Centerline misaligned — re-measure **C**, or add a thin washer under one side of the plate |
-| Thin wire slips / motor labors | Lighter springs; polish V faces; add PTFE tape |
-| Thick wire won’t enter | Increase `max_wire_d` / check jaw travel; flare mouth too small |
-| Jaws rack unevenly | Debris in teeth; reprint pinion at 100% infill; reduce `slot_clearance` if sloppy |
-| Guide rubs blade/roller | Reduce stick-out; shorten `jaw_t` or add spacers behind plate |
+**A:** Keyhole exit vertical; wire drops to round portion of keyhole.  
+**B:** V apex on CL; hold-down opens by hand to your max wire; light spring only.  
+**C:** Move one arm — other mirrors via equalizer; rollers spin freely; min gap ~1 mm.  
+**D:** Center pivot on CL; links don’t bind; pads hit wire together.  
+**E:** Scroll opens/closes about CL with no jaw lag.
 
-## 7. Daily use
+## 5. First strip
 
-1. Open jaws with fingers (or just push wire into the flare).
-2. Feed the free end until the driven roller grabs it.
-3. Let go — jaws keep it centered while it strips.
-4. For bundled / kinked scrap, straighten the first 100 mm so the lead-in can catch it.
-
-You no longer pick a hole size or steer the wire mid-strip.
+Start mid-size wire. If it walks out of the roller → centerline error.  
+If motor labors / thin wire slips → reduce spring/hold-down force (or switch to **C**).

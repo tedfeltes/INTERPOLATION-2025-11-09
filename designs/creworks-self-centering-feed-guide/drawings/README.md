@@ -1,18 +1,19 @@
-# Flat patterns (DXF)
+# Engineering drawings
 
-`feed_guide_patterns.dxf` is a laser/CNC-ready layout of the mount plate, jaws, and pinion blank.
+## Package
 
-Regenerate after measuring your machine:
+- **`sheets/WSFG_drawing_package.pdf`** — all PNG sheets as one printable PDF  
+- **`sheets/WSFG-*.png`** — A3 landscape shop sheets (title block, views, dims, notes)  
+- **`sheets/WSFG-*.dxf`** — CAD/laser/CNC geometry for interface + Concepts A–D  
 
-```bash
-python3 -m venv .venv && .venv/bin/pip install ezdxf
-.venv/bin/python generate_dxf.py \
-  --screw-spacing 140 \
-  --centerline-z 55 \
-  --max-wire-d 38 \
-  -o feed_guide_patterns.dxf
-```
+## Generators
 
-Layers: `CUT` (profiles), `HOLES` (drills), `CENTER` (alignment), `NOTES` (text).
+| Script | Output |
+|--------|--------|
+| `generate_engineering_drawings.py` | PNG shop sheets |
+| `generate_dxf_engineering.py` | DXF fab patterns |
+| `eng_drawing.py` | Shared border / dim helpers |
 
-For 3D-printed parts, prefer the OpenSCAD models in [`../scad/`](../scad/) — they include rack teeth, rail slots, and the lead-in flare.
+Provisional machine constants `A`, `B`, `C` live at the top of both generators — edit after measuring, then re-run.
+
+Older cartoon diagrams under `../diagrams/` and the rack-pinion SCAD under `../scad/` are legacy experiments, not the design baseline.
