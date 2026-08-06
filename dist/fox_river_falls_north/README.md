@@ -1,61 +1,22 @@
 # Fox River Falls North — Trimble Access DXF
 
-Source Drive folder files:
+## Control file (use this)
 
-1. `Fox RIver Falls North-Clearing Exhibit_2025-12-01.pdf` — Civil 3D clearing exhibit  
-2. `FOX RIVER FALLS STAKE-INTERCEPTOR-SILT 2026-02-20.txt` — PNEZD silt fence stakes
+`FOX RIVER FALLS-PH5-STAKE-SAN INT & SILT REV 2026-01-27.txt`  
+(PNEZD — sanitary interceptor + silt). The older interceptor-only TXT is disregarded.
 
-## Survey-coordinate silt fence (use this for stakeout)
-
-Built directly from the staking TXT (same E/N as the points file):
+## Downloads (survey coordinates)
 
 | File | Contents |
 | --- | --- |
-| **`Fox_River_Falls_SILT_FENCE_trimble_access.dxf`** | **Primary** — 9 silt fence LWPOLYLINEs + POINT nodes |
-| `Fox_River_Falls_SILT_FENCE_world.dxf` | Same + point-number labels |
+| **`Fox_River_Falls_COMPLETE_survey.dxf`** | All PDF layers (best-fit) + exact SAN/SILT from TXT |
+| `Fox_River_Falls_STAKE_PRIORITY_survey.dxf` | Key PDF layers + exact SAN/SILT |
+| `Fox_River_Falls_SAN_SILT_staking_survey.dxf` | Exact staking linework/points only |
 
-Layers:
+Exact layers from TXT: `SILT_FENCE`, `SILT_POINTS`, `SANITARY_ALIGN`, `SANITARY_OFFSET`, `SANITARY_BORE`.
 
-- `SILT_FENCE` — connected fence runs (split at END / ditch-check ends)
-- `SILT_FENCE_POINTS` — intermediate stake points
-- `SILT_FENCE_ENDS` — END / ditch-check points
+PDF layers are similarity-transformed into the same CRS. The clearing exhibit only draws part of the sanitary clear zone, so residuals vary (see `GEOREF_COMPLETE_REPORT.txt`). Use `SANITARY_*` / `SILT_*` for stakeout.
 
-Coordinates: **survey feet**, PNEZD order from the TXT  
-(`Point, Northing, Easting, Elevation, Description`)
+## Local sheet-foot clearing DXFs
 
-Easting ≈ 2,485,914 … 2,489,885  
-Northing ≈ 415,577 … 417,641  
-Total fence length ≈ **7,989 ft** (9 segments, 84 points)
-
-### TSC5
-
-1. Copy `Fox_River_Falls_SILT_FENCE_trimble_access.dxf` → `Trimble Data/Projects/<job>/`
-2. Map → Layer manager → Map files → enable `SILT_FENCE` / points → Stakeout
-
-## Complete DXF in survey coordinates (best-fit)
-
-**`Fox_River_Falls_COMPLETE_survey.dxf`** — all PDF layers transformed into the silt TXT survey CRS, plus exact `SILT_FENCE` from the TXT.
-
-Georeference is a best-fit similarity of PDF linework to the silt stakes (the clearing exhibit has no dedicated silt-fence CAD layer). Typical stake-to-linework residual ~tens of feet — fine for context, not for centimeter stakeout of PDF geometry. Use `SILT_FENCE*` layers for exact stakeout.
-
-See `GEOREF_COMPLETE_REPORT.txt`.
-
-## Clearing exhibit linework (local sheet feet)
-
-The clearing PDF has **no silt fence linework** (no SILT/FENCE labels or matching geometry), so it cannot be tightly locked to the silt TXT by feature matching.
-
-These remain in **local sheet feet** (1″ = 150′, north-up, arbitrary SW origin):
-
-| File | Use |
-| --- | --- |
-| `Fox_River_Falls_North_Clearing_STAKE_PRIORITY.dxf` | Clearing / sanitary / wetlands (local) |
-| `Fox_River_Falls_North_Clearing_trimble_access.dxf` | Full sheet linework (local) |
-
-Do **not** mix the local clearing DXF with a GPS job that uses the silt TXT coordinates unless you transform it with field control.
-
-## Regenerate silt DXF from TXT
-
-```bash
-python scripts/pdf_exhibit_to_dxf.py --help   # clearing PDF → local DXF
-# silt world DXF is produced from the PNEZD TXT (see scripts or rebuild from this README workflow)
-```
+Still available for relative PDF linework without survey CRS: `Fox_River_Falls_North_Clearing_*.dxf`.
