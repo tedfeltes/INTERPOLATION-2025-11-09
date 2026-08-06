@@ -1,76 +1,53 @@
-# Fox River Falls North — Clearing Exhibit → Trimble Access DXF
+# Fox River Falls North — Trimble Access DXF
 
-Source: Civil 3D PDF  
-`Fox RIver Falls North-Clearing Exhibit_2025-12-01.pdf`  
-(Drive folder: Fox River Falls North clearing exhibit)
+Source Drive folder files:
 
-## Use this file on the TSC5
+1. `Fox RIver Falls North-Clearing Exhibit_2025-12-01.pdf` — Civil 3D clearing exhibit  
+2. `FOX RIVER FALLS STAKE-INTERCEPTOR-SILT 2026-02-20.txt` — PNEZD silt fence stakes
 
-**Recommended for stakeout linework:**
+## Survey-coordinate silt fence (use this for stakeout)
 
-```text
-Fox_River_Falls_North_Clearing_STAKE_PRIORITY.dxf
-```
+Built directly from the staking TXT (same E/N as the points file):
 
-Optional (vertices as POINT entities on clearing / sanitary / boring):
+| File | Contents |
+| --- | --- |
+| **`Fox_River_Falls_SILT_FENCE_trimble_access.dxf`** | **Primary** — 9 silt fence LWPOLYLINEs + POINT nodes |
+| `Fox_River_Falls_SILT_FENCE_world.dxf` | Same + point-number labels |
 
-```text
-Fox_River_Falls_North_Clearing_STAKE_POINTS.dxf
-```
+Layers:
 
-Full sheet linework (includes lot lines / base map):
+- `SILT_FENCE` — connected fence runs (split at END / ditch-check ends)
+- `SILT_FENCE_POINTS` — intermediate stake points
+- `SILT_FENCE_ENDS` — END / ditch-check points
 
-```text
-Fox_River_Falls_North_Clearing_trimble_access.dxf
-```
+Coordinates: **survey feet**, PNEZD order from the TXT  
+(`Point, Northing, Easting, Elevation, Description`)
 
-### Trimble Access steps
+Easting ≈ 2,485,914 … 2,489,885  
+Northing ≈ 415,577 … 417,641  
+Total fence length ≈ **7,989 ft** (9 segments, 84 points)
 
-1. Copy the DXF into `Trimble Data/Projects/<your job>/`
-2. Map → Layer manager → Map files → add the DXF
-3. Enable the layers you need → select linework → Stakeout
+### TSC5
 
-## Layers
+1. Copy `Fox_River_Falls_SILT_FENCE_trimble_access.dxf` → `Trimble Data/Projects/<job>/`
+2. Map → Layer manager → Map files → enable `SILT_FENCE` / points → Stakeout
 
-| Layer | Color | Meaning |
-| --- | --- | --- |
-| `CLEARING_LIMITS` | Cyan | Tree clearing limits |
-| `SANITARY_CLEAR_ZONE` | Magenta | Clear zone along sanitary sewer route |
-| `WETLANDS` | Blue | Wetland outlines / fill strokes |
-| `WETLAND_EXPANSION` | Red | Potential wetland expansion pockets |
-| `BUFFER_BORING` | Green | Buffer / sanitary boring location |
-| `LANDSCAPE_POND` | Purple | Existing landscape ponds |
-| `SITE_BASE` | White/black | Roads, RR, lot lines (full DXF only) |
-| `EXISTING_DETAIL` | Gray | Secondary detail (full DXF only) |
-| `STAKE_NODES` | Yellow | Vertex points (points DXF only) |
+## Clearing exhibit linework (local sheet feet)
 
-## Coordinate system (important)
+The clearing PDF has **no silt fence linework** (no SILT/FENCE labels or matching geometry), so it cannot be tightly locked to the silt TXT by feature matching.
 
-- Units: **US survey feet** (local)
-- Orientation: **north-up**
-- Scale taken from the sheet / PDF Measure dictionary: **1″ = 150′**
-- Origin: southwest corner of retained geometry (arbitrary local 0,0)
+These remain in **local sheet feet** (1″ = 150′, north-up, arbitrary SW origin):
 
-The source PDF is a **plotted Civil 3D layout**, not a GeoPDF. It has **no state-plane / WISCRS coordinates**.
+| File | Use |
+| --- | --- |
+| `Fox_River_Falls_North_Clearing_STAKE_PRIORITY.dxf` | Clearing / sanitary / wetlands (local) |
+| `Fox_River_Falls_North_Clearing_trimble_access.dxf` | Full sheet linework (local) |
 
-For GPS stakeout that matches ground control, either:
+Do **not** mix the local clearing DXF with a GPS job that uses the silt TXT coordinates unless you transform it with field control.
 
-1. Transform this DXF in Trimble Access using two or more known field points, or  
-2. Convert the original Civil 3D **DWG** (model-space) with StakeDXF instead of the PDF.
-
-Relative geometry (clearing limits, sanitary corridor, wetlands) is preserved at sheet scale.
-
-## Regenerate
+## Regenerate silt DXF from TXT
 
 ```bash
-python scripts/pdf_exhibit_to_dxf.py \
-  "dist/fox_river_falls_north/Fox RIver Falls North-Clearing Exhibit_2025-12-01.pdf" \
-  -o dist/fox_river_falls_north/Fox_River_Falls_North_Clearing_Exhibit_local_ft.dxf \
-  --no-text
-
-python -m app.cli \
-  dist/fox_river_falls_north/Fox_River_Falls_North_Clearing_Exhibit_local_ft.dxf \
-  -o dist/fox_river_falls_north/Fox_River_Falls_North_Clearing_trimble_access.dxf
+python scripts/pdf_exhibit_to_dxf.py --help   # clearing PDF → local DXF
+# silt world DXF is produced from the PNEZD TXT (see scripts or rebuild from this README workflow)
 ```
-
-Requires: `ezdxf`, `pymupdf`.
