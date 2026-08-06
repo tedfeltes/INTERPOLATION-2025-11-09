@@ -1,0 +1,18 @@
+Fox River Falls PH5 — complete survey DXF georeference
+=====================================================
+Control: FOX RIVER FALLS-PH5-STAKE-SAN INT & SILT REV 2026-01-27.txt
+Disregarded: FOX RIVER FALLS STAKE-INTERCEPTOR-SILT 2026-02-20.txt
+
+Transform: similarity scale=1.13110502 rot_deg=-19.8780
+R=[[0.9404188750696144, 0.3400181457110796], [-0.34001814571107963, 0.9404188750696144]]
+t=[2484882.9209786663, 416069.54610108765]
+
+SAN trunk → PDF sanitary clear zone (ft): median=37.55 mean=53.68 max=180.51
+  <10=4 <25=6 <50=6 of 12
+SILT → PDF: median=20.48 max=114.48
+ALL stakes → PDF: median=27.19 max=363.46 <25=24 of 53
+
+NOTE: Exact stakeout geometry is in SILT_* and SANITARY_* (from TXT).
+PDF layers are best-fit into the same CRS; the clearing exhibit only shows
+part of the sanitary clear zone, so some MHs/silt outside that graphics
+have larger residuals.
