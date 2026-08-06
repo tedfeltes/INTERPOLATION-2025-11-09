@@ -1,0 +1,16 @@
+Complete survey-coordinate DXF georeference report
+==================================================
+Control file: FOX RIVER FALLS STAKE-INTERCEPTOR-SILT 2026-02-20.txt (PNEZD)
+Source linework: PDF-derived local DXF (Fox_River_Falls_North_Clearing_Exhibit_local_ft.dxf)
+Transform type: sim
+similarity scale=0.90692104 rot_deg=148.1281
+R=[[-0.8492305054721375, -0.5280222993165514], [0.5280222993165514, -0.8492305054721375]]
+t=[2490289.308756444, 416847.66329082736]
+Stake-to-PDF-linework residuals after transform (ft):
+  median=29.72 mean=83.62 p90=268.38 max=353.27
+  <10ft=18 <25=38 <50=51 <100=61 of 84
+
+SILT_FENCE / POINTS / ENDS are EXACT from the TXT.
+PDF layers are transformed by best-fit to place silt stakes onto nearest
+clearing/sanitary/site linework. The clearing exhibit does not contain a
+dedicated silt-fence CAD layer, so residuals reflect that mismatch.

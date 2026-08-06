@@ -32,6 +32,14 @@ Total fence length ≈ **7,989 ft** (9 segments, 84 points)
 1. Copy `Fox_River_Falls_SILT_FENCE_trimble_access.dxf` → `Trimble Data/Projects/<job>/`
 2. Map → Layer manager → Map files → enable `SILT_FENCE` / points → Stakeout
 
+## Complete DXF in survey coordinates (best-fit)
+
+**`Fox_River_Falls_COMPLETE_survey.dxf`** — all PDF layers transformed into the silt TXT survey CRS, plus exact `SILT_FENCE` from the TXT.
+
+Georeference is a best-fit similarity of PDF linework to the silt stakes (the clearing exhibit has no dedicated silt-fence CAD layer). Typical stake-to-linework residual ~tens of feet — fine for context, not for centimeter stakeout of PDF geometry. Use `SILT_FENCE*` layers for exact stakeout.
+
+See `GEOREF_COMPLETE_REPORT.txt`.
+
 ## Clearing exhibit linework (local sheet feet)
 
 The clearing PDF has **no silt fence linework** (no SILT/FENCE labels or matching geometry), so it cannot be tightly locked to the silt TXT by feature matching.
