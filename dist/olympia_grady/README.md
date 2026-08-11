@@ -31,5 +31,5 @@ Removed:
 
 ```bash
 python3 scripts/strip_jxl_site_only.py /path/to/Olympia-Grady.jxl \
-  -o data/outputs/olympia_grady/Olympia-Grady-site-only.jxl
+  -o dist/olympia_grady/Olympia-Grady-site-only.jxl
 ```
