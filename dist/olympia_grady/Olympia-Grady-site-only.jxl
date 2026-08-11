@@ -1,0 +1,959 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<JOBFile jobName="Olympia-Grady" version="6.34" product="Trimble Access" productVersion="26.10" productDBVersion="2610-15" controllerSerialNumber="" originalProductVersion="2022.11 (22.10.304)" linkedProjectId="" TimeStamp="2023-03-09T12:07:49"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://www.trimble.com/schema/JobXML/6_3 http://www.trimble.com/schema/JobXML/6_3/JobXMLSchema-6.34.xsd">
+    <FieldBook>
+
+        <HorizontalAdjustmentRecord ID="00000003" TimeStamp="2023-03-09T12:07:49">
+            <Type>NoAdjustment</Type>
+        </HorizontalAdjustmentRecord>
+
+        <JobPropertiesRecord ID="00000004" TimeStamp="2023-03-09T12:07:49">
+            <Reference/>
+            <Description/>
+            <Operator/>
+            <JobNote/>
+            <TectonicPlate>Unknown</TectonicPlate>
+            <ApplyJobPointNameRange>false</ApplyJobPointNameRange>
+            <MinimumJobPointName/>
+            <MaximumJobPointName/>
+        </JobPropertiesRecord>
+
+        <LinkedFilesRecord ID="00000006" TimeStamp="2023-03-09T12:07:49"/>
+
+        <ActiveMapFilesRecord ID="00000007" TimeStamp="2023-03-09T12:07:49"/>
+
+        <UnitsRecord ID="00000008" TimeStamp="2023-03-09T12:07:49">
+            <DistanceUnits>USSurveyFeet</DistanceUnits>
+            <HeightUnits>USSurveyFeet</HeightUnits>
+            <AngleUnits>DMSDegrees</AngleUnits>
+            <AzimuthFormat>QuadrantBearings</AzimuthFormat>
+            <LatitudeLongitudeUnits>DMSDegrees</LatitudeLongitudeUnits>
+            <CoordinateOrder>North-East-Elevation</CoordinateOrder>
+            <TemperatureUnits>Fahrenheit</TemperatureUnits>
+            <PressureUnits>InchHg</PressureUnits>
+            <GradeUnits>Percentage</GradeUnits>
+            <AreaUnits>SquareUSSurveyFeet</AreaUnits>
+            <VolumeUnits>CubicUSSurveyFeet</VolumeUnits>
+            <StationingFormat>10+00.0</StationingFormat>
+            <StationIndexIncrement/>
+            <PrecisionUnits>DRMS</PrecisionUnits>
+            <DistanceDisplayDPs>3</DistanceDisplayDPs>
+            <CoordinateDisplayDPs>3</CoordinateDisplayDPs>
+            <AreaDisplayDPs>3</AreaDisplayDPs>
+            <VolumeDisplayDPs>3</VolumeDisplayDPs>
+            <AngleDisplayDPs>0</AngleDisplayDPs>
+            <LaserVADisplay>Inclination</LaserVADisplay>
+            <TimeFormat>Local</TimeFormat>
+            <MassUnits>Kilograms</MassUnits>
+            <MassDisplayDPs>3</MassDisplayDPs>
+        </UnitsRecord>
+
+        <FeatureCodingRecord ID="0000000a" TimeStamp="2023-03-09T12:07:49">
+            <LibraryName/>
+            <SourceFilename/>
+            <AttributeCheckSum>0</AttributeCheckSum>
+            <AttributesStored>false</AttributesStored>
+        </FeatureCodingRecord>
+
+        <CorrectionsRecord ID="0000000b" TimeStamp="2023-03-09T12:07:49">
+            <SouthAzimuth>false</SouthAzimuth>
+            <GridOrientation>IncreasingNorthEast</GridOrientation>
+            <MagneticDeclination>0</MagneticDeclination>
+            <Distances>GridDistance</Distances>
+            <ApplySeaLevelCorrection>true</ApplySeaLevelCorrection>
+            <NeighbourhoodAdjustment>
+                <Applied>false</Applied>
+                <WeightExponent>0.5</WeightExponent>
+            </NeighbourhoodAdjustment>
+            <ReferenceAzimuth/>
+        </CorrectionsRecord>
+
+        <EllipsoidRecord ID="0000000c" TimeStamp="2023-03-09T12:07:49">
+            <EarthRadius>6378137</EarthRadius>
+            <Flattening>0.00335281068118</Flattening>
+            <LocalEllipsoidEPSG/>
+            <LocalEllipsoidID/>
+        </EllipsoidRecord>
+
+        <ProjectionRecord ID="0000000d" TimeStamp="2023-03-09T12:07:49">
+            <Projection>
+                <Type>Lambert2Parallel</Type>
+                <ShiftGridFileName/>
+                <CentralLatitude>42</CentralLatitude>
+                <CentralLongitude>-90</CentralLongitude>
+                <FalseNorthing>0</FalseNorthing>
+                <FalseEasting>600000</FalseEasting>
+                <Parallel1>44.066666666667</Parallel1>
+                <Parallel2>42.733333333333</Parallel2>
+            </Projection>
+            <LocalSite>
+                <Type>Grid</Type>
+                <ProjectLocationLatitude/>
+                <ProjectLocationLongitude/>
+                <ProjectLocationHeight>243.84048768098</ProjectLocationHeight>
+            </LocalSite>
+        </ProjectionRecord>
+
+        <DatumRecord ID="0000000e" TimeStamp="2023-03-09T12:07:49">
+            <Type>ThreeParameter</Type>
+            <Direction>WGS84ToLocal</Direction>
+            <EarthRadius>6378137</EarthRadius>
+            <Flattening>0.00335281067183</Flattening>
+            <TranslationX>0</TranslationX>
+            <TranslationY>0</TranslationY>
+            <TranslationZ>0</TranslationZ>
+            <LocalDatumID/>
+            <LocalDatumEPSG/>
+            <LocalGeographicCoordinateReferenceSystemEPSG/>
+            <GlobalGeographicCoordinateReferenceSystemEPSG/>
+            <DatumTransformationEPSG/>
+        </DatumRecord>
+
+        <VerticalAdjustmentRecord ID="0000000f" TimeStamp="2023-03-09T12:07:49">
+            <Type>GeoidModel</Type>
+            <GeoidName>G18_WI</GeoidName>
+            <GeoidID/>
+            <VerticalCoordinateReferenceSystemEPSG/>
+            <VerticalDatumEPSG/>
+        </VerticalAdjustmentRecord>
+
+        <CoordinateSystemRecord ID="00000010" TimeStamp="2023-03-09T12:07:49">
+            <SystemName>United States/NAD83</SystemName>
+            <ZoneName>Wisconsin South 4803</ZoneName>
+            <DatumName>NAD83(2011)</DatumName>
+            <ZoneID/>
+            <ProjectedCoordinateReferenceSystemEPSG/>
+            <CompoundCoordinateReferenceSystemEPSG/>
+        </CoordinateSystemRecord>
+
+        <EllipsoidRecord ID="00000014" TimeStamp="2023-03-09T12:11:03">
+            <EarthRadius>6378137</EarthRadius>
+            <Flattening>0.00335281068118</Flattening>
+            <LocalEllipsoidEPSG/>
+            <LocalEllipsoidID/>
+        </EllipsoidRecord>
+
+        <ProjectionRecord ID="00000015" TimeStamp="2023-03-09T12:11:03">
+            <Projection>
+                <Type>Lambert2Parallel</Type>
+                <ShiftGridFileName/>
+                <CentralLatitude>42</CentralLatitude>
+                <CentralLongitude>-90</CentralLongitude>
+                <FalseNorthing>0</FalseNorthing>
+                <FalseEasting>600000</FalseEasting>
+                <Parallel1>44.066666666667</Parallel1>
+                <Parallel2>42.733333333333</Parallel2>
+            </Projection>
+            <LocalSite>
+                <Type>Grid</Type>
+                <ProjectLocationLatitude/>
+                <ProjectLocationLongitude/>
+                <ProjectLocationHeight>228.60045720091</ProjectLocationHeight>
+            </LocalSite>
+        </ProjectionRecord>
+
+        <DatumRecord ID="00000016" TimeStamp="2023-03-09T12:11:03">
+            <Type>ThreeParameter</Type>
+            <Direction>WGS84ToLocal</Direction>
+            <EarthRadius>6378137</EarthRadius>
+            <Flattening>0.00335281067183</Flattening>
+            <TranslationX>0</TranslationX>
+            <TranslationY>0</TranslationY>
+            <TranslationZ>0</TranslationZ>
+            <ReferenceGlobalFrameID>23</ReferenceGlobalFrameID>
+            <ReferenceGlobalFrameISO>126</ReferenceGlobalFrameISO>
+            <ReferenceGlobalFrameEPSG>1116</ReferenceGlobalFrameEPSG>
+            <ReferenceGlobalFrameEpoch>2010.00</ReferenceGlobalFrameEpoch>
+            <ReferenceGlobalFrameName>NAD83(2011)</ReferenceGlobalFrameName>
+            <DisplacementModelName>HTDP V3.4.0</DisplacementModelName>
+            <LocalDatumID/>
+            <LocalDatumEPSG/>
+            <LocalGeographicCoordinateReferenceSystemEPSG/>
+            <GlobalGeographicCoordinateReferenceSystemEPSG/>
+            <DatumTransformationEPSG/>
+        </DatumRecord>
+
+        <DisplacementModelsRecord ID="00000017" TimeStamp="2023-03-09T12:11:03">
+            <DisplacementModel>
+                <Name>ITRF2014</Name>
+                <Realization>ITRF2014</Realization>
+                <SystemID>172</SystemID>
+                <Type>Tectonic</Type>
+                <File>plate_rotations_from_itrf2014.xml</File>
+                <MinEpoch>0</MinEpoch>
+                <MaxEpoch>0</MaxEpoch>
+                <MinimumLatitude>-90</MinimumLatitude>
+                <MaximumLatitude>90</MaximumLatitude>
+                <MinimumLongitude>-180</MinimumLongitude>
+                <MaximumLongitude>180</MaximumLongitude>
+            </DisplacementModel>
+            <DisplacementModel>
+                <Name>HTDP V3.4.0 ALASKA</Name>
+                <Realization>NAD83(2011)</Realization>
+                <SystemID>254</SystemID>
+                <Type>Local</Type>
+                <File>htdp_v3.4.0_alaska_20211019.xml</File>
+                <MinEpoch>2010.00</MinEpoch>
+                <MaxEpoch>0</MaxEpoch>
+                <MinimumLatitude>54</MinimumLatitude>
+                <MaximumLatitude>73</MaximumLatitude>
+                <MinimumLongitude>-170</MinimumLongitude>
+                <MaximumLongitude>-130</MaximumLongitude>
+            </DisplacementModel>
+            <DisplacementModel>
+                <Name>HTDP V3.4.0 CONUS</Name>
+                <Realization>NAD83(2011)</Realization>
+                <SystemID>255</SystemID>
+                <Type>Local</Type>
+                <File>htdp_v3.4.0_conus_20211019.xml</File>
+                <MinEpoch>2010.00</MinEpoch>
+                <MaxEpoch>0</MaxEpoch>
+                <MinimumLatitude>25</MinimumLatitude>
+                <MaximumLatitude>49.75</MaximumLatitude>
+                <MinimumLongitude>-125</MinimumLongitude>
+                <MaximumLongitude>-66</MaximumLongitude>
+            </DisplacementModel>
+        </DisplacementModelsRecord>
+
+        <KinematicTransformationsRecord ID="00000018" TimeStamp="2023-03-09T12:11:03">
+            <KinematicTransformation>
+                <Name>ITRF2014 to NAD83(2011)</Name>
+                <SystemID>232</SystemID>
+                <SourceRealization>ITRF2014</SourceRealization>
+                <TargetRealization>NAD83(2011)</TargetRealization>
+                <ReferenceEpoch>2010.00</ReferenceEpoch>
+                <Type>FourteenParameters</Type>
+                <TranslationX>1.0053</TranslationX>
+                <TranslationY>-1.90921</TranslationY>
+                <TranslationZ>-0.54157</TranslationZ>
+                <RotationX>-26.7815</RotationX>
+                <RotationY>0.42078</RotationY>
+                <RotationZ>-10.93254</RotationZ>
+                <Scale>0.36891</Scale>
+                <DerivativeTranslationX>0.00079</DerivativeTranslationX>
+                <DerivativeTranslationY>-0.0006</DerivativeTranslationY>
+                <DerivativeTranslationZ>-0.00144</DerivativeTranslationZ>
+                <DerivativeRotationX>-0.06669</DerivativeRotationX>
+                <DerivativeRotationY>0.75749</DerivativeRotationY>
+                <DerivativeRotationZ>0.05129</DerivativeRotationZ>
+                <DerivativeScale>-0.07201</DerivativeScale>
+                <VelocityIncluded>false</VelocityIncluded>
+            </KinematicTransformation>
+        </KinematicTransformationsRecord>
+
+        <ReferenceFrameTransformationsRecord ID="00000019" TimeStamp="2023-03-09T12:11:03">
+            <ReferenceFrameTransformationInformation>
+                <SourceFrameId>19</SourceFrameId>
+                <SourceFrameEPSG>1165</SourceFrameEPSG>
+                <SourceFrameISO>175</SourceFrameISO>
+                <SourceFrameName>ITRF2014</SourceFrameName>
+                <SourceFrameReferenceEpoch>2010.00</SourceFrameReferenceEpoch>
+                <TargetFrameId>23</TargetFrameId>
+                <TargetFrameEPSG>1116</TargetFrameEPSG>
+                <TargetFrameISO>126</TargetFrameISO>
+                <TargetFrameName>NAD83(2011)</TargetFrameName>
+                <TargetFrameReferenceEpoch>2010.00</TargetFrameReferenceEpoch>
+                <DisplacementModels>
+                    <SystemID>172</SystemID>
+                    <SystemID>255</SystemID>
+                    <SystemID>254</SystemID>
+                </DisplacementModels>
+                <KinematicTransformations>
+                    <SystemID>232</SystemID>
+                </KinematicTransformations>
+            </ReferenceFrameTransformationInformation>
+            <ReferenceFrameTransformationInformation>
+                <SourceFrameId>23</SourceFrameId>
+                <SourceFrameEPSG>1116</SourceFrameEPSG>
+                <SourceFrameISO>126</SourceFrameISO>
+                <SourceFrameName>NAD83(2011)</SourceFrameName>
+                <SourceFrameReferenceEpoch>2010.00</SourceFrameReferenceEpoch>
+                <TargetFrameId>19</TargetFrameId>
+                <TargetFrameEPSG>1165</TargetFrameEPSG>
+                <TargetFrameISO>175</TargetFrameISO>
+                <TargetFrameName>ITRF2014</TargetFrameName>
+                <TargetFrameReferenceEpoch>2010.00</TargetFrameReferenceEpoch>
+                <DisplacementModels>
+                    <SystemID>172</SystemID>
+                    <SystemID>255</SystemID>
+                    <SystemID>254</SystemID>
+                </DisplacementModels>
+                <KinematicTransformations>
+                    <SystemID>232</SystemID>
+                </KinematicTransformations>
+            </ReferenceFrameTransformationInformation>
+        </ReferenceFrameTransformationsRecord>
+
+        <VerticalAdjustmentRecord ID="0000001a" TimeStamp="2023-03-09T12:11:03">
+            <Type>GeoidModel</Type>
+            <GeoidName>GEOID18 (Conus)</GeoidName>
+            <GeoidID/>
+            <VerticalCoordinateReferenceSystemEPSG/>
+            <VerticalDatumEPSG/>
+        </VerticalAdjustmentRecord>
+
+        <CoordinateSystemRecord ID="0000001b" TimeStamp="2023-03-09T12:11:03">
+            <SystemName>United States/NAD83</SystemName>
+            <ZoneName>Wisconsin South 4803</ZoneName>
+            <DatumName>NAD83(2011)</DatumName>
+            <ZoneID/>
+            <ProjectedCoordinateReferenceSystemEPSG/>
+            <CompoundCoordinateReferenceSystemEPSG/>
+        </CoordinateSystemRecord>
+
+        <HorizontalAdjustmentRecord ID="000003bb" TimeStamp="2023-03-15T10:38:22">
+            <Type>PlaneAdjustment</Type>
+            <OriginNorth>121544.7626257</OriginNorth>
+            <OriginEast>724496.60475119</OriginEast>
+            <TranslationNorth>-0.05752029066207</TranslationNorth>
+            <TranslationEast>0.00891403283458</TranslationEast>
+            <Rotation>-0.00063047515632</Rotation>
+            <ScaleFactor>1</ScaleFactor>
+        </HorizontalAdjustmentRecord>
+
+        <VerticalAdjustmentRecord ID="000003bc" TimeStamp="2023-03-15T10:38:22">
+            <Type>GeoidModelAndInclinedPlane</Type>
+            <OriginNorth>121544.70510541</OriginNorth>
+            <OriginEast>724496.61366523</OriginEast>
+            <SlopeNorthPerUnit>0</SlopeNorthPerUnit>
+            <SlopeEastPerUnit>0</SlopeEastPerUnit>
+            <ConstantAdjustment>-0.00052170406599</ConstantAdjustment>
+            <GeoidName>GEOID18 (Conus)</GeoidName>
+            <GeoidID/>
+            <VerticalCoordinateReferenceSystemEPSG/>
+            <VerticalDatumEPSG/>
+        </VerticalAdjustmentRecord>
+
+        <HorizontalAdjustmentRecord ID="00000440" TimeStamp="2023-03-15T13:27:20">
+            <Type>PlaneAdjustment</Type>
+            <OriginNorth>121549.59183571</OriginNorth>
+            <OriginEast>723697.94277736</OriginEast>
+            <TranslationNorth>-0.02516057844332</TranslationNorth>
+            <TranslationEast>0.07805067941081</TranslationEast>
+            <Rotation>0.0023515837412</Rotation>
+            <ScaleFactor>1</ScaleFactor>
+        </HorizontalAdjustmentRecord>
+
+        <VerticalAdjustmentRecord ID="00000441" TimeStamp="2023-03-15T13:27:20">
+            <Type>GeoidModelAndInclinedPlane</Type>
+            <OriginNorth>121549.56667513</OriginNorth>
+            <OriginEast>723698.02082804</OriginEast>
+            <SlopeNorthPerUnit>0</SlopeNorthPerUnit>
+            <SlopeEastPerUnit>0</SlopeEastPerUnit>
+            <ConstantAdjustment>-0.08434187170633</ConstantAdjustment>
+            <GeoidName>GEOID18 (Conus)</GeoidName>
+            <GeoidID/>
+            <VerticalCoordinateReferenceSystemEPSG/>
+            <VerticalDatumEPSG/>
+        </VerticalAdjustmentRecord>
+
+        <HorizontalAdjustmentRecord ID="00000460" TimeStamp="2023-03-15T15:22:31">
+            <Type>PlaneAdjustment</Type>
+            <OriginNorth>121549.5997382</OriginNorth>
+            <OriginEast>723698.01019968</OriginEast>
+            <TranslationNorth>-0.03306306345621</TranslationNorth>
+            <TranslationEast>0.01062836614437</TranslationEast>
+            <Rotation>0.00175538658461</Rotation>
+            <ScaleFactor>1</ScaleFactor>
+        </HorizontalAdjustmentRecord>
+
+        <VerticalAdjustmentRecord ID="00000461" TimeStamp="2023-03-15T15:22:31">
+            <Type>GeoidModelAndInclinedPlane</Type>
+            <OriginNorth>121549.56667513</OriginNorth>
+            <OriginEast>723698.02082804</OriginEast>
+            <SlopeNorthPerUnit>0</SlopeNorthPerUnit>
+            <SlopeEastPerUnit>0</SlopeEastPerUnit>
+            <ConstantAdjustment>-0.00866764548118</ConstantAdjustment>
+            <GeoidName>GEOID18 (Conus)</GeoidName>
+            <GeoidID/>
+            <VerticalCoordinateReferenceSystemEPSG/>
+            <VerticalDatumEPSG/>
+        </VerticalAdjustmentRecord>
+
+        <HorizontalAdjustmentRecord ID="00000467" TimeStamp="2023-03-15T15:25:36">
+            <Type>PlaneAdjustment</Type>
+            <OriginNorth>121549.5997382</OriginNorth>
+            <OriginEast>723698.01019968</OriginEast>
+            <TranslationNorth>-0.03306306345621</TranslationNorth>
+            <TranslationEast>0.01062836614437</TranslationEast>
+            <Rotation>0.00175538658461</Rotation>
+            <ScaleFactor>1</ScaleFactor>
+        </HorizontalAdjustmentRecord>
+
+        <VerticalAdjustmentRecord ID="00000468" TimeStamp="2023-03-15T15:25:36">
+            <Type>GeoidModelAndInclinedPlane</Type>
+            <OriginNorth>121549.56667513</OriginNorth>
+            <OriginEast>723698.02082804</OriginEast>
+            <SlopeNorthPerUnit>0</SlopeNorthPerUnit>
+            <SlopeEastPerUnit>0</SlopeEastPerUnit>
+            <ConstantAdjustment>-0.00866764548118</ConstantAdjustment>
+            <GeoidName>GEOID18 (Conus)</GeoidName>
+            <GeoidID/>
+            <VerticalCoordinateReferenceSystemEPSG/>
+            <VerticalDatumEPSG/>
+        </VerticalAdjustmentRecord>
+
+        <HorizontalAdjustmentRecord ID="00007270" TimeStamp="2023-03-23T09:18:09">
+            <Type>PlaneAdjustment</Type>
+            <OriginNorth>121549.5997382</OriginNorth>
+            <OriginEast>723698.01019968</OriginEast>
+            <TranslationNorth>-0.05055861844448</TranslationNorth>
+            <TranslationEast>-0.05322736152448</TranslationEast>
+            <Rotation>-0.00064878832141</Rotation>
+            <ScaleFactor>1</ScaleFactor>
+        </HorizontalAdjustmentRecord>
+
+        <VerticalAdjustmentRecord ID="00007271" TimeStamp="2023-03-23T09:18:09">
+            <Type>GeoidModelAndInclinedPlane</Type>
+            <OriginNorth>121549.54917958</OriginNorth>
+            <OriginEast>723697.95697231</OriginEast>
+            <SlopeNorthPerUnit>0</SlopeNorthPerUnit>
+            <SlopeEastPerUnit>0</SlopeEastPerUnit>
+            <ConstantAdjustment>-0.00866764548118</ConstantAdjustment>
+            <GeoidName>GEOID18 (Conus)</GeoidName>
+            <GeoidID/>
+            <VerticalCoordinateReferenceSystemEPSG/>
+            <VerticalDatumEPSG/>
+        </VerticalAdjustmentRecord>
+
+        <DisplacementModelsRecord ID="00010f01" TimeStamp="2023-11-09T09:04:50">
+            <DisplacementModel>
+                <Name>ITRF2014</Name>
+                <Realization>ITRF2014</Realization>
+                <SystemID>172</SystemID>
+                <Type>Tectonic</Type>
+                <File>plate_rotations_from_itrf2014.xml</File>
+                <MinEpoch>0</MinEpoch>
+                <MaxEpoch>0</MaxEpoch>
+                <MinimumLatitude>-90</MinimumLatitude>
+                <MaximumLatitude>90</MaximumLatitude>
+                <MinimumLongitude>-180</MinimumLongitude>
+                <MaximumLongitude>180</MaximumLongitude>
+            </DisplacementModel>
+            <DisplacementModel>
+                <Name>HTDP V3.4.0 ALASKA</Name>
+                <Realization>NAD83(2011)</Realization>
+                <SystemID>254</SystemID>
+                <Type>Local</Type>
+                <File>htdp_v3.4.0_alaska_20211019.xml</File>
+                <MinEpoch>2010.00</MinEpoch>
+                <MaxEpoch>0</MaxEpoch>
+                <MinimumLatitude>54</MinimumLatitude>
+                <MaximumLatitude>73</MaximumLatitude>
+                <MinimumLongitude>-170</MinimumLongitude>
+                <MaximumLongitude>-130</MaximumLongitude>
+            </DisplacementModel>
+            <DisplacementModel>
+                <Name>HTDP V3.4.0 CONUS</Name>
+                <Realization>NAD83(2011)</Realization>
+                <SystemID>255</SystemID>
+                <Type>Local</Type>
+                <File>htdp_v3.4.0_conus_20211019.xml</File>
+                <MinEpoch>2010.00</MinEpoch>
+                <MaxEpoch>0</MaxEpoch>
+                <MinimumLatitude>25</MinimumLatitude>
+                <MaximumLatitude>49.75</MaximumLatitude>
+                <MinimumLongitude>-125</MinimumLongitude>
+                <MaximumLongitude>-66</MaximumLongitude>
+            </DisplacementModel>
+            <DisplacementModel>
+                <Name>ITRF2020</Name>
+                <Realization>ITRF2020</Realization>
+                <SystemID>332</SystemID>
+                <Type>Tectonic</Type>
+                <File>plate_rotations_from_itrf2014.xml</File>
+                <MinEpoch>0</MinEpoch>
+                <MaxEpoch>0</MaxEpoch>
+                <MinimumLatitude>-90</MinimumLatitude>
+                <MaximumLatitude>90</MaximumLatitude>
+                <MinimumLongitude>-180</MinimumLongitude>
+                <MaximumLongitude>180</MaximumLongitude>
+            </DisplacementModel>
+        </DisplacementModelsRecord>
+
+        <KinematicTransformationsRecord ID="00010f02" TimeStamp="2023-11-09T09:04:50">
+            <KinematicTransformation>
+                <Name>ITRF2014 to NAD83(2011)</Name>
+                <SystemID>232</SystemID>
+                <SourceRealization>ITRF2014</SourceRealization>
+                <TargetRealization>NAD83(2011)</TargetRealization>
+                <ReferenceEpoch>2010.00</ReferenceEpoch>
+                <Type>FourteenParameters</Type>
+                <TranslationX>1.0053</TranslationX>
+                <TranslationY>-1.90921</TranslationY>
+                <TranslationZ>-0.54157</TranslationZ>
+                <RotationX>-26.7815</RotationX>
+                <RotationY>0.42078</RotationY>
+                <RotationZ>-10.93254</RotationZ>
+                <Scale>0.36891</Scale>
+                <DerivativeTranslationX>0.00079</DerivativeTranslationX>
+                <DerivativeTranslationY>-0.0006</DerivativeTranslationY>
+                <DerivativeTranslationZ>-0.00144</DerivativeTranslationZ>
+                <DerivativeRotationX>-0.06669</DerivativeRotationX>
+                <DerivativeRotationY>0.75749</DerivativeRotationY>
+                <DerivativeRotationZ>0.05129</DerivativeRotationZ>
+                <DerivativeScale>-0.07201</DerivativeScale>
+                <VelocityIncluded>false</VelocityIncluded>
+            </KinematicTransformation>
+            <KinematicTransformation>
+                <Name>ITRF2020 to ITRF2014</Name>
+                <SystemID>306</SystemID>
+                <SourceRealization>ITRF2020</SourceRealization>
+                <TargetRealization>ITRF2014</TargetRealization>
+                <ReferenceEpoch>2015.00</ReferenceEpoch>
+                <Type>FourteenParameters</Type>
+                <TranslationX>-0.0014</TranslationX>
+                <TranslationY>-0.0009</TranslationY>
+                <TranslationZ>0.0014</TranslationZ>
+                <RotationX>0</RotationX>
+                <RotationY>0</RotationY>
+                <RotationZ>0</RotationZ>
+                <Scale>-0.42</Scale>
+                <DerivativeTranslationX>0</DerivativeTranslationX>
+                <DerivativeTranslationY>-0.0001</DerivativeTranslationY>
+                <DerivativeTranslationZ>0.0002</DerivativeTranslationZ>
+                <DerivativeRotationX>0</DerivativeRotationX>
+                <DerivativeRotationY>0</DerivativeRotationY>
+                <DerivativeRotationZ>0</DerivativeRotationZ>
+                <DerivativeScale>0</DerivativeScale>
+                <VelocityIncluded>false</VelocityIncluded>
+            </KinematicTransformation>
+        </KinematicTransformationsRecord>
+
+        <ReferenceFrameTransformationsRecord ID="00010f03" TimeStamp="2023-11-09T09:04:50">
+            <ReferenceFrameTransformationInformation>
+                <SourceFrameId>19</SourceFrameId>
+                <SourceFrameEPSG>1165</SourceFrameEPSG>
+                <SourceFrameISO>175</SourceFrameISO>
+                <SourceFrameName>ITRF2014</SourceFrameName>
+                <SourceFrameReferenceEpoch>2010.00</SourceFrameReferenceEpoch>
+                <TargetFrameId>23</TargetFrameId>
+                <TargetFrameEPSG>1116</TargetFrameEPSG>
+                <TargetFrameISO>126</TargetFrameISO>
+                <TargetFrameName>NAD83(2011)</TargetFrameName>
+                <TargetFrameReferenceEpoch>2010.00</TargetFrameReferenceEpoch>
+                <DisplacementModels>
+                    <SystemID>172</SystemID>
+                    <SystemID>255</SystemID>
+                    <SystemID>254</SystemID>
+                </DisplacementModels>
+                <KinematicTransformations>
+                    <SystemID>232</SystemID>
+                </KinematicTransformations>
+            </ReferenceFrameTransformationInformation>
+            <ReferenceFrameTransformationInformation>
+                <SourceFrameId>23</SourceFrameId>
+                <SourceFrameEPSG>1116</SourceFrameEPSG>
+                <SourceFrameISO>126</SourceFrameISO>
+                <SourceFrameName>NAD83(2011)</SourceFrameName>
+                <SourceFrameReferenceEpoch>2010.00</SourceFrameReferenceEpoch>
+                <TargetFrameId>19</TargetFrameId>
+                <TargetFrameEPSG>1165</TargetFrameEPSG>
+                <TargetFrameISO>175</TargetFrameISO>
+                <TargetFrameName>ITRF2014</TargetFrameName>
+                <TargetFrameReferenceEpoch>2010.00</TargetFrameReferenceEpoch>
+                <DisplacementModels>
+                    <SystemID>172</SystemID>
+                    <SystemID>255</SystemID>
+                    <SystemID>254</SystemID>
+                </DisplacementModels>
+                <KinematicTransformations>
+                    <SystemID>232</SystemID>
+                </KinematicTransformations>
+            </ReferenceFrameTransformationInformation>
+            <ReferenceFrameTransformationInformation>
+                <SourceFrameId>23</SourceFrameId>
+                <SourceFrameEPSG>1116</SourceFrameEPSG>
+                <SourceFrameISO>126</SourceFrameISO>
+                <SourceFrameName>NAD83(2011)</SourceFrameName>
+                <SourceFrameReferenceEpoch>2010.00</SourceFrameReferenceEpoch>
+                <TargetFrameId>305</TargetFrameId>
+                <TargetFrameEPSG>1322</TargetFrameEPSG>
+                <TargetFrameISO>801</TargetFrameISO>
+                <TargetFrameName>ITRF2020</TargetFrameName>
+                <TargetFrameReferenceEpoch>2015.00</TargetFrameReferenceEpoch>
+                <DisplacementModels>
+                    <SystemID>172</SystemID>
+                    <SystemID>332</SystemID>
+                    <SystemID>255</SystemID>
+                    <SystemID>254</SystemID>
+                </DisplacementModels>
+                <KinematicTransformations>
+                    <SystemID>232</SystemID>
+                    <SystemID>306</SystemID>
+                </KinematicTransformations>
+            </ReferenceFrameTransformationInformation>
+            <ReferenceFrameTransformationInformation>
+                <SourceFrameId>305</SourceFrameId>
+                <SourceFrameEPSG>1322</SourceFrameEPSG>
+                <SourceFrameISO>801</SourceFrameISO>
+                <SourceFrameName>ITRF2020</SourceFrameName>
+                <SourceFrameReferenceEpoch>2015.00</SourceFrameReferenceEpoch>
+                <TargetFrameId>23</TargetFrameId>
+                <TargetFrameEPSG>1116</TargetFrameEPSG>
+                <TargetFrameISO>126</TargetFrameISO>
+                <TargetFrameName>NAD83(2011)</TargetFrameName>
+                <TargetFrameReferenceEpoch>2010.00</TargetFrameReferenceEpoch>
+                <DisplacementModels>
+                    <SystemID>172</SystemID>
+                    <SystemID>332</SystemID>
+                    <SystemID>255</SystemID>
+                    <SystemID>254</SystemID>
+                </DisplacementModels>
+                <KinematicTransformations>
+                    <SystemID>306</SystemID>
+                    <SystemID>232</SystemID>
+                </KinematicTransformations>
+            </ReferenceFrameTransformationInformation>
+        </ReferenceFrameTransformationsRecord>
+
+        <TimeZoneRecord ID="00000361" TimeStamp="2023-03-15T08:21:27">
+            <ZoneName>CDT</ZoneName>
+            <HoursToUTC>-5</HoursToUTC>
+        </TimeZoneRecord>
+    </FieldBook>
+
+    <Reductions>
+    </Reductions>
+
+    <Environment>
+
+        <DisplaySettings>
+            <DistanceUnits>USSurveyFeet</DistanceUnits>
+            <HeightUnits>USSurveyFeet</HeightUnits>
+            <AngleUnits>DMSDegrees</AngleUnits>
+            <AzimuthFormat>QuadrantBearings</AzimuthFormat>
+            <LatitudeLongitudeUnits>DMSDegrees</LatitudeLongitudeUnits>
+            <CoordinateOrder>North-East-Elevation</CoordinateOrder>
+            <TemperatureUnits>Fahrenheit</TemperatureUnits>
+            <PressureUnits>InchHg</PressureUnits>
+            <GradeUnits>Percentage</GradeUnits>
+            <AreaUnits>SquareUSSurveyFeet</AreaUnits>
+            <VolumeUnits>CubicUSSurveyFeet</VolumeUnits>
+            <StationingFormat>10+00.0</StationingFormat>
+            <StationIndexIncrement>15.240030480061</StationIndexIncrement>
+            <PrecisionUnits>DRMS</PrecisionUnits>
+            <DistanceDisplayDPs>3</DistanceDisplayDPs>
+            <CoordinateDisplayDPs>3</CoordinateDisplayDPs>
+            <AreaDisplayDPs>3</AreaDisplayDPs>
+            <VolumeDisplayDPs>3</VolumeDisplayDPs>
+            <AngleDisplayDPs>0</AngleDisplayDPs>
+            <LaserVADisplay>Inclination</LaserVADisplay>
+            <TimeFormat>Local</TimeFormat>
+            <MassUnits>Kilograms</MassUnits>
+            <MassDisplayDPs>3</MassDisplayDPs>
+        </DisplaySettings>
+
+        <CoordinateSystem>
+            <SystemName>United States/NAD83</SystemName>
+            <ZoneName>Wisconsin South 4803</ZoneName>
+            <DatumName>NAD83(2011)</DatumName>
+            <ZoneID/>
+            <ProjectedCoordinateReferenceSystemEPSG/>
+            <CompoundCoordinateReferenceSystemEPSG/>
+            <Ellipsoid>
+                <EarthRadius>6378137</EarthRadius>
+                <Flattening>0.00335281068118</Flattening>
+                <LocalEllipsoidEPSG/>
+                <LocalEllipsoidID/>
+            </Ellipsoid>
+            <Projection>
+                <Type>Lambert2Parallel</Type>
+                <ShiftGridFileName/>
+                <CentralLatitude>42</CentralLatitude>
+                <CentralLongitude>-90</CentralLongitude>
+                <FalseNorthing>0</FalseNorthing>
+                <FalseEasting>600000</FalseEasting>
+                <Parallel1>44.066666666667</Parallel1>
+                <Parallel2>42.733333333333</Parallel2>
+                <SouthAzimuth>false</SouthAzimuth>
+                <GridOrientation>IncreasingNorthEast</GridOrientation>
+                <ApplySeaLevelCorrection>true</ApplySeaLevelCorrection>
+                <MagneticDeclination>0</MagneticDeclination>
+                <Distances>GridDistance</Distances>
+                <ReferenceAzimuth>0</ReferenceAzimuth>
+            </Projection>
+            <LocalSite>
+                <Type>Grid</Type>
+                <ProjectLocationLatitude/>
+                <ProjectLocationLongitude/>
+                <ProjectLocationHeight>228.60045720091</ProjectLocationHeight>
+            </LocalSite>
+            <Datum>
+                <Type>ThreeParameter</Type>
+                <Direction>WGS84ToLocal</Direction>
+                <EarthRadius>6378137</EarthRadius>
+                <Flattening>0.00335281067183</Flattening>
+                <TranslationX>0</TranslationX>
+                <TranslationY>0</TranslationY>
+                <TranslationZ>0</TranslationZ>
+                <ReferenceGlobalFrameID>23</ReferenceGlobalFrameID>
+                <ReferenceGlobalFrameISO>126</ReferenceGlobalFrameISO>
+                <ReferenceGlobalFrameEPSG>1116</ReferenceGlobalFrameEPSG>
+                <ReferenceGlobalFrameEpoch>2010.00</ReferenceGlobalFrameEpoch>
+                <ReferenceGlobalFrameName>NAD83(2011)</ReferenceGlobalFrameName>
+                <DisplacementModelName>HTDP V3.4.0</DisplacementModelName>
+                <LocalDatumID/>
+                <LocalDatumEPSG/>
+                <LocalGeographicCoordinateReferenceSystemEPSG/>
+                <GlobalGeographicCoordinateReferenceSystemEPSG/>
+                <DatumTransformationEPSG/>
+            </Datum>
+            <DisplacementModels>
+                <DisplacementModel>
+                    <Name>ITRF2014</Name>
+                    <Realization>ITRF2014</Realization>
+                    <SystemID>172</SystemID>
+                    <Type>Tectonic</Type>
+                    <File>plate_rotations_from_itrf2014.xml</File>
+                    <MinEpoch>0</MinEpoch>
+                    <MaxEpoch>0</MaxEpoch>
+                    <MinimumLatitude>-90</MinimumLatitude>
+                    <MaximumLatitude>90</MaximumLatitude>
+                    <MinimumLongitude>-180</MinimumLongitude>
+                    <MaximumLongitude>180</MaximumLongitude>
+                </DisplacementModel>
+                <DisplacementModel>
+                    <Name>HTDP V3.4.0 ALASKA</Name>
+                    <Realization>NAD83(2011)</Realization>
+                    <SystemID>254</SystemID>
+                    <Type>Local</Type>
+                    <File>htdp_v3.4.0_alaska_20211019.xml</File>
+                    <MinEpoch>2010.00</MinEpoch>
+                    <MaxEpoch>0</MaxEpoch>
+                    <MinimumLatitude>54</MinimumLatitude>
+                    <MaximumLatitude>73</MaximumLatitude>
+                    <MinimumLongitude>-170</MinimumLongitude>
+                    <MaximumLongitude>-130</MaximumLongitude>
+                </DisplacementModel>
+                <DisplacementModel>
+                    <Name>HTDP V3.4.0 CONUS</Name>
+                    <Realization>NAD83(2011)</Realization>
+                    <SystemID>255</SystemID>
+                    <Type>Local</Type>
+                    <File>htdp_v3.4.0_conus_20211019.xml</File>
+                    <MinEpoch>2010.00</MinEpoch>
+                    <MaxEpoch>0</MaxEpoch>
+                    <MinimumLatitude>25</MinimumLatitude>
+                    <MaximumLatitude>49.75</MaximumLatitude>
+                    <MinimumLongitude>-125</MinimumLongitude>
+                    <MaximumLongitude>-66</MaximumLongitude>
+                </DisplacementModel>
+                <DisplacementModel>
+                    <Name>ITRF2020</Name>
+                    <Realization>ITRF2020</Realization>
+                    <SystemID>332</SystemID>
+                    <Type>Tectonic</Type>
+                    <File>plate_rotations_from_itrf2014.xml</File>
+                    <MinEpoch>0</MinEpoch>
+                    <MaxEpoch>0</MaxEpoch>
+                    <MinimumLatitude>-90</MinimumLatitude>
+                    <MaximumLatitude>90</MaximumLatitude>
+                    <MinimumLongitude>-180</MinimumLongitude>
+                    <MaximumLongitude>180</MaximumLongitude>
+                </DisplacementModel>
+            </DisplacementModels>
+            <KinematicTransformations>
+                <KinematicTransformation>
+                    <Name>ITRF2014 to NAD83(2011)</Name>
+                    <SystemID>232</SystemID>
+                    <SourceRealization>ITRF2014</SourceRealization>
+                    <TargetRealization>NAD83(2011)</TargetRealization>
+                    <ReferenceEpoch>2010.00</ReferenceEpoch>
+                    <Type>FourteenParameters</Type>
+                    <TranslationX>1.0053</TranslationX>
+                    <TranslationY>-1.90921</TranslationY>
+                    <TranslationZ>-0.54157</TranslationZ>
+                    <RotationX>-26.7815</RotationX>
+                    <RotationY>0.42078</RotationY>
+                    <RotationZ>-10.93254</RotationZ>
+                    <Scale>0.36891</Scale>
+                    <DerivativeTranslationX>0.00079</DerivativeTranslationX>
+                    <DerivativeTranslationY>-0.0006</DerivativeTranslationY>
+                    <DerivativeTranslationZ>-0.00144</DerivativeTranslationZ>
+                    <DerivativeRotationX>-0.06669</DerivativeRotationX>
+                    <DerivativeRotationY>0.75749</DerivativeRotationY>
+                    <DerivativeRotationZ>0.05129</DerivativeRotationZ>
+                    <DerivativeScale>-0.07201</DerivativeScale>
+                    <VelocityIncluded>false</VelocityIncluded>
+                </KinematicTransformation>
+                <KinematicTransformation>
+                    <Name>ITRF2020 to ITRF2014</Name>
+                    <SystemID>306</SystemID>
+                    <SourceRealization>ITRF2020</SourceRealization>
+                    <TargetRealization>ITRF2014</TargetRealization>
+                    <ReferenceEpoch>2015.00</ReferenceEpoch>
+                    <Type>FourteenParameters</Type>
+                    <TranslationX>-0.0014</TranslationX>
+                    <TranslationY>-0.0009</TranslationY>
+                    <TranslationZ>0.0014</TranslationZ>
+                    <RotationX>0</RotationX>
+                    <RotationY>0</RotationY>
+                    <RotationZ>0</RotationZ>
+                    <Scale>-0.42</Scale>
+                    <DerivativeTranslationX>0</DerivativeTranslationX>
+                    <DerivativeTranslationY>-0.0001</DerivativeTranslationY>
+                    <DerivativeTranslationZ>0.0002</DerivativeTranslationZ>
+                    <DerivativeRotationX>0</DerivativeRotationX>
+                    <DerivativeRotationY>0</DerivativeRotationY>
+                    <DerivativeRotationZ>0</DerivativeRotationZ>
+                    <DerivativeScale>0</DerivativeScale>
+                    <VelocityIncluded>false</VelocityIncluded>
+                </KinematicTransformation>
+            </KinematicTransformations>
+            <ReferenceFrameTransformations>
+                <ReferenceFrameTransformationInformation>
+                    <SourceFrameId>19</SourceFrameId>
+                    <SourceFrameEPSG>1165</SourceFrameEPSG>
+                    <SourceFrameISO>175</SourceFrameISO>
+                    <SourceFrameName>ITRF2014</SourceFrameName>
+                    <SourceFrameReferenceEpoch>2010.00</SourceFrameReferenceEpoch>
+                    <TargetFrameId>23</TargetFrameId>
+                    <TargetFrameEPSG>1116</TargetFrameEPSG>
+                    <TargetFrameISO>126</TargetFrameISO>
+                    <TargetFrameName>NAD83(2011)</TargetFrameName>
+                    <TargetFrameReferenceEpoch>2010.00</TargetFrameReferenceEpoch>
+                    <DisplacementModels>
+                        <SystemID>172</SystemID>
+                        <SystemID>255</SystemID>
+                        <SystemID>254</SystemID>
+                    </DisplacementModels>
+                    <KinematicTransformations>
+                        <SystemID>232</SystemID>
+                    </KinematicTransformations>
+                </ReferenceFrameTransformationInformation>
+                <ReferenceFrameTransformationInformation>
+                    <SourceFrameId>23</SourceFrameId>
+                    <SourceFrameEPSG>1116</SourceFrameEPSG>
+                    <SourceFrameISO>126</SourceFrameISO>
+                    <SourceFrameName>NAD83(2011)</SourceFrameName>
+                    <SourceFrameReferenceEpoch>2010.00</SourceFrameReferenceEpoch>
+                    <TargetFrameId>19</TargetFrameId>
+                    <TargetFrameEPSG>1165</TargetFrameEPSG>
+                    <TargetFrameISO>175</TargetFrameISO>
+                    <TargetFrameName>ITRF2014</TargetFrameName>
+                    <TargetFrameReferenceEpoch>2010.00</TargetFrameReferenceEpoch>
+                    <DisplacementModels>
+                        <SystemID>172</SystemID>
+                        <SystemID>255</SystemID>
+                        <SystemID>254</SystemID>
+                    </DisplacementModels>
+                    <KinematicTransformations>
+                        <SystemID>232</SystemID>
+                    </KinematicTransformations>
+                </ReferenceFrameTransformationInformation>
+                <ReferenceFrameTransformationInformation>
+                    <SourceFrameId>23</SourceFrameId>
+                    <SourceFrameEPSG>1116</SourceFrameEPSG>
+                    <SourceFrameISO>126</SourceFrameISO>
+                    <SourceFrameName>NAD83(2011)</SourceFrameName>
+                    <SourceFrameReferenceEpoch>2010.00</SourceFrameReferenceEpoch>
+                    <TargetFrameId>305</TargetFrameId>
+                    <TargetFrameEPSG>1322</TargetFrameEPSG>
+                    <TargetFrameISO>801</TargetFrameISO>
+                    <TargetFrameName>ITRF2020</TargetFrameName>
+                    <TargetFrameReferenceEpoch>2015.00</TargetFrameReferenceEpoch>
+                    <DisplacementModels>
+                        <SystemID>172</SystemID>
+                        <SystemID>332</SystemID>
+                        <SystemID>255</SystemID>
+                        <SystemID>254</SystemID>
+                    </DisplacementModels>
+                    <KinematicTransformations>
+                        <SystemID>232</SystemID>
+                        <SystemID>306</SystemID>
+                    </KinematicTransformations>
+                </ReferenceFrameTransformationInformation>
+                <ReferenceFrameTransformationInformation>
+                    <SourceFrameId>305</SourceFrameId>
+                    <SourceFrameEPSG>1322</SourceFrameEPSG>
+                    <SourceFrameISO>801</SourceFrameISO>
+                    <SourceFrameName>ITRF2020</SourceFrameName>
+                    <SourceFrameReferenceEpoch>2015.00</SourceFrameReferenceEpoch>
+                    <TargetFrameId>23</TargetFrameId>
+                    <TargetFrameEPSG>1116</TargetFrameEPSG>
+                    <TargetFrameISO>126</TargetFrameISO>
+                    <TargetFrameName>NAD83(2011)</TargetFrameName>
+                    <TargetFrameReferenceEpoch>2010.00</TargetFrameReferenceEpoch>
+                    <DisplacementModels>
+                        <SystemID>172</SystemID>
+                        <SystemID>332</SystemID>
+                        <SystemID>255</SystemID>
+                        <SystemID>254</SystemID>
+                    </DisplacementModels>
+                    <KinematicTransformations>
+                        <SystemID>306</SystemID>
+                        <SystemID>232</SystemID>
+                    </KinematicTransformations>
+                </ReferenceFrameTransformationInformation>
+            </ReferenceFrameTransformations>
+            <HorizontalAdjustment>
+                <Type>PlaneAdjustment</Type>
+                <OriginNorth>121549.5997382</OriginNorth>
+                <OriginEast>723698.01019968</OriginEast>
+                <TranslationNorth>-0.05055861844448</TranslationNorth>
+                <TranslationEast>-0.05322736152448</TranslationEast>
+                <Rotation>-0.00064878832141</Rotation>
+                <ScaleFactor>1</ScaleFactor>
+            </HorizontalAdjustment>
+            <VerticalAdjustment>
+                <Type>GeoidModelAndInclinedPlane</Type>
+                <OriginNorth>121549.54917958</OriginNorth>
+                <OriginEast>723697.95697231</OriginEast>
+                <SlopeNorthPerUnit>0</SlopeNorthPerUnit>
+                <SlopeEastPerUnit>0</SlopeEastPerUnit>
+                <ConstantAdjustment>-0.00866764548118</ConstantAdjustment>
+                <GeoidName>GEOID18 (Conus)</GeoidName>
+                <GeoidID/>
+                <VerticalCoordinateReferenceSystemEPSG/>
+                <VerticalDatumEPSG/>
+            </VerticalAdjustment>
+            <CombinedScaleFactor>
+                <Location>
+                    <Latitude>43.084933585175</Latitude>
+                    <Longitude>-88.494795454336</Longitude>
+                    <Height>228.60045720091</Height>
+                </Location>
+                <Scale>0.99991185763951</Scale>
+            </CombinedScaleFactor>
+            <TectonicPlate>
+                <Name>Unknown</Name>
+            </TectonicPlate>
+        </CoordinateSystem>
+
+        <JobProperties>
+            <Reference/>
+            <Description/>
+            <Operator/>
+            <JobNote/>
+            <TectonicPlate>Unknown</TectonicPlate>
+            <ApplyJobPointNameRange>false</ApplyJobPointNameRange>
+            <MinimumJobPointName/>
+            <MaximumJobPointName/>
+        </JobProperties>
+
+        <JobSettings>
+            <NeighbourhoodAdjustment>
+                <Applied>false</Applied>
+                <WeightExponent>0.5</WeightExponent>
+            </NeighbourhoodAdjustment>
+            <Averaging>Weighted</Averaging>
+            <UseAttributesOfBaseCode>false</UseAttributesOfBaseCode>
+        </JobSettings>
+
+        <AssociatedFiles>
+            <LinkedFiles/>
+            <ActiveMapFiles/>
+            <FeatureCodeLibrary/>
+            <ExportedFiles>
+            </ExportedFiles>
+            <DefinitionFiles/>
+        </AssociatedFiles>
+
+        <TimeZone>
+            <ZoneName>CDT</ZoneName>
+            <HoursToUTC>5</HoursToUTC>
+        </TimeZone>
+    </Environment>
+</JOBFile>
