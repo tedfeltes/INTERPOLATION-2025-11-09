@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #0a0a0b;
+  color: #e9e9ee;
+}
+
+body {
+  font-feature-settings: "ss01", "cv02", "cv11";
+}
+
+/* Subtle grain overlay for the "polished" feel without any images. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: radial-gradient(#fff 1px, transparent 1px);
+  background-size: 3px 3px;
+  z-index: 0;
+}
+
+.field {
+  @apply w-full rounded-lg bg-elev border border-border px-3 py-2 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.btn-primary {
+  @apply btn bg-accent hover:bg-accentSoft text-black;
+}
+
+.btn-ghost {
+  @apply btn border border-border bg-surface hover:bg-elev text-text;
+}
+
+.card {
+  @apply rounded-2xl border border-border bg-surface/80 backdrop-blur;
+}
+
+.toggle {
+  @apply relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full bg-elev border border-border transition-colors;
+}
+.toggle[data-on="true"] {
+  @apply bg-accent border-accent;
+}
+.toggle::after {
+  content: "";
+  @apply absolute top-0.5 left-0.5 h-3.5 w-3.5 rounded-full bg-white transition-transform;
+}
+.toggle[data-on="true"]::after {
+  transform: translateX(16px);
+}
