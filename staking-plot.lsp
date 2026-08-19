@@ -5,7 +5,8 @@
 ;;;   1. Enter plot scale (drawing units per inch on paper; e.g. 20 for 1"=20')
 ;;;   2. Choose ANSI paper size (A, B, C, or D)
 ;;;   3. Choose paper orientation (Landscape or Portrait)
-;;;   4. Pick the lower-left corner of the rectangle in model space
+;;;   4. Pick the lower-left corner with a live bounding-box preview
+;;;      Type S to change scale. After picking: Accept, Scale, or Move.
 ;;;   5. Create the VIEW layer rectangle and open the Plot window for preview/print
 ;;;
 ;;; ANSI sizes (long edge x short edge in inches):
@@ -84,12 +85,181 @@
   )
 )
 
-(defun staking--read-base-point (/ pt)
-  (setq pt (getpoint "\nPick lower-left corner of plot boundary: "))
-  (if (not pt)
-    (princ "\nPoint entry cancelled.")
+(defun staking--2d (pt)
+  (if pt (list (car pt) (cadr pt)))
+)
+
+(defun staking--same-pt (a b)
+  (and a b (equal (staking--2d a) (staking--2d b) 1e-8))
+)
+
+(defun staking--size-message (paper-code orientation paper-width paper-height scale rect-width rect-height)
+  (strcat
+    "\nANSI "
+    paper-code
+    " "
+    orientation
+    " ("
+    (rtos paper-width 2 2)
+    "\" x "
+    (rtos paper-height 2 2)
+    "\") at scale "
+    (rtos scale 2 4)
+    " = "
+    (rtos rect-width 2 4)
+    " x "
+    (rtos rect-height 2 4)
+    " drawing units."
   )
-  pt
+)
+
+(defun staking--ghost-draw (pt width height / p1 p2 p3 p4)
+  (if (and pt width height (> width 0.0) (> height 0.0))
+    (progn
+      (setq pt (staking--2d pt)
+            p1 pt
+            p2 (list (+ (car pt) width) (cadr pt))
+            p3 (list (+ (car pt) width) (+ (cadr pt) height))
+            p4 (list (car pt) (+ (cadr pt) height))
+      )
+      (grdraw p1 p2 -1 1)
+      (grdraw p2 p3 -1 1)
+      (grdraw p3 p4 -1 1)
+      (grdraw p4 p1 -1 1)
+    )
+  )
+)
+
+(defun staking--ghost-move (old-pt old-w old-h new-pt new-w new-h)
+  (if (not
+        (and (staking--same-pt old-pt new-pt)
+             old-w new-w (equal old-w new-w 1e-8)
+             old-h new-h (equal old-h new-h 1e-8)
+        )
+      )
+    (progn
+      (staking--ghost-draw old-pt old-w old-h)
+      (staking--ghost-draw new-pt new-w new-h)
+    )
+  )
+  new-pt
+)
+
+(defun staking--read-scale-keep (current / scale)
+  (setq scale (getreal (strcat "\nEnter plot scale <" (rtos current 2 4) ">: ")))
+  (cond
+    ((not scale) current)
+    ((<= scale 0.0)
+     (princ "\nScale must be greater than zero. Keeping previous scale.")
+     current
+    )
+    (T scale)
+  )
+)
+
+(defun staking--pick-osnap (pt / snap)
+  (setq pt (staking--2d pt)
+        snap (osnap pt "_end,_int,_mid,_cen,_nod,_qua,_ins,_nea")
+  )
+  (if snap (staking--2d snap) pt)
+)
+
+(defun staking--pick-boundary (scale paper-width paper-height paper-code orientation
+                               / rect-width rect-height ghost-pt ghost-w ghost-h
+                                 base-point done gr code data pt ch result)
+  (setq rect-width  (* paper-width scale)
+        rect-height (* paper-height scale)
+        ghost-pt    nil
+        ghost-w     rect-width
+        ghost-h     rect-height
+        base-point  nil
+        done        nil
+        result      nil
+  )
+  (princ "\nPick lower-left corner of plot boundary [Scale]: ")
+  (while (not done)
+    (setq gr (vl-catch-all-apply 'grread (list T 15 0)))
+    (cond
+      ((or (not gr) (vl-catch-all-error-p gr))
+       (redraw)
+       (princ "\nPoint entry cancelled.")
+       (setq done T)
+      )
+      (T
+       (setq code (car gr)
+             data (cadr gr)
+       )
+       (cond
+         ((= code 5)
+          (if (not base-point)
+            (progn
+              (setq pt (staking--2d data)
+                    ghost-pt (staking--ghost-move ghost-pt ghost-w ghost-h pt rect-width rect-height)
+                    ghost-w rect-width
+                    ghost-h rect-height
+              )
+            )
+          )
+         )
+         ((= code 3)
+          (setq base-point (staking--pick-osnap data)
+                ghost-pt (staking--ghost-move ghost-pt ghost-w ghost-h base-point rect-width rect-height)
+                ghost-w rect-width
+                ghost-h rect-height
+          )
+          (princ "\nAccept plot boundary [Accept/Scale/Move] <Accept>: ")
+         )
+         ((or (= code 11) (= code 25))
+          (if base-point
+            (progn
+              (redraw)
+              (setq done T result (list base-point scale))
+            )
+          )
+         )
+         ((= code 2)
+          (setq ch data)
+          (cond
+            ((or (= ch 83) (= ch 115))
+             (redraw)
+             (setq ghost-pt nil
+                   scale (staking--read-scale-keep scale)
+                   rect-width (* paper-width scale)
+                   rect-height (* paper-height scale)
+             )
+             (princ
+               (staking--size-message
+                 paper-code orientation paper-width paper-height
+                 scale rect-width rect-height
+               )
+             )
+             (if base-point
+               (progn
+                 (staking--ghost-draw base-point rect-width rect-height)
+                 (setq ghost-pt base-point
+                       ghost-w rect-width
+                       ghost-h rect-height
+                 )
+                 (princ "\nAccept plot boundary [Accept/Scale/Move] <Accept>: ")
+               )
+               (princ "\nPick lower-left corner of plot boundary [Scale]: ")
+             )
+            )
+            ((and base-point (or (= ch 13) (= ch 32) (= ch 65) (= ch 97)))
+             (redraw)
+             (setq done T result (list base-point scale))
+            )
+            ((and base-point (or (= ch 77) (= ch 109)))
+             (setq base-point nil)
+             (princ "\nPick lower-left corner of plot boundary [Scale]: ")
+            )
+          )
+         )
+       )
+      )
+    )
+  )
+  result
 )
 
 (defun staking--bounds (base-point width height / x0 y0)
@@ -276,12 +446,13 @@
 
 (defun c:STAKINGPLOT (/ *error* old-cmdecho old-osmode layer-name scale
                         paper-code orientation paper-inches paper-width
-                        paper-height rect-width rect-height base-point result)
+                        paper-height rect-width rect-height pick base-point result)
   (setq *error*
         (lambda (msg)
           (if (and msg (not (member msg '("Function cancelled" "quit / exit abort"))))
             (princ (strcat "\nError: " msg))
           )
+          (redraw)
           (if old-cmdecho (setq cmdecho old-cmdecho))
           (if old-osmode (setq osmode old-osmode))
           (princ)
@@ -291,9 +462,7 @@
         layer-name   "VIEW"
   )
 
-  (setq cmdecho 0
-        osmode   0
-  )
+  (setq cmdecho 0)
 
   (if
     (and
@@ -307,46 +476,43 @@
             rect-width   (* paper-width scale)
             rect-height  (* paper-height scale)
       )
-      (progn
-        (princ
-          (strcat
-            "\nANSI "
-            paper-code
-            " "
-            orientation
-            " ("
-            (rtos paper-width 2 2)
-            "\" x "
-            (rtos paper-height 2 2)
-            "\") at scale "
-            (rtos scale 2 4)
-            " = "
-            (rtos rect-width 2 4)
-            " x "
-            (rtos rect-height 2 4)
-            " drawing units."
-          )
-        )
-        T
-      )
-      (setq base-point (staking--read-base-point))
     )
     (progn
-      (staking--ensure-view-layer layer-name)
-      (setq result (staking--draw-rectangle base-point rect-width rect-height layer-name))
-      (if result
-        (progn
-          (princ
-            (strcat
-              "\nPlot boundary created on layer "
-              layer-name
-              "."
-            )
-          )
-          (setq cmdecho 1)
-          (staking--plot-rectangle base-point rect-width rect-height scale orientation paper-code)
+      (princ
+        (staking--size-message
+          paper-code orientation paper-width paper-height
+          scale rect-width rect-height
         )
-        (princ "\nUnable to create plot boundary.")
+      )
+      (setq osmode old-osmode
+            pick (staking--pick-boundary
+                   scale paper-width paper-height paper-code orientation
+                 )
+      )
+      (if pick
+        (progn
+          (setq base-point  (car pick)
+                scale       (cadr pick)
+                rect-width  (* paper-width scale)
+                rect-height (* paper-height scale)
+          )
+          (staking--ensure-view-layer layer-name)
+          (setq result (staking--draw-rectangle base-point rect-width rect-height layer-name))
+          (if result
+            (progn
+              (princ
+                (strcat
+                  "\nPlot boundary created on layer "
+                  layer-name
+                  "."
+                )
+              )
+              (setq cmdecho 1)
+              (staking--plot-rectangle base-point rect-width rect-height scale orientation paper-code)
+            )
+            (princ "\nUnable to create plot boundary.")
+          )
+        )
       )
     )
   )
