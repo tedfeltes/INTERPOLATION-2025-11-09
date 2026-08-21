@@ -6,18 +6,25 @@
 ;;;   2. Choose ANSI paper size (A, B, C, or D)
 ;;;   3. Choose paper orientation (Landscape or Portrait)
 ;;;   4. Pick the lower-left corner with a live bounding-box preview
+;;;      North arrow preview tracks the bottom-right corner on layer TEXT.
 ;;;      Type S to change scale. After picking: Accept, Scale, or Move.
-;;;   5. Optionally insert NORTH-ARROW.dwg at the plot scale
-;;;   6. Create the VIEW layer rectangle and open the Plot window for preview/print
+;;;   5. Create the VIEW rectangle, keep the TEXT-layer north arrow, open Plot
 ;;;
-;;; Place NORTH-ARROW.dwg in the same folder as this LSP (or on the AutoCAD support path).
+;;; Place NORTH-ARROW.dwg in the same folder as this LSP (or on the support path).
+;;; North arrow is sized to about 1.0" tall on paper, inset 0.35" from the
+;;; bottom-right of the plot boundary.
+;;;
 ;;; ANSI sizes (long edge x short edge in inches):
 ;;;   A = 11 x 8.5, B = 17 x 11, C = 22 x 17, D = 34 x 22
 ;;; Portrait swaps width and height.
 
 (vl-load-com)
 
-(defun staking--ensure-view-layer (layer-name / )
+(setq *staking-preview-arrow* nil
+      *staking-arrow-metrics* nil
+)
+
+(defun staking--ensure-layer (layer-name / )
   (if (not (tblsearch "LAYER" layer-name))
     (entmake
       (list
@@ -166,6 +173,225 @@
   (if snap (staking--2d snap) pt)
 )
 
+(defun staking--path-join (dir name / sep)
+  (setq sep (if (wcmatch dir "*\\*") "\\" "/"))
+  (if (or (wcmatch dir "*\\") (wcmatch dir "*/"))
+    (strcat dir name)
+    (strcat dir sep name)
+  )
+)
+
+(defun staking--north-arrow-path (/ found lsp dir candidate)
+  (setq found (findfile "NORTH-ARROW.dwg"))
+  (if found
+    found
+    (progn
+      (setq lsp (findfile "staking-plot.lsp"))
+      (if lsp
+        (progn
+          (setq dir (vl-filename-directory lsp)
+                candidate (staking--path-join dir "NORTH-ARROW.dwg")
+          )
+          (if (findfile candidate) candidate nil)
+        )
+        nil
+      )
+    )
+  )
+)
+
+(defun staking--safearray-list (val / )
+  (cond
+    ((not val) nil)
+    ((= (type val) 'LIST) val)
+    ((= (type val) 'VARIANT)
+     (staking--safearray-list (vlax-variant-value val))
+    )
+    ((= (type val) 'SAFEARRAY)
+     (vlax-safearray->list val)
+    )
+    (T nil)
+  )
+)
+
+(defun staking--object-alive-p (obj / )
+  (and obj
+       (eq (type obj) 'VLA-OBJECT)
+       (not
+         (vl-catch-all-error-p
+           (vl-catch-all-apply 'vla-get-ObjectID (list obj))
+         )
+       )
+  )
+)
+
+(defun staking--clear-preview-arrow ( / )
+  (if (staking--object-alive-p *staking-preview-arrow*)
+    (vl-catch-all-apply 'vla-Delete (list *staking-preview-arrow*))
+  )
+  (setq *staking-preview-arrow* nil)
+)
+
+(defun staking--modelspace ( / )
+  (vla-get-ModelSpace (vla-get-ActiveDocument (vlax-get-acad-object)))
+)
+
+(defun staking--measure-arrow-metrics (path / space obj minp maxp ins err metrics)
+  (if *staking-arrow-metrics*
+    *staking-arrow-metrics*
+    (progn
+      (setq space (staking--modelspace)
+            err   (vl-catch-all-apply
+                     'vla-InsertBlock
+                     (list space (vlax-3d-point '(0.0 0.0 0.0)) path 1.0 1.0 1.0 0.0)
+                   )
+      )
+      (if (vl-catch-all-error-p err)
+        (progn
+          (princ (strcat "\nUnable to load NORTH-ARROW.dwg: " (vl-catch-all-error-message err)))
+          nil
+        )
+        (progn
+          (setq obj err)
+          (vl-catch-all-apply 'vla-GetBoundingBox (list obj 'minp 'maxp))
+          (setq minp (staking--safearray-list minp)
+                maxp (staking--safearray-list maxp)
+                ins  (staking--safearray-list (vla-get-InsertionPoint obj))
+          )
+          (vl-catch-all-apply 'vla-Delete (list obj))
+          (if (and minp maxp ins)
+            (progn
+              (setq metrics
+                    (list
+                      (- (car minp) (car ins))
+                      (- (cadr minp) (cadr ins))
+                      (- (car maxp) (car ins))
+                      (- (cadr maxp) (cadr ins))
+                    )
+                    *staking-arrow-metrics* metrics
+              )
+              metrics
+            )
+            nil
+          )
+        )
+      )
+    )
+  )
+)
+
+(defun staking--arrow-insert-scale (plot-scale / metrics native-h target-h)
+  (setq metrics  (or *staking-arrow-metrics* '(0.0 0.0 1.0 1.0))
+        native-h (- (nth 3 metrics) (nth 1 metrics))
+        target-h 1.0
+  )
+  (if (and native-h (> native-h 1e-8))
+    (/ (* target-h (float plot-scale)) native-h)
+    (float plot-scale)
+  )
+)
+
+(defun staking--arrow-insert-point (ll width height plot-scale / metrics isc margin)
+  (setq metrics (or *staking-arrow-metrics* '(0.0 0.0 1.0 1.0))
+        isc     (staking--arrow-insert-scale plot-scale)
+        margin  (* 0.35 (float plot-scale))
+        ll      (staking--2d ll)
+  )
+  (list
+    (- (+ (car ll) width) margin (* (nth 2 metrics) isc))
+    (- (+ (cadr ll) margin) (* (nth 1 metrics) isc))
+  )
+)
+
+(defun staking--update-preview-arrow (ll width height plot-scale / pt isc)
+  (if (and (staking--object-alive-p *staking-preview-arrow*) ll width height)
+    (progn
+      (setq pt  (staking--arrow-insert-point ll width height plot-scale)
+            isc (staking--arrow-insert-scale plot-scale)
+      )
+      (vl-catch-all-apply
+        'vla-put-InsertionPoint
+        (list *staking-preview-arrow* (vlax-3d-point (list (car pt) (cadr pt) 0.0)))
+      )
+      (vl-catch-all-apply 'vla-put-XScaleFactor (list *staking-preview-arrow* isc))
+      (vl-catch-all-apply 'vla-put-YScaleFactor (list *staking-preview-arrow* isc))
+      (vl-catch-all-apply 'vla-put-ZScaleFactor (list *staking-preview-arrow* isc))
+      (vl-catch-all-apply 'vla-put-Layer (list *staking-preview-arrow* "TEXT"))
+      (vl-catch-all-apply 'vla-Update (list *staking-preview-arrow*))
+    )
+  )
+)
+
+(defun staking--create-preview-arrow (ll width height plot-scale / path space obj pt isc)
+  (staking--clear-preview-arrow)
+  (staking--ensure-layer "TEXT")
+  (setq path (staking--north-arrow-path))
+  (cond
+    ((not path)
+     (princ "\nNORTH-ARROW.dwg not found. Place it next to staking-plot.lsp or on the support path.")
+     nil
+    )
+    ((not (staking--measure-arrow-metrics path))
+     nil
+    )
+    (T
+     (setq pt    (staking--arrow-insert-point ll width height plot-scale)
+           isc   (staking--arrow-insert-scale plot-scale)
+           space (staking--modelspace)
+           obj   (vl-catch-all-apply
+                    'vla-InsertBlock
+                    (list
+                      space
+                      (vlax-3d-point (list (car pt) (cadr pt) 0.0))
+                      path
+                      isc
+                      isc
+                      isc
+                      0.0
+                    )
+                  )
+     )
+     (if (vl-catch-all-error-p obj)
+       (progn
+         (princ (strcat "\nUnable to preview north arrow: " (vl-catch-all-error-message obj)))
+         nil
+       )
+       (progn
+         (setq *staking-preview-arrow* obj)
+         (vl-catch-all-apply 'vla-put-Layer (list obj "TEXT"))
+         (vl-catch-all-apply 'vla-Update (list obj))
+         obj
+       )
+     )
+    )
+  )
+)
+
+(defun staking--finalize-preview-arrow ( / )
+  (if (staking--object-alive-p *staking-preview-arrow*)
+    (progn
+      (staking--ensure-layer "TEXT")
+      (vl-catch-all-apply 'vla-put-Layer (list *staking-preview-arrow* "TEXT"))
+      (vl-catch-all-apply 'vla-Update (list *staking-preview-arrow*))
+      (princ "\nNorth arrow placed on layer TEXT at bottom-right.")
+      (setq *staking-preview-arrow* nil)
+      T
+    )
+    nil
+  )
+)
+
+(defun staking--sync-preview (ll width height plot-scale)
+  (if (and ll width height)
+    (progn
+      (if (not *staking-preview-arrow*)
+        (staking--create-preview-arrow ll width height plot-scale)
+        (staking--update-preview-arrow ll width height plot-scale)
+      )
+    )
+  )
+)
+
 (defun staking--pick-boundary (scale paper-width paper-height paper-code orientation
                                / rect-width rect-height ghost-pt ghost-w ghost-h
                                  base-point done gr code data pt ch result)
@@ -178,11 +404,13 @@
         done        nil
         result      nil
   )
+  (staking--ensure-layer "TEXT")
   (princ "\nPick lower-left corner of plot boundary [Scale]: ")
   (while (not done)
     (setq gr (vl-catch-all-apply 'grread (list T 15 0)))
     (cond
       ((or (not gr) (vl-catch-all-error-p gr))
+       (staking--clear-preview-arrow)
        (redraw)
        (princ "\nPoint entry cancelled.")
        (setq done T)
@@ -200,6 +428,7 @@
                     ghost-w rect-width
                     ghost-h rect-height
               )
+              (staking--sync-preview pt rect-width rect-height scale)
             )
           )
          )
@@ -209,12 +438,14 @@
                 ghost-w rect-width
                 ghost-h rect-height
           )
+          (staking--sync-preview base-point rect-width rect-height scale)
           (princ "\nAccept plot boundary [Accept/Scale/Move] <Accept>: ")
          )
          ((or (= code 11) (= code 25))
           (if base-point
             (progn
               (redraw)
+              (staking--finalize-preview-arrow)
               (setq done T result (list base-point scale))
             )
           )
@@ -238,17 +469,22 @@
              (if base-point
                (progn
                  (staking--ghost-draw base-point rect-width rect-height)
+                 (staking--sync-preview base-point rect-width rect-height scale)
                  (setq ghost-pt base-point
                        ghost-w rect-width
                        ghost-h rect-height
                  )
                  (princ "\nAccept plot boundary [Accept/Scale/Move] <Accept>: ")
                )
-               (princ "\nPick lower-left corner of plot boundary [Scale]: ")
+               (progn
+                 (staking--clear-preview-arrow)
+                 (princ "\nPick lower-left corner of plot boundary [Scale]: ")
+               )
              )
             )
             ((and base-point (or (= ch 13) (= ch 32) (= ch 65) (= ch 97)))
              (redraw)
+             (staking--finalize-preview-arrow)
              (setq done T result (list base-point scale))
             )
             ((and base-point (or (= ch 77) (= ch 109)))
@@ -446,80 +682,6 @@
   )
 )
 
-(defun staking--path-join (dir name / sep)
-  (setq sep (if (wcmatch dir "*\\*") "\\" "/"))
-  (if (or (wcmatch dir "*\\") (wcmatch dir "*/"))
-    (strcat dir name)
-    (strcat dir sep name)
-  )
-)
-
-(defun staking--north-arrow-path (/ found lsp dir candidate)
-  (setq found (findfile "NORTH-ARROW.dwg"))
-  (if found
-    found
-    (progn
-      (setq lsp (findfile "staking-plot.lsp"))
-      (if lsp
-        (progn
-          (setq dir (vl-filename-directory lsp)
-                candidate (staking--path-join dir "NORTH-ARROW.dwg")
-          )
-          (if (findfile candidate) candidate nil)
-        )
-        nil
-      )
-    )
-  )
-)
-
-(defun staking--insert-north-arrow (scale / path pt old-attreq old-cmdecho insert-result)
-  (initget "Yes No")
-  (if (= (getkword "\nInsert north arrow? [Yes/No] <Yes>: ") "No")
-    nil
-    (progn
-      (setq path (staking--north-arrow-path))
-      (cond
-        ((not path)
-         (princ "\nNORTH-ARROW.dwg not found. Place it next to staking-plot.lsp or on the support path.")
-         nil
-        )
-        ((not (setq pt (getpoint "\nPick north arrow insertion point: ")))
-         (princ "\nNorth arrow insertion cancelled.")
-         nil
-        )
-        (T
-         (setq old-attreq  (getvar "ATTREQ")
-               old-cmdecho (getvar "CMDECHO")
-               pt          (staking--2d pt)
-         )
-         (setvar "ATTREQ" 0)
-         (setvar "CMDECHO" 0)
-         (setq insert-result
-               (vl-catch-all-apply
-                 '(lambda ()
-                    (command "_.-INSERT" path pt (float scale) (float scale) 0.0)
-                  )
-               )
-         )
-         (setvar "ATTREQ" old-attreq)
-         (setvar "CMDECHO" old-cmdecho)
-         (if (vl-catch-all-error-p insert-result)
-           (princ
-             (strcat
-               "\nUnable to insert north arrow: "
-               (vl-catch-all-error-message insert-result)
-             )
-           )
-           (princ "\nNorth arrow inserted.")
-         )
-         T
-        )
-      )
-    )
-  )
-)
-
 (defun c:STAKINGPLOT (/ *error* old-cmdecho old-osmode layer-name scale
                         paper-code orientation paper-inches paper-width
                         paper-height rect-width rect-height pick base-point result)
@@ -528,6 +690,7 @@
           (if (and msg (not (member msg '("Function cancelled" "quit / exit abort"))))
             (princ (strcat "\nError: " msg))
           )
+          (staking--clear-preview-arrow)
           (redraw)
           (if old-cmdecho (setq cmdecho old-cmdecho))
           (if old-osmode (setq osmode old-osmode))
@@ -539,6 +702,7 @@
   )
 
   (setq cmdecho 0)
+  (staking--clear-preview-arrow)
 
   (if
     (and
@@ -572,7 +736,7 @@
                 rect-width  (* paper-width scale)
                 rect-height (* paper-height scale)
           )
-          (staking--ensure-view-layer layer-name)
+          (staking--ensure-layer layer-name)
           (setq result (staking--draw-rectangle base-point rect-width rect-height layer-name))
           (if result
             (progn
@@ -583,13 +747,16 @@
                   "."
                 )
               )
-              (staking--insert-north-arrow scale)
               (setq cmdecho 1)
               (staking--plot-rectangle base-point rect-width rect-height scale orientation paper-code)
             )
-            (princ "\nUnable to create plot boundary.")
+            (progn
+              (staking--clear-preview-arrow)
+              (princ "\nUnable to create plot boundary.")
+            )
           )
         )
+        (staking--clear-preview-arrow)
       )
     )
   )
