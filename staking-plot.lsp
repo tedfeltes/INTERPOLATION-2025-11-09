@@ -7,8 +7,10 @@
 ;;;   3. Choose paper orientation (Landscape or Portrait)
 ;;;   4. Pick the lower-left corner with a live bounding-box preview
 ;;;      Type S to change scale. After picking: Accept, Scale, or Move.
-;;;   5. Create the VIEW layer rectangle and open the Plot window for preview/print
+;;;   5. Optionally insert NORTH-ARROW.dwg at the plot scale
+;;;   6. Create the VIEW layer rectangle and open the Plot window for preview/print
 ;;;
+;;; Place NORTH-ARROW.dwg in the same folder as this LSP (or on the AutoCAD support path).
 ;;; ANSI sizes (long edge x short edge in inches):
 ;;;   A = 11 x 8.5, B = 17 x 11, C = 22 x 17, D = 34 x 22
 ;;; Portrait swaps width and height.
@@ -444,6 +446,80 @@
   )
 )
 
+(defun staking--path-join (dir name / sep)
+  (setq sep (if (wcmatch dir "*\\*") "\\" "/"))
+  (if (or (wcmatch dir "*\\") (wcmatch dir "*/"))
+    (strcat dir name)
+    (strcat dir sep name)
+  )
+)
+
+(defun staking--north-arrow-path (/ found lsp dir candidate)
+  (setq found (findfile "NORTH-ARROW.dwg"))
+  (if found
+    found
+    (progn
+      (setq lsp (findfile "staking-plot.lsp"))
+      (if lsp
+        (progn
+          (setq dir (vl-filename-directory lsp)
+                candidate (staking--path-join dir "NORTH-ARROW.dwg")
+          )
+          (if (findfile candidate) candidate nil)
+        )
+        nil
+      )
+    )
+  )
+)
+
+(defun staking--insert-north-arrow (scale / path pt old-attreq old-cmdecho insert-result)
+  (initget "Yes No")
+  (if (= (getkword "\nInsert north arrow? [Yes/No] <Yes>: ") "No")
+    nil
+    (progn
+      (setq path (staking--north-arrow-path))
+      (cond
+        ((not path)
+         (princ "\nNORTH-ARROW.dwg not found. Place it next to staking-plot.lsp or on the support path.")
+         nil
+        )
+        ((not (setq pt (getpoint "\nPick north arrow insertion point: ")))
+         (princ "\nNorth arrow insertion cancelled.")
+         nil
+        )
+        (T
+         (setq old-attreq  (getvar "ATTREQ")
+               old-cmdecho (getvar "CMDECHO")
+               pt          (staking--2d pt)
+         )
+         (setvar "ATTREQ" 0)
+         (setvar "CMDECHO" 0)
+         (setq insert-result
+               (vl-catch-all-apply
+                 '(lambda ()
+                    (command "_.-INSERT" path pt (float scale) (float scale) 0.0)
+                  )
+               )
+         )
+         (setvar "ATTREQ" old-attreq)
+         (setvar "CMDECHO" old-cmdecho)
+         (if (vl-catch-all-error-p insert-result)
+           (princ
+             (strcat
+               "\nUnable to insert north arrow: "
+               (vl-catch-all-error-message insert-result)
+             )
+           )
+           (princ "\nNorth arrow inserted.")
+         )
+         T
+        )
+      )
+    )
+  )
+)
+
 (defun c:STAKINGPLOT (/ *error* old-cmdecho old-osmode layer-name scale
                         paper-code orientation paper-inches paper-width
                         paper-height rect-width rect-height pick base-point result)
@@ -507,6 +583,7 @@
                   "."
                 )
               )
+              (staking--insert-north-arrow scale)
               (setq cmdecho 1)
               (staking--plot-rectangle base-point rect-width rect-height scale orientation paper-code)
             )
