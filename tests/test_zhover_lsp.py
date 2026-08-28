@@ -59,8 +59,9 @@ def stripped(lsp_text: str) -> str:
     return _strip_lisp(lsp_text)
 
 
-def test_lisp_file_exists() -> None:
-    assert LSP_PATH.is_file()
+def test_lisp_is_ascii(lsp_text: str) -> None:
+    """Older APPLOAD encodings choke on Unicode punctuation in .lsp files."""
+    assert lsp_text.encode("ascii")
 
 
 def test_balanced_parentheses(stripped: str) -> None:
@@ -99,9 +100,9 @@ def test_hover_loop_and_magenta(lsp_text: str) -> None:
     assert "3DFACE" in lsp_text
 
 
-def test_no_versioned_aecc_application(lsp_text: str) -> None:
-    assert "AeccApplication" not in lsp_text
-    assert "AeccXUiLand" not in lsp_text
+def test_no_versioned_aecc_application(stripped: str) -> None:
+    assert "AeccApplication" not in stripped
+    assert "AeccXUiLand" not in stripped
 
 
 def test_error_handler_cleans_up(lsp_text: str) -> None:

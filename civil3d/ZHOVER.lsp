@@ -1,5 +1,5 @@
 ;;; ZHOVER.lsp
-;;; Civil 3D / AutoCAD — live elevation readout at the cursor.
+;;; Civil 3D / AutoCAD - live elevation readout at the cursor.
 ;;;
 ;;; Command: ZHOVER   (alias ZH)
 ;;;   Hover any entity. The Z at that spot is drawn next to the cursor
@@ -121,7 +121,7 @@
   )
   (cond
     ((not dxf) nil)
-    ;; Civil 3D TIN / grid / volume surface — interpolated Z at XY
+    ;; Civil 3D TIN / grid / volume surface - interpolated Z at XY
     ((and obj typ
           (wcmatch (strcase typ) "*SURFACE*")
           (setq z (zhover--try 'vlax-invoke
@@ -140,7 +140,7 @@
     ((member typ '("3DFACE" "SOLID" "TRACE"))
      (zhover--face-z en p-ucs)
     )
-    ;; Lines, polylines, arcs, splines, feature lines, alignments, …
+    ;; Lines, polylines, arcs, splines, feature lines, alignments, ...
     ((and obj (setq pt (zhover--curve-pt obj p-wcs)))
      (zhover--ptz pt)
     )
