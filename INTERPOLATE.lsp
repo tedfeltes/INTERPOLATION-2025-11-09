@@ -1,8 +1,8 @@
-;;; interp-elev.lsp
+;;; INTERPOLATE.lsp
 ;;; Linear elevation interpolation between two points (or along a polyline)
 ;;; with live elevation preview at the cursor.
 ;;;
-;;; Command: INTERPELEV
+;;; Commands: INTERPELEV, INTERPOLATE
 ;;;   Mode Interpolate:
 ;;;     1. Choose path type: Line or Polyline
 ;;;     2. Pick endpoints / select polyline and set elevations
@@ -553,5 +553,5 @@
   (princ)
 )
 
-(princ "\nINTERPELEV loaded. Commands: INTERPELEV, INTERPOLATE.")
+(princ "\nINTERPOLATE.lsp successfully loaded. Commands: INTERPELEV, INTERPOLATE.")
 (princ)
