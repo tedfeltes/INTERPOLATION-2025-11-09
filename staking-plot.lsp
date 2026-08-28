@@ -54,7 +54,7 @@
   (setq scale (getreal
                 (strcat
                   "\nEnter plot scale <drawing units per inch on paper> "
-                  "(e.g. 20 for 1\"=20'): "
+                  "(e.g. 20 for 1 in = 20 ft): "
                 )
               ))
   (cond
@@ -110,9 +110,9 @@
     orientation
     " ("
     (rtos paper-width 2 2)
-    "\" x "
+    " x "
     (rtos paper-height 2 2)
-    "\") at scale "
+    " in at scale "
     (rtos scale 2 4)
     " = "
     (rtos rect-width 2 4)
