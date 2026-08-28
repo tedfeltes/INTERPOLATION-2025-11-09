@@ -3,11 +3,14 @@
 ;;; with live elevation preview at the cursor.
 ;;;
 ;;; Command: INTERPELEV
-;;;   1. Choose path type: Line or Polyline
-;;;   2. Line: pick two points / Polyline: select a polyline
-;;;   3. Elevations come from point/vertex Z values, unless missing
-;;;   4. Move along the path; interpolated elevation previews live
-;;;   5. Click to place a POINT at that elevation; Enter exits
+;;;   Mode Interpolate:
+;;;     1. Choose path type: Line or Polyline
+;;;     2. Pick endpoints / select polyline and set elevations
+;;;     3. Osnap and pick along path for live interpolated elevation
+;;;   Mode Hover:
+;;;     1. Move cursor over entities with osnaps
+;;;     2. Entity elevation displays next to the cursor when Z exists
+;;;     Enter exits either mode
 ;;;
 ;;; Sentinel Z values treated as missing elevation:
 ;;;   -0.999999 (and near-null Civil values like -99999)
@@ -74,6 +77,12 @@
 (defun interp--pick-point (prompt / pt)
   (setq pt (getpoint prompt))
   (if pt (interp--3d pt))
+)
+
+(defun interp--read-tool-mode (/ choice)
+  (initget "Interpolate Hover")
+  (setq choice (getkword "\nTool mode [Interpolate/Hover] <Interpolate>: "))
+  (if (not choice) "Interpolate" choice)
 )
 
 (defun interp--read-path-type (/ choice)
@@ -153,6 +162,144 @@
       )
     )
   )
+)
+
+(defun interp--cursor-label-pt (pt / offset)
+  (setq pt (interp--2d pt)
+        offset (* (getvar "VIEWSIZE") 0.012)
+  )
+  (list (+ (car pt) offset) (+ (cadr pt) offset))
+)
+
+(defun interp--curve-elev-at (ename pt / cpt z obj elev)
+  (setq cpt (vl-catch-all-apply 'vlax-curve-getClosestPointTo (list ename pt)))
+  (if (vl-catch-all-error-p cpt)
+    nil
+    (progn
+      (setq z (caddr cpt))
+      (if (interp--valid-elev z)
+        z
+        (progn
+          (setq obj (vlax-ename->vla-object ename))
+          (if (and (vlax-property-available-p obj 'Elevation)
+                   (interp--valid-elev (setq elev (vla-get-Elevation obj))))
+            elev
+            nil
+          )
+        )
+      )
+    )
+  )
+)
+
+(defun interp--elev-from-entity (ename pt / typ elst z obj elev)
+  (setq typ (cdr (assoc 0 (setq elst (entget ename))))
+  (cond
+    ((wcmatch typ "LINE,ARC,CIRCLE,*POLYLINE*,SPLINE,ELLIPSE")
+     (interp--curve-elev-at ename pt)
+    )
+    ((= typ "POINT")
+     (setq z (caddr (cdr (assoc 10 elst))))
+     (if (interp--valid-elev z) z nil)
+    )
+    ((member typ '("INSERT" "TEXT" "MTEXT" "ATTRIB"))
+     (setq z (caddr (cdr (assoc 10 elst))))
+     (if (interp--valid-elev z) z nil)
+    )
+    ((= typ "3DFACE")
+     (setq z (caddr (cdr (assoc 10 elst))))
+     (if (interp--valid-elev z) z nil)
+    )
+    (T
+     (interp--curve-elev-at ename pt)
+    )
+  )
+)
+
+(defun interp--probe-hover (cursor / snap nest ent pick z label-pt typ)
+  (setq snap (interp--osnap-pt cursor))
+  (if (and snap (setq nest (nentselp snap)))
+    (progn
+      (setq ent      (car nest)
+            pick     (nth 1 nest)
+            z        (interp--elev-from-entity ent pick)
+            typ      (cdr (assoc 0 (entget ent)))
+            label-pt (interp--cursor-label-pt snap)
+      )
+      (if z
+        (list z label-pt typ snap)
+        nil
+      )
+    )
+  )
+)
+
+(defun interp--hover-label (z / )
+  (strcat "Elev: " (interp--format-elev z))
+)
+
+(defun interp--clear-hover-label (label-pt / )
+  (if label-pt (grtext label-pt ""))
+  (grtext -1 "")
+)
+
+(defun interp--run-hover (/ done gr code data probe old-label-pt label text)
+  (princ "\nHover over entities. Osnap applies. Enter to exit.")
+  (setq done nil old-label-pt nil)
+  (while (not done)
+    (setq gr (vl-catch-all-apply 'grread (list T 15 0)))
+    (cond
+      ((or (not gr) (vl-catch-all-error-p gr))
+       (setq done T)
+      )
+      (T
+       (setq code (car gr)
+             data (cadr gr)
+       )
+       (cond
+         ((= code 5)
+          (if (setq probe (interp--probe-hover data))
+            (progn
+              (setq label (nth 1 probe)
+                    text  (interp--hover-label (car probe))
+              )
+              (if (not (equal label old-label-pt 1e-8))
+                (progn
+                  (interp--clear-hover-label old-label-pt)
+                  (grtext label text)
+                  (setq old-label-pt label)
+                )
+              )
+              (grtext -1 (strcat text "  " (nth 2 probe)))
+            )
+            (progn
+              (interp--clear-hover-label old-label-pt)
+              (setq old-label-pt nil)
+            )
+          )
+         )
+         ((and (= code 2) (member data '(13 32)))
+          (setq done T)
+         )
+         ((= code 3)
+          (if (setq probe (interp--probe-hover data))
+            (princ
+              (strcat
+                "\n"
+                (interp--hover-label (car probe))
+                " on "
+                (nth 2 probe)
+                "."
+              )
+            )
+          )
+         )
+       )
+      )
+    )
+  )
+  (interp--clear-hover-label old-label-pt)
+  (princ "\nHover ended.")
 )
 
 (defun interp--pick-polyline (/ ss ename)
@@ -368,7 +515,7 @@
   )
 )
 
-(defun c:INTERPELEV (/ *error* old-osmode path-type)
+(defun c:INTERPELEV (/ *error* old-osmode tool-mode path-type)
   (setq *error*
         (lambda (msg)
           (setq *interp-context* nil)
@@ -382,12 +529,18 @@
         old-osmode osmode
   )
 
-  (setq path-type (interp--read-path-type)
-        osmode old-osmode
+  (setq tool-mode (interp--read-tool-mode)
+        osmode    old-osmode
   )
-  (if (= path-type "Polyline")
-    (interp--run-polyline)
-    (interp--run-line)
+  (if (= tool-mode "Hover")
+    (interp--run-hover)
+    (progn
+      (setq path-type (interp--read-path-type))
+      (if (= path-type "Polyline")
+        (interp--run-polyline)
+        (interp--run-line)
+      )
+    )
   )
 
   (grtext -1 "")
