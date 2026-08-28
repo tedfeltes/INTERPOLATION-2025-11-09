@@ -193,7 +193,7 @@
 )
 
 (defun interp--elev-from-entity (ename pt / typ elst z obj elev)
-  (setq typ (cdr (assoc 0 (setq elst (entget ename))))
+  (setq typ (cdr (assoc 0 (setq elst (entget ename)))))
   (cond
     ((wcmatch typ "LINE,ARC,CIRCLE,*POLYLINE*,SPLINE,ELLIPSE")
      (interp--curve-elev-at ename pt)
