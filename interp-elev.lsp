@@ -89,14 +89,14 @@
   (rtos d 2 4)
 )
 
-(defun interp--status-text (z dist tval pct / )
+(defun interp--status-text (z dist tval / )
   (strcat
     "Interpolated elev: "
     (interp--format-elev z)
     "  Dist: "
     (interp--format-dist dist)
     "  ("
-    (rtos (* pct 100.0) 2 2)
+    (rtos (* tval 100.0) 2 2)
     "%)"
   )
 )
