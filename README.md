@@ -50,4 +50,5 @@ mobile/stakedxf/   Flutter app (Android + iOS)
 native/            LibreDWG C wrapper + Android build script
 dist/              Installable APK
 app/               Optional desktop/server Python tools (not required in the field)
+civil3d/           Civil 3D office LISP (ZHOVER live elevation readout)
 ```
