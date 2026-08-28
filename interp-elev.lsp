@@ -15,6 +15,8 @@
 
 (vl-load-com)
 
+(setq *interp-context* nil)
+
 (defun interp--2d (pt)
   (if pt (list (car pt) (cadr pt)))
 )
@@ -101,16 +103,55 @@
   (reverse pts)
 )
 
-(defun interp--draw-callout (pt / p h)
-  (setq p (interp--2d pt)
-        h (* (getvar "VIEWSIZE") 0.012)
+(defun interp--osnap-pt (pt / snap)
+  (if pt
+    (progn
+      (setq snap (vl-catch-all-apply 'osnap (list (interp--2d pt) "")))
+      (if (and snap (not (vl-catch-all-error-p snap)))
+        (interp--2d snap)
+        (interp--2d pt)
+      )
+    )
   )
-  (grdraw p (list (+ (car p) h) (+ (cadr p) h)) 2 0)
-  (grdraw
-    (list (+ (car p) h) (+ (cadr p) h))
-    (list (+ (car p) (* h 3.5)) (+ (cadr p) h))
-    2
-    0
+)
+
+(defun interp--sample-at (pt / ctx pt1 pt2 z1 z2 poly-ename total proj tval dist z)
+  (if (and *interp-context* pt)
+    (progn
+      (setq ctx        *interp-context*
+            pt1        (nth 0 ctx)
+            pt2        (nth 1 ctx)
+            z1         (nth 2 ctx)
+            z2         (nth 3 ctx)
+            poly-ename (nth 4 ctx)
+            total      (nth 5 ctx)
+            pt         (interp--osnap-pt pt)
+      )
+      (if poly-ename
+        (setq proj  (interp--project-on-curve poly-ename pt)
+              tval  (caddr proj)
+              dist  (nth 3 proj)
+              total (nth 4 proj)
+        )
+        (setq proj (interp--project-on-segment pt1 pt2 pt)
+              tval (caddr proj)
+              dist (* tval total)
+        )
+      )
+      (setq z (interp--elev-at z1 z2 tval))
+      (list (list (car proj) (cadr proj) z) z dist tval)
+    )
+  )
+)
+
+(defun interp--live-tracker (cursor / sample)
+  (if (and *interp-context* cursor)
+    (progn
+      (setq sample (interp--sample-at cursor))
+      (if sample
+        (grtext -1 (interp--status-text (nth 1 sample) (nth 2 sample) (nth 3 sample)))
+      )
+    )
   )
 )
 
@@ -196,48 +237,6 @@
   )
 )
 
-(defun interp--draw-path-line (pt1 pt2 / )
-  (grdraw (interp--2d pt1) (interp--2d pt2) 3 1)
-)
-
-(defun interp--draw-path-poly (verts / a b)
-  (setq a (car verts)
-        verts (cdr verts)
-  )
-  (while verts
-    (setq b (car verts)
-          verts (cdr verts)
-    )
-    (grdraw (interp--2d a) (interp--2d b) 3 1)
-    (setq a b)
-  )
-)
-
-(defun interp--draw-marker (pt / p size)
-  (setq p    (interp--2d pt)
-        size (* (getvar "VIEWSIZE") 0.004)
-  )
-  (grdraw p (list (+ (car p) size) (cadr p)) 1 1)
-  (grdraw p (list (- (car p) size) (cadr p)) 1 1)
-  (grdraw p (list (car p) (+ (cadr p) size)) 1 1)
-  (grdraw p (list (car p) (- (cadr p) size)) 1 1)
-)
-
-(defun interp--move-marker (old-pt new-pt / )
-  (if old-pt
-    (progn
-      (interp--draw-marker old-pt)
-      (interp--draw-callout old-pt)
-    )
-  )
-  (if new-pt
-    (progn
-      (interp--draw-marker new-pt)
-      (interp--draw-callout new-pt)
-    )
-  )
-)
-
 (defun interp--place-point (pt / )
   (entmake
     (list
@@ -249,167 +248,50 @@
   )
 )
 
-(defun interp--safe-pick-pt (data / snap)
-  (setq data (interp--2d data)
-        snap (vl-catch-all-apply 'osnap (list data "_nea,_end,_mid,_int"))
-  )
-  (if (and snap (not (vl-catch-all-error-p snap)))
-    (interp--2d snap)
-    data
-  )
-)
-
-(defun interp--track (path-type pt1 pt2 z1 z2 poly-ename / total done gr code data
-                        proj tval dist z pct insert-pt old-proj old-z
-                        result label poly)
-  (setq poly  (if poly-ename (vlax-ename->vla-object poly-ename))
-        total (if poly
-                (vlax-curve-getDistAtParam poly (vlax-curve-getEndParam poly))
+(defun interp--track (pt1 pt2 z1 z2 poly-ename / total pick sample insert-pt z dist)
+  (setq total (if poly-ename
+                (vlax-curve-getDistAtParam
+                  (vlax-ename->vla-object poly-ename)
+                  (vlax-curve-getEndParam (vlax-ename->vla-object poly-ename))
+                )
                 (interp--distance pt1 pt2)
               )
-        done   nil
-        result nil
-        old-proj nil
-        old-z nil
   )
   (if (<= total 1e-8)
     (princ "\nPath length is zero; cannot interpolate.")
     (progn
+      (setq *interp-context* (list pt1 pt2 z1 z2 poly-ename total))
       (princ
         (strcat
           "\nPath length = "
           (interp--format-dist total)
-          ". Move along path for live elev. Click to place, Enter to exit."
+          ". Osnap and pick along path; live elev at cursor. Enter to exit."
         )
       )
-      (if poly-ename
-        (interp--draw-path-poly (interp--polyline-vertices poly-ename))
-        (interp--draw-path-line pt1 pt2)
-      )
-      (while (not done)
-        (setq gr (vl-catch-all-apply 'grread (list T 15 0)))
-        (cond
-          ((or (not gr) (vl-catch-all-error-p gr))
-           (grtext -1 "")
-           (redraw)
-           (princ "\nInterpolation ended.")
-           (setq done T)
-          )
-          (T
-           (setq code (car gr)
-                 data (cadr gr)
-           )
-           (cond
-             ((= code 5)
-              (if poly
-                (setq proj (interp--project-on-curve poly data)
-                      tval (caddr proj)
-                      dist (nth 3 proj)
-                      total (nth 4 proj)
-                )
-                (setq proj (interp--project-on-segment pt1 pt2 data)
-                      tval (caddr proj)
-                      dist (* tval total)
-                )
-              )
-              (setq z (interp--elev-at z1 z2 tval)
-                    pct tval
-                    insert-pt (list (car proj) (cadr proj) z)
-                    label (interp--status-text z dist tval)
-              )
-              (if (not (and old-proj
-                            (equal (interp--2d insert-pt) (interp--2d old-proj) 1e-8)
-                            (equal z old-z 1e-8)
-                       )
-                  )
-                (progn
-                  (interp--move-marker old-proj insert-pt)
-                  (grtext -1 label)
-                  (setq old-proj insert-pt
-                        old-z    z
-                  )
-                )
-              )
-             )
-             ((= code 3)
-              (setq data (interp--safe-pick-pt data))
-              (if poly
-                (setq proj (interp--project-on-curve poly data)
-                      tval (caddr proj)
-                      dist (nth 3 proj)
-                )
-                (setq proj (interp--project-on-segment pt1 pt2 data)
-                      tval (caddr proj)
-                      dist (* tval total)
-                )
-              )
-              (setq z (interp--elev-at z1 z2 tval)
-                    insert-pt (list (car proj) (cadr proj) z)
-              )
-              (grtext -1 "")
-              (redraw)
-              (interp--place-point insert-pt)
-              (princ
-                (strcat
-                  "\nPoint placed at elev "
-                  (interp--format-elev z)
-                  " (dist "
-                  (interp--format-dist dist)
-                  ")."
-                )
-              )
-              (if poly-ename
-                (interp--draw-path-poly (interp--polyline-vertices poly-ename))
-                (interp--draw-path-line pt1 pt2)
-              )
-              (setq old-proj nil)
-             )
-             ((= code 2)
-              (if (or (= data 13) (= data 32))
-                (progn
-                  (grtext -1 "")
-                  (redraw)
-                  (princ "\nInterpolation ended.")
-                  (setq done T)
-                )
-              )
-             )
-             ((or (= code 11) (= code 25))
-              (setq data (interp--safe-pick-pt data))
-              (if poly
-                (setq proj (interp--project-on-curve poly data)
-                      tval (caddr proj)
-                      dist (nth 3 proj)
-                )
-                (setq proj (interp--project-on-segment pt1 pt2 data)
-                      tval (caddr proj)
-                      dist (* tval total)
-                )
-              )
-              (setq z (interp--elev-at z1 z2 tval)
-                    insert-pt (list (car proj) (cadr proj) z)
-                    result insert-pt
-              )
-              (grtext -1 "")
-              (redraw)
-              (princ
-                (strcat
-                  "\nSelected elev "
-                  (interp--format-elev z)
-                  " at dist "
-                  (interp--format-dist dist)
-                  "."
-                )
-              )
-              (setq done T)
-             )
-           )
+      (while
+        (setq pick
+              (getpoint nil "\nPick point along path: " 'interp--live-tracker)
+        )
+        (setq sample    (interp--sample-at pick)
+              insert-pt (car sample)
+              z         (nth 1 sample)
+              dist      (nth 2 sample)
+        )
+        (interp--place-point insert-pt)
+        (princ
+          (strcat
+            "\nPoint placed at elev "
+            (interp--format-elev z)
+            " (dist "
+            (interp--format-dist dist)
+            ")."
           )
         )
       )
+      (setq *interp-context* nil)
+      (grtext -1 "")
     )
   )
-  result
 )
 
 (defun interp--run-line (/ pt1 pt2 z1 z2)
@@ -431,7 +313,6 @@
         )
       )
       (interp--track
-        "Line"
         (interp--2d pt1)
         (interp--2d pt2)
         z1
@@ -473,7 +354,6 @@
             )
           )
           (interp--track
-            "Polyline"
             (interp--2d first)
             (interp--2d last)
             z1
@@ -491,8 +371,8 @@
 (defun c:INTERPELEV (/ *error* old-osmode path-type)
   (setq *error*
         (lambda (msg)
+          (setq *interp-context* nil)
           (grtext -1 "")
-          (redraw)
           (if (and msg (not (member msg '("Function cancelled" "quit / exit abort"))))
             (princ (strcat "\nError: " msg))
           )
@@ -511,6 +391,7 @@
   )
 
   (grtext -1 "")
+  (setq *interp-context* nil)
   (setq osmode old-osmode)
   (princ)
 )
