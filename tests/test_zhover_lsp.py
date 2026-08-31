@@ -90,7 +90,8 @@ def test_commands_and_alias(stripped: str) -> None:
 def test_hover_loop_and_magenta(lsp_text: str) -> None:
     assert "(list T 15 0)" in lsp_text
     assert "grread" in lsp_text
-    assert "grtext -2 6" in lsp_text
+    assert "grtext -2 6" not in lsp_text
+    assert "(list -1 (strcat" in lsp_text
     assert "'(62 . 6)" in lsp_text
     assert "nentselp" in lsp_text
     assert "FindElevationAtXY" in lsp_text

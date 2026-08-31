@@ -253,7 +253,7 @@
       (setq *zhover-label* nil)
     )
   )
-  (grtext)
+  (zhover--try 'grtext nil)
 )
 
 (defun zhover--show (p z / str h lab ang)
@@ -262,9 +262,10 @@
         lab (zhover--label-anchor p h)
         ang (zhover--view-angle)
   )
-  (grtext)
-  (grtext -2 6)
-  (grtext -1 (strcat "  " str))
+  ;; grtext second argument must be a string. There is no color setter;
+  ;; magenta comes from the TEXT entity (ACI 6).
+  (zhover--try 'grtext nil)
+  (zhover--try 'grtext (list -1 (strcat "  " str)))
   (if (and *zhover-label* (entget *zhover-label*))
     (if (not (zhover--mod-label lab str h ang))
       (setq *zhover-label* (zhover--make-label lab str h ang))
