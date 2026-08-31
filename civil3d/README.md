@@ -16,7 +16,7 @@ To load in every drawing, add this to `acaddoc.lsp` on the support path:
 
 ## Use
 
-Move the crosshair over linework, 3D polylines, feature lines, TIN/grid surfaces, COGO points, 3D faces, pipes — anything with elevation. Magenta `Z = …` follows the cursor.
+Move the crosshair over linework, 3D polylines, feature lines, TIN/grid surfaces, COGO points, 3D faces, pipes — anything with elevation. A small magenta `Z = …` follows the cursor on a color-253 gray rectangle so it stays readable over contours.
 
 - **Click** prints that Z on the command line
 - **Esc / Enter / Space / right-click** exits

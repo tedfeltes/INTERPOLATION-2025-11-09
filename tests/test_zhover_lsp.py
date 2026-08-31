@@ -85,6 +85,8 @@ def test_commands_and_alias(stripped: str) -> None:
     assert "zhover--at-cursor" in names
     assert "zhover--show" in names
     assert "zhover--cleanup" in names
+    assert "zhover--box-corners" in names
+    assert "zhover--make-box" in names
 
 
 def test_hover_loop_and_magenta(lsp_text: str) -> None:
@@ -93,6 +95,10 @@ def test_hover_loop_and_magenta(lsp_text: str) -> None:
     assert "grtext -2 6" not in lsp_text
     assert "(list -1 (strcat" in lsp_text
     assert "'(62 . 6)" in lsp_text
+    assert "'(62 . 253)" in lsp_text
+    assert '"SOLID"' in lsp_text
+    assert "FILLMODE" in lsp_text
+    assert "0.011" in lsp_text
     assert "nentselp" in lsp_text
     assert "FindElevationAtXY" in lsp_text
     assert "vlax-curve-getClosestPointTo" in lsp_text
@@ -196,6 +202,33 @@ def test_3d_line_off_axis_projects_in_plan() -> None:
 
 
 def test_magenta_aci_is_six(lsp_text: str) -> None:
-    """ACI 6 is magenta; both the grtext color and the TEXT entity use it."""
-    assert len(re.findall(r"\b6\b", lsp_text)) >= 2
+    """ACI 6 is magenta; the TEXT entity uses it."""
+    assert "'(62 . 6)" in lsp_text
     assert "magenta" in lsp_text.lower()
+
+
+def test_background_box_is_color_253(lsp_text: str) -> None:
+    assert "'(62 . 253)" in lsp_text
+    assert "zhover--make-box" in lsp_text
+    assert "* h 0.18" in lsp_text
+
+
+def padded_box(text_ll: tuple[float, float], text_ur: tuple[float, float], h: float) -> tuple[float, float, float, float]:
+    """Same padding as zhover--box-corners."""
+    pad = 0.18 * h
+    return (
+        text_ll[0] - pad,
+        text_ll[1] - pad,
+        text_ur[0] + pad,
+        text_ur[1] + pad,
+    )
+
+
+def test_box_padding_is_tight_around_text() -> None:
+    xmin, ymin, xmax, ymax = padded_box((-0.04, -0.12), (8.64, 1.12), 1.0)
+    assert xmin == pytest.approx(-0.22)
+    assert ymin == pytest.approx(-0.30)
+    assert xmax == pytest.approx(8.82)
+    assert ymax == pytest.approx(1.30)
+    assert xmax - xmin > 8.64 + 0.04
+    assert ymax - ymin > 1.12 + 0.12

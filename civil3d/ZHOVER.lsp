@@ -3,7 +3,8 @@
 ;;;
 ;;; Command: ZHOVER   (alias ZH)
 ;;;   Hover any entity. The Z at that spot is drawn next to the cursor
-;;;   in magenta. Click prints the value on the command line.
+;;;   in magenta on a color-253 filled rectangle. Click prints the value
+;;;   on the command line.
 ;;;   Esc, Enter, Space, or right-click to finish.
 ;;;
 ;;; Works on Civil 3D surfaces (interpolated TIN/grid Z), feature lines,
@@ -15,7 +16,9 @@
 
 (vl-load-com)
 
-(setq *zhover-label* nil)
+(setq *zhover-label* nil
+      *zhover-box*   nil
+)
 
 (defun zhover--try (fn args / res)
   (setq res (vl-catch-all-apply fn args))
@@ -207,8 +210,118 @@
   )
 )
 
+(defun zhover--unit (v / len)
+  (setq len (distance '(0.0 0.0 0.0) (zhover--as-3d v)))
+  (if (equal len 0.0 1e-12)
+    '(0.0 0.0 1.0)
+    (list (/ (car v) len) (/ (cadr v) len) (/ (zhover--ptz v) len))
+  )
+)
+
+;; Lift the label toward the camera so 3D contours do not draw through it.
+(defun zhover--in-front (pt / d lift)
+  (setq d    (zhover--unit (trans (getvar "VIEWDIR") 1 0))
+        lift (* (getvar "VIEWSIZE") 0.08)
+  )
+  (mapcar '+ (zhover--as-3d pt)
+          (list (* (car d) lift) (* (cadr d) lift) (* (caddr d) lift))
+  )
+)
+
 (defun zhover--view-angle ()
   (angle (trans '(0.0 0.0 0.0) 2 0) (trans '(1.0 0.0 0.0) 2 0))
+)
+
+(defun zhover--rotate (pt base ang / dx dy)
+  (setq dx (- (car pt) (car base))
+        dy (- (cadr pt) (cadr base))
+  )
+  (list
+    (+ (car base) (- (* dx (cos ang)) (* dy (sin ang))))
+    (+ (cadr base) (+ (* dx (sin ang)) (* dy (cos ang))))
+    (zhover--ptz base)
+  )
+)
+
+;; Padded rectangle around STR at insertion PT (WCS), rotation ANG.
+;; Returns (ll lr ul ur) for a 2D SOLID.
+(defun zhover--box-corners (pt str h ang / tb p1 p2 pad xmin ymin xmax ymax)
+  (setq tb (zhover--try 'textbox (list (list (cons 1 str) (cons 40 h) (cons 7 "STANDARD")))))
+  (if (and tb (car tb) (cadr tb))
+    (setq p1 (car tb)
+          p2 (cadr tb)
+    )
+    (setq p1 (list (* h -0.04) (* h -0.12) 0.0)
+          p2 (list (* h 0.72 (strlen str)) (* h 1.12) 0.0)
+    )
+  )
+  (setq pad  (* h 0.18)
+        xmin (- (car p1) pad)
+        ymin (- (cadr p1) pad)
+        xmax (+ (car p2) pad)
+        ymax (+ (cadr p2) pad)
+  )
+  (list
+    (zhover--rotate (list (+ (car pt) xmin) (+ (cadr pt) ymin) (zhover--ptz pt)) pt ang)
+    (zhover--rotate (list (+ (car pt) xmax) (+ (cadr pt) ymin) (zhover--ptz pt)) pt ang)
+    (zhover--rotate (list (+ (car pt) xmin) (+ (cadr pt) ymax) (zhover--ptz pt)) pt ang)
+    (zhover--rotate (list (+ (car pt) xmax) (+ (cadr pt) ymax) (zhover--ptz pt)) pt ang)
+  )
+)
+
+(defun zhover--front-do (en / doc obj sp dict sort)
+  (setq doc  (vla-get-activedocument (vlax-get-acad-object))
+        obj  (vlax-ename->vla-object en)
+        sp   (vla-ObjectIdToObject doc (vla-get-OwnerID obj))
+        dict (vla-GetExtensionDictionary sp)
+        sort (vl-catch-all-apply 'vla-Item (list dict "ACAD_SORTENTS"))
+  )
+  (if (vl-catch-all-error-p sort)
+    (setq sort (vla-AddObject dict "ACAD_SORTENTS" "AcDbSortentsTable"))
+  )
+  (vlax-invoke sort 'MoveToTop (list obj))
+)
+
+(defun zhover--front (en)
+  (if en (zhover--try 'zhover--front-do (list en)))
+)
+
+(defun zhover--make-box (corners)
+  (entmakex
+    (list
+      '(0 . "SOLID")
+      '(100 . "AcDbEntity")
+      (cons 8 (zhover--label-layer))
+      '(62 . 253)
+      '(100 . "AcDbTrace")
+      (cons 10 (nth 0 corners))
+      (cons 11 (nth 1 corners))
+      (cons 12 (nth 2 corners))
+      (cons 13 (nth 3 corners))
+    )
+  )
+)
+
+(defun zhover--mod-box (corners / el)
+  (setq el (entget *zhover-box*))
+  (if el
+    (progn
+      (foreach pair (list
+                      (cons 10 (nth 0 corners))
+                      (cons 11 (nth 1 corners))
+                      (cons 12 (nth 2 corners))
+                      (cons 13 (nth 3 corners))
+                      '(62 . 253)
+                    )
+        (if (assoc (car pair) el)
+          (setq el (subst pair (assoc (car pair) el) el))
+          (setq el (append el (list pair)))
+        )
+      )
+      (entmod el)
+      *zhover-box*
+    )
+  )
 )
 
 (defun zhover--make-label (pt str h ang)
@@ -253,42 +366,58 @@
       (setq *zhover-label* nil)
     )
   )
+  (if *zhover-box*
+    (progn
+      (zhover--try 'entdel (list *zhover-box*))
+      (setq *zhover-box* nil)
+    )
+  )
   (zhover--try 'grtext nil)
 )
 
-(defun zhover--show (p z / str h lab ang)
-  (setq str (zhover--format-z z)
-        h   (* (getvar "VIEWSIZE") 0.022)
-        lab (zhover--label-anchor p h)
-        ang (zhover--view-angle)
+(defun zhover--show (p z / str h lab ang corners)
+  (setq str     (zhover--format-z z)
+        h       (* (getvar "VIEWSIZE") 0.011)
+        lab     (zhover--in-front (zhover--label-anchor p h))
+        ang     (zhover--view-angle)
+        corners (zhover--box-corners lab str h ang)
   )
-  ;; grtext second argument must be a string. There is no color setter;
-  ;; magenta comes from the TEXT entity (ACI 6).
+  ;; grtext second argument must be a string. Magenta is the TEXT entity.
   (zhover--try 'grtext nil)
   (zhover--try 'grtext (list -1 (strcat "  " str)))
+  (if (and *zhover-box* (entget *zhover-box*))
+    (if (not (zhover--mod-box corners))
+      (setq *zhover-box* (zhover--make-box corners))
+    )
+    (setq *zhover-box* (zhover--make-box corners))
+  )
   (if (and *zhover-label* (entget *zhover-label*))
     (if (not (zhover--mod-label lab str h ang))
       (setq *zhover-label* (zhover--make-label lab str h ang))
     )
     (setq *zhover-label* (zhover--make-label lab str h ang))
   )
+  (zhover--front *zhover-box*)
+  (zhover--front *zhover-label*)
 )
 
-(defun zhover--cleanup (old-echo old-macro old-nomutt)
+(defun zhover--cleanup (old-echo old-macro old-nomutt old-fill)
   (zhover--erase-label)
   (if old-echo   (setvar "CMDECHO" old-echo))
   (if old-macro  (setvar "MODEMACRO" old-macro))
   (if old-nomutt (setvar "NOMUTT" old-nomutt))
+  (if old-fill   (setvar "FILLMODE" old-fill))
   (princ "\nZHOVER off.")
 )
 
-(defun c:zhover ( / *error* old-echo old-macro old-nomutt done gr code data z)
+(defun c:zhover ( / *error* old-echo old-macro old-nomutt old-fill done gr code data z)
   (setq old-echo   (getvar "CMDECHO")
         old-macro  (getvar "MODEMACRO")
         old-nomutt (getvar "NOMUTT")
+        old-fill   (getvar "FILLMODE")
   )
   (defun *error* (msg)
-    (zhover--cleanup old-echo old-macro old-nomutt)
+    (zhover--cleanup old-echo old-macro old-nomutt old-fill)
     (if (and msg (not (wcmatch (strcase msg) "*CANCEL*,*QUIT*,*EXIT*")))
       (princ (strcat "\nZHOVER: " msg))
     )
@@ -296,6 +425,7 @@
   )
   (setvar "CMDECHO" 0)
   (setvar "NOMUTT" 1)
+  (setvar "FILLMODE" 1)
   (princ "\nZHOVER: hover any entity for Z (magenta at cursor). Click to print. Esc/Enter/Space to exit.")
   (setq done nil)
   (while (not done)
@@ -339,7 +469,7 @@
       )
     )
   )
-  (zhover--cleanup old-echo old-macro old-nomutt)
+  (zhover--cleanup old-echo old-macro old-nomutt old-fill)
   (princ)
 )
 
