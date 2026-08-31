@@ -22,6 +22,7 @@
 
 (setq *staking-preview-arrow* nil
       *staking-arrow-metrics* nil
+      *staking-arrow-block-name* nil
 )
 
 (defun staking--ensure-layer (layer-name / )
@@ -203,11 +204,11 @@
 (defun staking--safearray-list (val / )
   (cond
     ((not val) nil)
-    ((= (type val) 'LIST) val)
-    ((= (type val) 'VARIANT)
+    ((eq (type val) 'LIST) val)
+    ((eq (type val) 'VARIANT)
      (staking--safearray-list (vlax-variant-value val))
     )
-    ((= (type val) 'SAFEARRAY)
+    ((eq (type val) 'SAFEARRAY)
      (vlax-safearray->list val)
     )
     (T nil)
@@ -236,43 +237,173 @@
   (vla-get-ModelSpace (vla-get-ActiveDocument (vlax-get-acad-object)))
 )
 
-(defun staking--measure-arrow-metrics (path / space obj minp maxp ins err metrics)
-  (if *staking-arrow-metrics*
+(defun staking--arrow-block-name ( / )
+  (if (and *staking-arrow-block-name* (eq (type *staking-arrow-block-name*) 'STR))
+    *staking-arrow-block-name*
+    "NORTH-ARROW"
+  )
+)
+
+(defun staking--insert-arrow-ref (space ipt name-or-path sx sy sz rot / obj)
+  (setq obj
+        (vl-catch-all-apply
+          'vla-InsertBlock
+          (list space (vlax-3d-point ipt) name-or-path sx sy sz rot)
+        )
+  )
+  (if (and obj
+           (not (vl-catch-all-error-p obj))
+           (eq (type obj) 'VLA-OBJECT)
+      )
+    obj
+    (progn
+      (if (and obj (vl-catch-all-error-p obj))
+        (princ
+          (strcat
+            "\nUnable to insert north arrow: "
+            (vl-catch-all-error-message obj)
+          )
+        )
+      )
+      nil
+    )
+  )
+)
+
+(defun staking--ensure-arrow-block (path / space tmp name err)
+  (setq name (staking--arrow-block-name))
+  (cond
+    ((tblsearch "BLOCK" name) name)
+    ((and *staking-arrow-block-name* (tblsearch "BLOCK" *staking-arrow-block-name*))
+     *staking-arrow-block-name*
+    )
+    ((not path) nil)
+    (T
+     (setq space (staking--modelspace)
+           tmp   (staking--insert-arrow-ref
+                   space
+                   '(0.0 0.0 0.0)
+                   path
+                   1.0
+                   1.0
+                   1.0
+                   0.0
+                 )
+     )
+     (if tmp
+       (progn
+         (setq err (vl-catch-all-apply 'vla-get-Name (list tmp)))
+         (if (and err (not (vl-catch-all-error-p err)) (eq (type err) 'STR))
+           (setq name err
+                 *staking-arrow-block-name* err
+           )
+           (setq name "NORTH-ARROW"
+                 *staking-arrow-block-name* "NORTH-ARROW"
+           )
+         )
+         (vl-catch-all-apply 'vla-Delete (list tmp))
+         (if (tblsearch "BLOCK" name)
+           name
+           (progn
+             (princ "\nNORTH-ARROW block did not load into the drawing.")
+             nil
+           )
+         )
+       )
+       nil
+     )
+    )
+  )
+)
+
+(defun staking--bbox-lists (obj / minp maxp err)
+  (setq minp nil
+        maxp nil
+        err  (vl-catch-all-apply 'vla-GetBoundingBox (list obj 'minp 'maxp))
+  )
+  (if (vl-catch-all-error-p err)
+    nil
+    (progn
+      (setq minp (staking--safearray-list minp)
+            maxp (staking--safearray-list maxp)
+      )
+      (if (and (listp minp) (listp maxp) (car minp) (car maxp))
+        (list minp maxp)
+        nil
+      )
+    )
+  )
+)
+
+(defun staking--insertion-pt-list (obj / ins)
+  (setq ins
+        (vl-catch-all-apply 'vla-get-InsertionPoint (list obj))
+  )
+  (if (or (not ins) (vl-catch-all-error-p ins))
+    nil
+    (staking--safearray-list ins)
+  )
+)
+
+(defun staking--valid-metrics-p (metrics / )
+  (and (listp metrics)
+       (= (length metrics) 4)
+       (numberp (nth 0 metrics))
+       (numberp (nth 1 metrics))
+       (numberp (nth 2 metrics))
+       (numberp (nth 3 metrics))
+  )
+)
+
+(defun staking--measure-arrow-metrics (path / name space obj bbox minp maxp ins metrics)
+  (if (staking--valid-metrics-p *staking-arrow-metrics*)
     *staking-arrow-metrics*
     (progn
-      (setq space (staking--modelspace)
-            err   (vl-catch-all-apply
-                     'vla-InsertBlock
-                     (list space (vlax-3d-point '(0.0 0.0 0.0)) path 1.0 1.0 1.0 0.0)
-                   )
+      (setq *staking-arrow-metrics* nil
+            name (staking--ensure-arrow-block path)
       )
-      (if (vl-catch-all-error-p err)
+      (if (not name)
+        nil
         (progn
-          (princ (strcat "\nUnable to load NORTH-ARROW.dwg: " (vl-catch-all-error-message err)))
-          nil
-        )
-        (progn
-          (setq obj err)
-          (vl-catch-all-apply 'vla-GetBoundingBox (list obj 'minp 'maxp))
-          (setq minp (staking--safearray-list minp)
-                maxp (staking--safearray-list maxp)
-                ins  (staking--safearray-list (vla-get-InsertionPoint obj))
+          (setq space (staking--modelspace)
+                obj   (staking--insert-arrow-ref
+                        space
+                        '(0.0 0.0 0.0)
+                        name
+                        1.0
+                        1.0
+                        1.0
+                        0.0
+                      )
           )
-          (vl-catch-all-apply 'vla-Delete (list obj))
-          (if (and minp maxp ins)
-            (progn
-              (setq metrics
-                    (list
-                      (- (car minp) (car ins))
-                      (- (cadr minp) (cadr ins))
-                      (- (car maxp) (car ins))
-                      (- (cadr maxp) (cadr ins))
-                    )
-                    *staking-arrow-metrics* metrics
-              )
-              metrics
-            )
+          (if (not obj)
             nil
+            (progn
+              (setq bbox (staking--bbox-lists obj)
+                    ins  (staking--insertion-pt-list obj)
+              )
+              (vl-catch-all-apply 'vla-Delete (list obj))
+              (if (and bbox ins (listp ins) (numberp (car ins)) (numberp (cadr ins)))
+                (progn
+                  (setq minp (car bbox)
+                        maxp (cadr bbox)
+                        metrics
+                        (list
+                          (- (car minp) (car ins))
+                          (- (cadr minp) (cadr ins))
+                          (- (car maxp) (car ins))
+                          (- (cadr maxp) (cadr ins))
+                        )
+                        *staking-arrow-metrics* metrics
+                  )
+                  metrics
+                )
+                (progn
+                  (princ "\nUnable to measure NORTH-ARROW extents; continuing without arrow preview.")
+                  nil
+                )
+              )
+            )
           )
         )
       )
@@ -280,26 +411,36 @@
   )
 )
 
+(defun staking--arrow-metrics-or-default ( / )
+  (if (staking--valid-metrics-p *staking-arrow-metrics*)
+    *staking-arrow-metrics*
+    '(0.0 0.0 1.0 1.0)
+  )
+)
+
 (defun staking--arrow-insert-scale (plot-scale / metrics native-h target-h)
-  (setq metrics  (or *staking-arrow-metrics* '(0.0 0.0 1.0 1.0))
+  (setq metrics  (staking--arrow-metrics-or-default)
         native-h (- (nth 3 metrics) (nth 1 metrics))
         target-h 1.0
   )
-  (if (and native-h (> native-h 1e-8))
+  (if (and (numberp native-h) (> native-h 1e-8))
     (/ (* target-h (float plot-scale)) native-h)
     (float plot-scale)
   )
 )
 
 (defun staking--arrow-insert-point (ll width height plot-scale / metrics isc margin)
-  (setq metrics (or *staking-arrow-metrics* '(0.0 0.0 1.0 1.0))
+  (setq metrics (staking--arrow-metrics-or-default)
         isc     (staking--arrow-insert-scale plot-scale)
         margin  (* 0.35 (float plot-scale))
         ll      (staking--2d ll)
   )
-  (list
-    (- (+ (car ll) width) margin (* (nth 2 metrics) isc))
-    (- (+ (cadr ll) margin) (* (nth 1 metrics) isc))
+  (if (and ll (numberp (car ll)) (numberp (cadr ll)))
+    (list
+      (- (+ (car ll) width) margin (* (nth 2 metrics) isc))
+      (- (+ (cadr ll) margin) (* (nth 1 metrics) isc))
+    )
+    nil
   )
 )
 
@@ -309,20 +450,24 @@
       (setq pt  (staking--arrow-insert-point ll width height plot-scale)
             isc (staking--arrow-insert-scale plot-scale)
       )
-      (vl-catch-all-apply
-        'vla-put-InsertionPoint
-        (list *staking-preview-arrow* (vlax-3d-point (list (car pt) (cadr pt) 0.0)))
+      (if pt
+        (progn
+          (vl-catch-all-apply
+            'vla-put-InsertionPoint
+            (list *staking-preview-arrow* (vlax-3d-point (list (car pt) (cadr pt) 0.0)))
+          )
+          (vl-catch-all-apply 'vla-put-XScaleFactor (list *staking-preview-arrow* isc))
+          (vl-catch-all-apply 'vla-put-YScaleFactor (list *staking-preview-arrow* isc))
+          (vl-catch-all-apply 'vla-put-ZScaleFactor (list *staking-preview-arrow* isc))
+          (vl-catch-all-apply 'vla-put-Layer (list *staking-preview-arrow* "TEXT"))
+          (vl-catch-all-apply 'vla-Update (list *staking-preview-arrow*))
+        )
       )
-      (vl-catch-all-apply 'vla-put-XScaleFactor (list *staking-preview-arrow* isc))
-      (vl-catch-all-apply 'vla-put-YScaleFactor (list *staking-preview-arrow* isc))
-      (vl-catch-all-apply 'vla-put-ZScaleFactor (list *staking-preview-arrow* isc))
-      (vl-catch-all-apply 'vla-put-Layer (list *staking-preview-arrow* "TEXT"))
-      (vl-catch-all-apply 'vla-Update (list *staking-preview-arrow*))
     )
   )
 )
 
-(defun staking--create-preview-arrow (ll width height plot-scale / path space obj pt isc)
+(defun staking--create-preview-arrow (ll width height plot-scale / path name space obj pt isc)
   (staking--clear-preview-arrow)
   (staking--ensure-layer "TEXT")
   (setq path (staking--north-arrow-path))
@@ -334,34 +479,33 @@
     ((not (staking--measure-arrow-metrics path))
      nil
     )
+    ((not (setq name (staking--ensure-arrow-block path)))
+     nil
+    )
+    ((not (setq pt (staking--arrow-insert-point ll width height plot-scale)))
+     nil
+    )
     (T
-     (setq pt    (staking--arrow-insert-point ll width height plot-scale)
-           isc   (staking--arrow-insert-scale plot-scale)
+     (setq isc   (staking--arrow-insert-scale plot-scale)
            space (staking--modelspace)
-           obj   (vl-catch-all-apply
-                    'vla-InsertBlock
-                    (list
-                      space
-                      (vlax-3d-point (list (car pt) (cadr pt) 0.0))
-                      path
-                      isc
-                      isc
-                      isc
-                      0.0
-                    )
-                  )
+           obj   (staking--insert-arrow-ref
+                   space
+                   (list (car pt) (cadr pt) 0.0)
+                   name
+                   isc
+                   isc
+                   isc
+                   0.0
+                 )
      )
-     (if (vl-catch-all-error-p obj)
-       (progn
-         (princ (strcat "\nUnable to preview north arrow: " (vl-catch-all-error-message obj)))
-         nil
-       )
+     (if obj
        (progn
          (setq *staking-preview-arrow* obj)
          (vl-catch-all-apply 'vla-put-Layer (list obj "TEXT"))
          (vl-catch-all-apply 'vla-Update (list obj))
          obj
        )
+       nil
      )
     )
   )
@@ -381,12 +525,31 @@
   )
 )
 
-(defun staking--sync-preview (ll width height plot-scale)
+(defun staking--sync-preview (ll width height plot-scale / err)
   (if (and ll width height)
     (progn
-      (if (not *staking-preview-arrow*)
-        (staking--create-preview-arrow ll width height plot-scale)
-        (staking--update-preview-arrow ll width height plot-scale)
+      (setq err
+            (vl-catch-all-apply
+              (function
+                (lambda ()
+                  (if (not (staking--object-alive-p *staking-preview-arrow*))
+                    (staking--create-preview-arrow ll width height plot-scale)
+                    (staking--update-preview-arrow ll width height plot-scale)
+                  )
+                )
+              )
+            )
+      )
+      (if (vl-catch-all-error-p err)
+        (progn
+          (staking--clear-preview-arrow)
+          (princ
+            (strcat
+              "\nNorth arrow preview skipped: "
+              (vl-catch-all-error-message err)
+            )
+          )
+        )
       )
     )
   )
@@ -703,6 +866,9 @@
 
   (setq cmdecho 0)
   (staking--clear-preview-arrow)
+  (setq *staking-arrow-metrics* nil
+        *staking-arrow-block-name* nil
+  )
 
   (if
     (and
