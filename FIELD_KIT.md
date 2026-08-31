@@ -54,3 +54,5 @@ DXF must live there (or be added via Map files → Add) before Layer manager can
 ## Civil 3D office note
 
 Save DWGs with `PROXYGRAPHICS=1` (typical default). That is the only office CAD requirement for AECC linework recovery. You do **not** need AutoCAD or a computer with you in the field.
+
+To inspect elevations in Civil 3D before you save, load `civil3d/ZHOVER.lsp` (`APPLOAD`) and type `ZHOVER`. Magenta Z follows the cursor over any entity.
