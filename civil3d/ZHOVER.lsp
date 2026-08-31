@@ -2,22 +2,20 @@
 ;;; Civil 3D / AutoCAD - live elevation readout at the cursor.
 ;;;
 ;;; Command: ZHOVER   (alias ZH)
-;;;   Hover any entity. The Z at that spot is drawn next to the cursor
-;;;   in magenta on a color-253 filled rectangle. Click prints the value
-;;;   on the command line.
+;;;   Hover any entity. The elevation at that spot is drawn next to the
+;;;   cursor as italic magenta digits (000.00) on a color-251 rectangle
+;;;   at 75% opacity. Click prints the value on the command line.
 ;;;   Esc, Enter, Space, or right-click to finish.
-;;;
-;;; Works on Civil 3D surfaces (interpolated TIN/grid Z), feature lines,
-;;; 3D polylines, lines, arcs, COGO points, 3D faces, pipes, and anything
-;;; else that OSNAP nearest can hit. Does not use AeccApplication COM
-;;; (that handshake is fragile on recent Civil 3D releases).
 ;;;
 ;;; Load with APPLOAD, or (load "ZHOVER.lsp") from acaddoc.lsp.
 
 (vl-load-com)
 
-(setq *zhover-label* nil
-      *zhover-box*   nil
+(setq *zhover-label*    nil
+      *zhover-box*      nil
+      *zhover-last-str* nil
+      *zhover-last-h*   nil
+      *zhover-relbox*   nil
 )
 
 (defun zhover--try (fn args / res)
@@ -58,7 +56,7 @@
 )
 
 (defun zhover--format-z (z)
-  (strcat "Z = " (rtos z (getvar "LUNITS") (getvar "LUPREC")))
+  (rtos z 2 2)
 )
 
 ;; Barycentric Z on triangle ABC, using XY of pick point P (WCS).
@@ -159,24 +157,9 @@
   )
 )
 
-(defun zhover--at-cursor (p / sel z pt)
+(defun zhover--at-cursor (p / sel)
   (setq sel (nentselp p))
-  (cond
-    ;; Nested block geometry: curve APIs are in block-def space, so use OSNAP.
-    ((and sel (nth 3 sel) (setq pt (osnap p "_nea")))
-     (zhover--ptz (trans pt 1 0))
-    )
-    (sel
-     (setq z (zhover--z-of (car sel) p))
-     (cond
-       (z z)
-       ((setq pt (osnap p "_nea")) (zhover--ptz (trans pt 1 0)))
-     )
-    )
-    ((setq pt (osnap p "_nea"))
-     (zhover--ptz (trans pt 1 0))
-    )
-  )
+  (if sel (zhover--z-of (car sel) p))
 )
 
 (defun zhover--label-layer (/ rec flags color)
@@ -198,11 +181,13 @@
   )
 )
 
-(defun zhover--label-anchor (p h / dcs)
-  (setq dcs (trans (zhover--as-3d p) 1 2))
+(defun zhover--label-anchor (p h / dcs gap)
+  (setq dcs (trans (zhover--as-3d p) 1 2)
+        gap (* (getvar "VIEWSIZE") 0.045)
+  )
   (trans
-    (list (+ (car dcs) (* h 1.25))
-          (+ (cadr dcs) (* h 0.45))
+    (list (+ (car dcs) gap)
+          (+ (cadr dcs) (* gap 0.30))
           (caddr dcs)
     )
     2
@@ -243,29 +228,36 @@
   )
 )
 
-;; Padded rectangle around STR at insertion PT (WCS), rotation ANG.
-;; Returns (ll lr ul ur) for a 2D SOLID.
-(defun zhover--box-corners (pt str h ang / tb p1 p2 pad xmin ymin xmax ymax)
-  (setq tb (zhover--try 'textbox (list (list (cons 1 str) (cons 40 h) (cons 7 "STANDARD")))))
+;; Tight padded box in text space: (xmin ymin xmax ymax). Italic uses 51=15.
+(defun zhover--rel-box (str h / tb p1 p2 pad xpad)
+  (setq tb (zhover--try 'textbox
+            (list (list (cons 1 str) (cons 40 h) (cons 7 "STANDARD") (cons 51 15.0))))
+  )
   (if (and tb (car tb) (cadr tb))
     (setq p1 (car tb)
           p2 (cadr tb)
     )
-    (setq p1 (list (* h -0.04) (* h -0.12) 0.0)
-          p2 (list (* h 0.72 (strlen str)) (* h 1.12) 0.0)
+    (setq p1 (list (* h -0.02) (* h -0.06) 0.0)
+          p2 (list (* h 0.62 (strlen str)) (* h 1.02) 0.0)
     )
   )
-  (setq pad  (* h 0.18)
-        xmin (- (car p1) pad)
-        ymin (- (cadr p1) pad)
-        xmax (+ (car p2) pad)
-        ymax (+ (cadr p2) pad)
+  (setq pad  (* h 0.06)
+        xpad (* h 0.10)
   )
+  (list (- (car p1) pad) (- (cadr p1) pad) (+ (car p2) xpad) (+ (cadr p2) pad))
+)
+
+(defun zhover--box-corners (pt str h ang / rel)
+  (setq rel (zhover--rel-box str h))
+  (zhover--apply-rel pt ang rel)
+)
+
+(defun zhover--apply-rel (pt ang rel)
   (list
-    (zhover--rotate (list (+ (car pt) xmin) (+ (cadr pt) ymin) (zhover--ptz pt)) pt ang)
-    (zhover--rotate (list (+ (car pt) xmax) (+ (cadr pt) ymin) (zhover--ptz pt)) pt ang)
-    (zhover--rotate (list (+ (car pt) xmin) (+ (cadr pt) ymax) (zhover--ptz pt)) pt ang)
-    (zhover--rotate (list (+ (car pt) xmax) (+ (cadr pt) ymax) (zhover--ptz pt)) pt ang)
+    (zhover--rotate (list (+ (car pt) (nth 0 rel)) (+ (cadr pt) (nth 1 rel)) (zhover--ptz pt)) pt ang)
+    (zhover--rotate (list (+ (car pt) (nth 2 rel)) (+ (cadr pt) (nth 1 rel)) (zhover--ptz pt)) pt ang)
+    (zhover--rotate (list (+ (car pt) (nth 0 rel)) (+ (cadr pt) (nth 3 rel)) (zhover--ptz pt)) pt ang)
+    (zhover--rotate (list (+ (car pt) (nth 2 rel)) (+ (cadr pt) (nth 3 rel)) (zhover--ptz pt)) pt ang)
   )
 )
 
@@ -286,20 +278,31 @@
   (if en (zhover--try 'zhover--front-do (list en)))
 )
 
-(defun zhover--make-box (corners)
-  (entmakex
-    (list
-      '(0 . "SOLID")
-      '(100 . "AcDbEntity")
-      (cons 8 (zhover--label-layer))
-      '(62 . 253)
-      '(100 . "AcDbTrace")
-      (cons 10 (nth 0 corners))
-      (cons 11 (nth 1 corners))
-      (cons 12 (nth 2 corners))
-      (cons 13 (nth 3 corners))
+(defun zhover--make-box (corners / en obj)
+  (setq en
+    (entmakex
+      (list
+        '(0 . "SOLID")
+        '(100 . "AcDbEntity")
+        (cons 8 (zhover--label-layer))
+        '(62 . 251)
+        ;; 75% opacity = 25% AutoCAD transparency (0=opaque, 90=clear)
+        (cons 440 33554457)
+        '(100 . "AcDbTrace")
+        (cons 10 (nth 0 corners))
+        (cons 11 (nth 1 corners))
+        (cons 12 (nth 2 corners))
+        (cons 13 (nth 3 corners))
+      )
     )
   )
+  (if en
+    (progn
+      (setq obj (zhover--try 'vlax-ename->vla-object (list en)))
+      (if obj (zhover--try 'vla-put-EntityTransparency (list obj "25")))
+    )
+  )
+  en
 )
 
 (defun zhover--mod-box (corners / el)
@@ -311,7 +314,7 @@
                       (cons 11 (nth 1 corners))
                       (cons 12 (nth 2 corners))
                       (cons 13 (nth 3 corners))
-                      '(62 . 253)
+                      '(62 . 251)
                     )
         (if (assoc (car pair) el)
           (setq el (subst pair (assoc (car pair) el) el))
@@ -336,6 +339,7 @@
       (cons 40 h)
       (cons 1 str)
       (cons 50 ang)
+      (cons 51 15.0)
       '(7 . "STANDARD")
       '(72 . 0)
       '(73 . 0)
@@ -347,7 +351,7 @@
   (setq el (entget *zhover-label*))
   (if el
     (progn
-      (foreach pair (list (cons 10 pt) (cons 1 str) (cons 40 h) (cons 50 ang) '(62 . 6))
+      (foreach pair (list (cons 10 pt) (cons 1 str) (cons 40 h) (cons 50 ang) (cons 51 15.0) '(62 . 6))
         (if (assoc (car pair) el)
           (setq el (subst pair (assoc (car pair) el) el))
           (setq el (append el (list pair)))
@@ -372,52 +376,78 @@
       (setq *zhover-box* nil)
     )
   )
-  (zhover--try 'grtext nil)
+  (setq *zhover-last-str* nil
+        *zhover-last-h*   nil
+        *zhover-relbox*   nil
+  )
 )
 
-(defun zhover--show (p z / str h lab ang corners)
-  (setq str     (zhover--format-z z)
-        h       (* (getvar "VIEWSIZE") 0.011)
-        lab     (zhover--in-front (zhover--label-anchor p h))
-        ang     (zhover--view-angle)
-        corners (zhover--box-corners lab str h ang)
+(defun zhover--show (p z / str h lab ang corners created)
+  (setq str (zhover--format-z z)
+        h   (* (getvar "VIEWSIZE") 0.011)
+        lab (zhover--in-front (zhover--label-anchor p h))
+        ang (zhover--view-angle)
   )
-  ;; grtext second argument must be a string. Magenta is the TEXT entity.
-  (zhover--try 'grtext nil)
-  (zhover--try 'grtext (list -1 (strcat "  " str)))
+  (if (not (and *zhover-relbox*
+                (equal str *zhover-last-str*)
+                (equal h *zhover-last-h* 1e-8)
+           )
+      )
+    (setq *zhover-relbox*   (zhover--rel-box str h)
+          *zhover-last-str* str
+          *zhover-last-h*   h
+    )
+  )
+  (setq corners (zhover--apply-rel lab ang *zhover-relbox*)
+        created nil
+  )
   (if (and *zhover-box* (entget *zhover-box*))
     (if (not (zhover--mod-box corners))
-      (setq *zhover-box* (zhover--make-box corners))
+      (setq *zhover-box* (zhover--make-box corners)
+            created T
+      )
     )
-    (setq *zhover-box* (zhover--make-box corners))
+    (setq *zhover-box* (zhover--make-box corners)
+          created T
+    )
   )
   (if (and *zhover-label* (entget *zhover-label*))
     (if (not (zhover--mod-label lab str h ang))
-      (setq *zhover-label* (zhover--make-label lab str h ang))
+      (setq *zhover-label* (zhover--make-label lab str h ang)
+            created T
+      )
     )
-    (setq *zhover-label* (zhover--make-label lab str h ang))
+    (setq *zhover-label* (zhover--make-label lab str h ang)
+          created T
+    )
   )
-  (zhover--front *zhover-box*)
-  (zhover--front *zhover-label*)
+  (if created
+    (progn
+      (zhover--front *zhover-box*)
+      (zhover--front *zhover-label*)
+    )
+  )
 )
 
-(defun zhover--cleanup (old-echo old-macro old-nomutt old-fill)
+(defun zhover--cleanup (old-echo old-macro old-nomutt old-fill old-dimzin)
   (zhover--erase-label)
   (if old-echo   (setvar "CMDECHO" old-echo))
   (if old-macro  (setvar "MODEMACRO" old-macro))
   (if old-nomutt (setvar "NOMUTT" old-nomutt))
   (if old-fill   (setvar "FILLMODE" old-fill))
+  (if old-dimzin (setvar "DIMZIN" old-dimzin))
   (princ "\nZHOVER off.")
 )
 
-(defun c:zhover ( / *error* old-echo old-macro old-nomutt old-fill done gr code data z)
+(defun c:zhover ( / *error* old-echo old-macro old-nomutt old-fill old-dimzin done gr code data z)
   (setq old-echo   (getvar "CMDECHO")
         old-macro  (getvar "MODEMACRO")
         old-nomutt (getvar "NOMUTT")
         old-fill   (getvar "FILLMODE")
+        old-dimzin (getvar "DIMZIN")
   )
   (defun *error* (msg)
-    (zhover--cleanup old-echo old-macro old-nomutt old-fill)
+    (zhover--cleanup old-echo old-macro old-nomutt old-fill old-dimzin)
     (if (and msg (not (wcmatch (strcase msg) "*CANCEL*,*QUIT*,*EXIT*")))
       (princ (strcat "\nZHOVER: " msg))
     )
@@ -426,6 +456,7 @@
   (setvar "CMDECHO" 0)
   (setvar "NOMUTT" 1)
   (setvar "FILLMODE" 1)
+  (setvar "DIMZIN" 0)
   (princ "\nZHOVER: hover any entity for Z (magenta at cursor). Click to print. Esc/Enter/Space to exit.")
   (setq done nil)
   (while (not done)
@@ -469,7 +500,7 @@
       )
     )
   )
-  (zhover--cleanup old-echo old-macro old-nomutt old-fill)
+  (zhover--cleanup old-echo old-macro old-nomutt old-fill old-dimzin)
   (princ)
 )
 

@@ -16,9 +16,9 @@ To load in every drawing, add this to `acaddoc.lsp` on the support path:
 
 ## Use
 
-Move the crosshair over linework, 3D polylines, feature lines, TIN/grid surfaces, COGO points, 3D faces, pipes — anything with elevation. A small magenta `Z = …` follows the cursor on a color-253 gray rectangle so it stays readable over contours.
+Move the crosshair over linework, 3D polylines, feature lines, TIN/grid surfaces, COGO points, 3D faces, pipes — anything with elevation. Italic magenta `000.00` follows the cursor on a color-251 rectangle at 75% opacity.
 
 - **Click** prints that Z on the command line
 - **Esc / Enter / Space / right-click** exits
 
-Precision follows the drawing (`LUNITS` / `LUPREC`). The magenta label is temporary and is deleted when you exit. Run this in model space (or an active floating viewport).
+The value is always two decimal places (`000.00`). The label is temporary and is deleted when you exit. Run this in model space (or an active floating viewport).
