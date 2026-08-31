@@ -120,7 +120,7 @@ def test_error_handler_cleans_up(lsp_text: str) -> None:
     assert "*error*" in lsp_text
     assert "zhover--cleanup" in lsp_text
     assert "zhover--erase-label" in lsp_text
-    assert "Esc" in lsp_text
+    assert "HOVER APERTURE OVER ENTITY" in lsp_text
 
 
 def test_label_sits_next_to_cursor(lsp_text: str) -> None:

@@ -464,7 +464,7 @@
   (setvar "NOMUTT" 1)
   (setvar "FILLMODE" 1)
   (setvar "DIMZIN" 0)
-  (princ "\nZHOVER: hover any entity for Z (magenta at cursor). Click to print. Esc/Enter/Space to exit.")
+  (princ "\nZHOVER: HOVER APERTURE OVER ENTITY TO DISPLAY IT'S Z VALUE. CLICK TO PRINT AT COMMAND LINE.")
   (setq done nil)
   (while (not done)
     (setq gr (vl-catch-all-apply 'grread (list T 15 0)))
