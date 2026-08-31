@@ -213,7 +213,8 @@ def test_magenta_aci_is_six(lsp_text: str) -> None:
 def test_background_box_is_color_251(lsp_text: str) -> None:
     assert "'(62 . 251)" in lsp_text
     assert "zhover--make-box" in lsp_text
-    assert "* h 0.06" in lsp_text
+    assert "0.92" in lsp_text
+    assert "0.38" in lsp_text
     assert "75%" in lsp_text
 
 
@@ -222,21 +223,28 @@ def test_format_is_digits_only(lsp_text: str) -> None:
     assert 'strcat "Z = "' not in lsp_text
 
 
-def padded_box(text_ll: tuple[float, float], text_ur: tuple[float, float], h: float) -> tuple[float, float, float, float]:
-    """Same padding as zhover--rel-box (pad 0.06h, italic extra 0.10h on the right)."""
-    pad = 0.06 * h
-    xpad = 0.10 * h
-    return (
-        text_ll[0] - pad,
-        text_ll[1] - pad,
-        text_ur[0] + xpad,
-        text_ur[1] + pad,
-    )
+def rel_box(str_len: int, h: float, textbox: tuple[tuple[float, float], tuple[float, float]] | None = None) -> tuple[float, float, float, float]:
+    """Same union sizing as zhover--rel-box."""
+    pad = 0.22 * h
+    italic = 0.38 * h
+    xmin = 0.0 - pad
+    ymin = 0.12 * h - pad
+    xmax = 0.92 * h * str_len + italic + pad
+    ymax = 1.20 * h + pad
+    if textbox:
+        p1, p2 = textbox
+        xmin = min(xmin, p1[0] - pad)
+        ymin = min(ymin, p1[1] - pad)
+        xmax = max(xmax, p2[0] + italic + pad)
+        ymax = max(ymax, p2[1] + pad)
+    return (xmin, ymin, xmax, ymax)
 
 
-def test_box_padding_is_tight_around_text() -> None:
-    xmin, ymin, xmax, ymax = padded_box((-0.02, -0.06), (3.72, 1.02), 1.0)
-    assert xmin == pytest.approx(-0.08)
-    assert ymin == pytest.approx(-0.12)
-    assert xmax == pytest.approx(3.82)
-    assert ymax == pytest.approx(1.08)
+def test_box_covers_italic_digits() -> None:
+    xmin, ymin, xmax, ymax = rel_box(6, 1.0)
+    assert xmin < 0.0
+    assert ymin < 0.0
+    assert xmax > 6.0
+    assert ymax > 1.0
+    wide = rel_box(6, 1.0, ((0.0, 0.0), (7.5, 1.1)))
+    assert wide[2] == pytest.approx(7.5 + 0.38 + 0.22)

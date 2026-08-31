@@ -228,23 +228,30 @@
   )
 )
 
-;; Tight padded box in text space: (xmin ymin xmax ymax). Italic uses 51=15.
-(defun zhover--rel-box (str h / tb p1 p2 pad xpad)
+;; Box in text space: (xmin ymin xmax ymax).
+;; Italic (51=15) leans the glyphs right; textbox often ignores that, so the
+;; right edge is the wider of textbox vs 0.90*h per character, plus slant.
+(defun zhover--rel-box (str h / tb p1 p2 pad italic xmin ymin xmax ymax)
+  (setq pad    (* h 0.22)
+        italic (* h 0.38)
+        xmin   (- 0.0 pad)
+        ymin   (- (* h 0.12) pad)
+        xmax   (+ (* h 0.92 (strlen str)) italic pad)
+        ymax   (+ (* h 1.20) pad)
+  )
   (setq tb (zhover--try 'textbox
             (list (list (cons 1 str) (cons 40 h) (cons 7 "STANDARD") (cons 51 15.0))))
   )
   (if (and tb (car tb) (cadr tb))
-    (setq p1 (car tb)
-          p2 (cadr tb)
-    )
-    (setq p1 (list (* h -0.02) (* h -0.06) 0.0)
-          p2 (list (* h 0.62 (strlen str)) (* h 1.02) 0.0)
+    (setq p1   (car tb)
+          p2   (cadr tb)
+          xmin (min xmin (- (car p1) pad))
+          ymin (min ymin (- (cadr p1) pad))
+          xmax (max xmax (+ (car p2) italic pad))
+          ymax (max ymax (+ (cadr p2) pad))
     )
   )
-  (setq pad  (* h 0.06)
-        xpad (* h 0.10)
-  )
-  (list (- (car p1) pad) (- (cadr p1) pad) (+ (car p2) xpad) (+ (cadr p2) pad))
+  (list xmin ymin xmax ymax)
 )
 
 (defun zhover--box-corners (pt str h ang / rel)
